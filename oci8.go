@@ -70,25 +70,33 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	token := strings.SplitN(dsn, "@", 2)
 	userpass := strings.SplitN(token[0], "/", 2)
 
-	C.OCIInitialize(
+	rv := C.OCIInitialize(
 		C.OCI_DEFAULT,
 		nil,
 		nil,
 		nil,
 		nil)
+	if rv == C.OCI_ERROR {
+		return nil, ociGetError(conn.err)
+	}
 
-	C.OCIEnvInit(
+
+	rv = C.OCIEnvInit(
 		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
 		C.OCI_DEFAULT,
 		0,
 		nil)
 
-	C.OCIHandleAlloc(
+	rv = C.OCIHandleAlloc(
 		conn.env,
 		&conn.err,
 		C.OCI_HTYPE_ERROR,
 		0,
 		nil)
+	if rv == C.OCI_ERROR {
+		return nil, ociGetError(conn.err)
+	}
+
 
 	var phost *C.char
 	phostlen := C.size_t(0)
@@ -102,7 +110,7 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	ppass := C.CString(userpass[1])
 	defer C.free(unsafe.Pointer(ppass))
 
-	rv := C.OCILogon(
+	rv = C.OCILogon(
 		(*C.OCIEnv)(conn.env),
 		(*C.OCIError)(conn.err),
 		(**C.OCIServer)(unsafe.Pointer(&conn.svc)),
@@ -112,7 +120,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 		C.ub4(C.strlen(ppass)),
 		(*C.OraText)(unsafe.Pointer(phost)),
 		C.ub4(phostlen))
-
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
@@ -121,9 +128,13 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 }
 
 func (c *OCI8Conn) Close() error {
-	C.OCILogoff(
+	rv := C.OCILogoff(
 		(*C.OCIServer)(c.svc),
 		(*C.OCIError)(c.err))
+	if rv == C.OCI_ERROR {
+		return ociGetError(c.err)
+	}
+
 	C.OCIHandleFree(
 		c.env,
 		C.OCI_HTYPE_ENV)
@@ -145,21 +156,23 @@ func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 	defer C.free(unsafe.Pointer(pquery))
 	var s unsafe.Pointer
 
-	C.OCIHandleAlloc(
+	rv := C.OCIHandleAlloc(
 		c.env,
 		&s,
 		C.OCI_HTYPE_STMT,
 		0,
 		nil)
+	if rv == C.OCI_ERROR {
+		return nil, ociGetError(c.err)
+	}
 
-	rv := C.OCIStmtPrepare(
+	rv = C.OCIStmtPrepare(
 		(*C.OCIStmt)(s),
 		(*C.OCIError)(c.err),
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT))
-
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(c.err)
 	}
@@ -250,7 +263,6 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		nil,
 		nil,
 		C.OCI_DEFAULT)
-
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(s.c.err)
 	}
@@ -303,9 +315,10 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 		oci8cols[i].size = int(lp)
 		oci8cols[i].pbuf = make([]byte, int(lp)+1)
 
+		var defp *C.OCIDefine
 		rv = C.OCIDefineByPos(
 			(*C.OCIStmt)(s.s),
-			&oci8cols[i].defp,
+			&defp,
 			(*C.OCIError)(s.c.err),
 			C.ub4(i+1),
 			unsafe.Pointer(&oci8cols[i].pbuf[0]),
@@ -328,25 +341,31 @@ type OCI8Result struct {
 
 func (r *OCI8Result) LastInsertId() (int64, error) {
 	var t C.ub4
-	C.OCIAttrGet(
+	rv := C.OCIAttrGet(
 		r.s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROWID,
 		(*C.OCIError)(r.s.c.err))
+	if rv == C.OCI_ERROR {
+		return 0, ociGetError(r.s.c.err)
+	}
 	return int64(t), nil
 }
 
 func (r *OCI8Result) RowsAffected() (int64, error) {
 	var t C.ub4
-	C.OCIAttrGet(
+	rv := C.OCIAttrGet(
 		r.s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROW_COUNT,
 		(*C.OCIError)(r.s.c.err))
+	if rv == C.OCI_ERROR {
+		return 0, ociGetError(r.s.c.err)
+	}
 	return int64(t), nil
 }
 
@@ -364,7 +383,6 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (driver.Result, error) {
 		nil,
 		nil,
 		C.OCI_DEFAULT)
-
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(s.c.err)
 	}
@@ -376,7 +394,6 @@ type oci8col struct {
 	kind int
 	size int
 	pbuf []byte
-	defp *C.OCIDefine
 }
 
 type OCI8Rows struct {
@@ -404,7 +421,6 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		1,
 		C.OCI_FETCH_NEXT,
 		C.OCI_DEFAULT)
-
 	if rv == C.OCI_ERROR {
 		return ociGetError(rc.s.c.err)
 	}
@@ -432,6 +448,6 @@ func ociGetError(err unsafe.Pointer) error {
 		512,
 		C.OCI_HTYPE_ERROR)
 	s := C.GoString(&errbuff[0])
-	println(s)
+	//println(s)
 	return errors.New(s)
 }

@@ -1,0 +1,12 @@
+go-oci8
+=======
+
+DESCRIPTION
+-----------
+
+oracle driver for go that using database/sql
+
+LICENSE
+-------
+
+MIT: http://mattn.mit-license.org/2011

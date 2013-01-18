@@ -214,6 +214,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 	var bp *C.OCIBind
 	for i, v := range args {
 		b := []byte(fmt.Sprintf("%v", v))
+		b = append(b, 0)
 		rv := C.OCIBindByPos(
 			(*C.OCIStmt)(s.s),
 			&bp,

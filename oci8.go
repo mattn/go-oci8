@@ -392,7 +392,7 @@ type oci8col struct {
 	name string
 	kind int
 	size int
-	ind  int
+	ind  C.sb2
 	rlen C.ub2
 	pbuf []byte
 }
@@ -422,6 +422,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		1,
 		C.OCI_FETCH_NEXT,
 		C.OCI_DEFAULT)
+
 	if rv == C.OCI_ERROR {
 		return ociGetError(rc.s.c.err)
 	}
@@ -429,7 +430,6 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
 	}
-
 	for i := range dest {
 		switch {
 		case rc.cols[i].ind == -1: //Null

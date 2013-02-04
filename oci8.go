@@ -80,7 +80,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, ociGetError(conn.err)
 	}
 
-
 	rv = C.OCIEnvInit(
 		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
 		C.OCI_DEFAULT,
@@ -96,7 +95,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
 
 	var phost *C.char
 	phostlen := C.size_t(0)

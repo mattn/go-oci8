@@ -14,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -26,13 +28,25 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	svc unsafe.Pointer
-	env unsafe.Pointer
-	err unsafe.Pointer
+	svc   unsafe.Pointer
+	env   unsafe.Pointer
+	err   unsafe.Pointer
+	attrs Values
 }
 
 type OCI8Tx struct {
 	c *OCI8Conn
+}
+
+type Values map[string]interface{}
+
+func (vs Values) Set(k string, v interface{}) {
+	vs[k] = v
+}
+
+func (vs Values) Get(k string) (v interface{}) {
+	v, _ = vs[k]
+	return
 }
 
 func (tx *OCI8Tx) Commit() error {
@@ -70,6 +84,15 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	token := strings.SplitN(dsn, "@", 2)
 	userpass := strings.SplitN(token[0], "/", 2)
 
+	// set safe defaults
+	conn.attrs = make(Values)
+	conn.attrs.Set("prefetch_rows", 10)
+	conn.attrs.Set("prefetch_memory", int64(0))
+
+	for k, v := range parseEnviron(os.Environ()) {
+		conn.attrs.Set(k, v)
+	}
+
 	rv := C.OCIInitialize(
 		C.OCI_DEFAULT,
 		nil,
@@ -79,7 +102,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
 
 	rv = C.OCIEnvInit(
 		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
@@ -96,7 +118,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
 
 	var phost *C.char
 	phostlen := C.size_t(0)
@@ -254,6 +275,15 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 	if t == C.OCI_STMT_SELECT {
 		iter = 0
 	}
+
+	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
+	prefetch_size := C.ub4(s.c.attrs.Get("prefetch_rows").(int))
+	C.OCIAttrSet(s.s, C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetch_size), 0, C.OCI_ATTR_PREFETCH_ROWS, (*C.OCIError)(s.c.err))
+
+	// if non-zero, oci will fetch rows until the memory limit or row prefetch limit is hit.
+	// useful for memory constrained systems
+	prefetch_memory := C.ub4(s.c.attrs.Get("prefetch_memory").(int64))
+	C.OCIAttrSet(s.s, C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetch_memory), 0, C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err))
 
 	rv := C.OCIStmtExecute(
 		(*C.OCIServer)(s.c.svc),
@@ -451,4 +481,21 @@ func ociGetError(err unsafe.Pointer) error {
 	s := C.GoString(&errbuff[0])
 	//println(s)
 	return errors.New(s)
+}
+
+func parseEnviron(env []string) (out map[string]interface{}) {
+	out = make(map[string]interface{})
+
+	for _, v := range env {
+		parts := strings.SplitN(v, "=", 2)
+
+		// Better to have a type error here than later during query execution
+		switch parts[0] {
+		case "PREFETCH_ROWS":
+			out["prefetch_rows"], _ = strconv.Atoi(parts[1])
+		case "PREFETCH_MEMORY":
+			out["prefetch_memory"], _ = strconv.ParseInt(parts[1], 10, 64)
+		}
+	}
+	return out
 }

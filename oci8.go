@@ -325,7 +325,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			unsafe.Pointer(&oci8cols[i].pbuf[0]),
 			C.sb4(lp+1),
 			C.SQLT_CHR,
-			nil,
+			unsafe.Pointer(&oci8cols[i].ind),
 			nil,
 			nil,
 			C.OCI_DEFAULT)
@@ -394,6 +394,7 @@ type oci8col struct {
 	name string
 	kind int
 	size int
+	ind  int
 	pbuf []byte
 }
 
@@ -431,7 +432,16 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	}
 
 	for i := range dest {
-		dest[i] = string(rc.cols[i].pbuf)
+		switch {
+		case rc.cols[i].ind == -1: //Null
+			dest[i] = nil
+		case rc.cols[i].ind == 0 || //Normal
+			rc.cols[i].ind == -2 || //Field longer than type (truncated)
+			rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
+			dest[i] = string(rc.cols[i].pbuf)
+		default:
+			return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
+		}
 	}
 
 	return nil

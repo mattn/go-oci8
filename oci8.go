@@ -326,7 +326,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			C.sb4(lp+1),
 			C.SQLT_CHR,
 			unsafe.Pointer(&oci8cols[i].ind),
-			nil,
+			&oci8cols[i].rlen,
 			nil,
 			C.OCI_DEFAULT)
 		if rv == C.OCI_ERROR {
@@ -395,6 +395,7 @@ type oci8col struct {
 	kind int
 	size int
 	ind  int
+	rlen C.ub2
 	pbuf []byte
 }
 
@@ -435,8 +436,9 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		switch {
 		case rc.cols[i].ind == -1: //Null
 			dest[i] = nil
-		case rc.cols[i].ind == 0 || //Normal
-			rc.cols[i].ind == -2 || //Field longer than type (truncated)
+		case rc.cols[i].ind == 0: //Normal
+			dest[i] = string(rc.cols[i].pbuf)[0:rc.cols[i].rlen]
+		case rc.cols[i].ind == -2 || //Field longer than type (truncated)
 			rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
 			dest[i] = string(rc.cols[i].pbuf)
 		default:

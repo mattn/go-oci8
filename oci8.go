@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -310,7 +311,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			C.OCI_ATTR_DATA_SIZE,
 			(*C.OCIError)(s.c.err))
 		oci8cols[i].name = string((*[1 << 30]byte)(unsafe.Pointer(np))[0:int(ns)])
-		oci8cols[i].kind = int(tp)
+		oci8cols[i].kind = tp
 		oci8cols[i].size = int(lp)
 		oci8cols[i].pbuf = make([]byte, int(lp)+1)
 
@@ -322,7 +323,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			C.ub4(i+1),
 			unsafe.Pointer(&oci8cols[i].pbuf[0]),
 			C.sb4(lp+1),
-			C.SQLT_CHR,
+			oci8cols[i].kind,
 			unsafe.Pointer(&oci8cols[i].ind),
 			&oci8cols[i].rlen,
 			nil,
@@ -390,7 +391,7 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 type oci8col struct {
 	name string
-	kind int
+	kind C.ub2
 	size int
 	ind  C.sb2
 	rlen C.ub2
@@ -431,16 +432,29 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 	for i := range dest {
-		switch {
-		case rc.cols[i].ind == -1: //Null
+		if rc.cols[i].ind == -1 { //Null
 			dest[i] = nil
-		case rc.cols[i].ind == 0: //Normal
-			dest[i] = string(rc.cols[i].pbuf)[0:rc.cols[i].rlen]
-		case rc.cols[i].ind == -2 || //Field longer than type (truncated)
-			rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
-			dest[i] = string(rc.cols[i].pbuf)
+			continue
+		}
+
+		buf := rc.cols[i].pbuf
+		switch rc.cols[i].kind {
+		case C.SQLT_DAT:
+			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
+			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
+			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, time.UTC)
+		case C.SQLT_CHR:
+			switch {
+			case rc.cols[i].ind == 0: //Normal
+				dest[i] = string(buf)[0:rc.cols[i].rlen]
+			case rc.cols[i].ind == -2 || //Field longer than type (truncated)
+				rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
+				dest[i] = string(buf)
+			default:
+				return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
+			}
 		default:
-			return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
+			return errors.New(fmt.Sprintf("Unhandled column type: %d", rc.cols[i].kind))
 		}
 	}
 

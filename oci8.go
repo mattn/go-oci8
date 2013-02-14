@@ -310,8 +310,14 @@ func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
 			nil,
 			C.OCI_ATTR_DATA_SIZE,
 			(*C.OCIError)(s.c.err))
+
+		switch tp {
+		case C.SQLT_NUM:
+			oci8cols[i].kind = C.SQLT_CHR
+		default:
+			oci8cols[i].kind = tp
+		}
 		oci8cols[i].name = string((*[1 << 30]byte)(unsafe.Pointer(np))[0:int(ns)])
-		oci8cols[i].kind = tp
 		oci8cols[i].size = int(lp)
 		oci8cols[i].pbuf = make([]byte, int(lp)+1)
 

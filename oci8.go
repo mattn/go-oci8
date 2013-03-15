@@ -432,7 +432,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	}
 
 	for i := range dest {
-		dest[i] = string(rc.cols[i].pbuf)
+		dest[i] = strings.TrimSpace(string(rc.cols[i].pbuf))
 	}
 
 	return nil

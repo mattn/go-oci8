@@ -80,7 +80,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, ociGetError(conn.err)
 	}
 
-
 	rv = C.OCIEnvInit(
 		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
 		C.OCI_DEFAULT,
@@ -96,7 +95,6 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
 
 	var phost *C.char
 	phostlen := C.size_t(0)
@@ -423,7 +421,10 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		C.OCI_FETCH_NEXT,
 		C.OCI_DEFAULT)
 	if rv == C.OCI_ERROR {
-		return ociGetError(rc.s.c.err)
+		err := ociGetError(rc.s.c.err)
+		if err.Error() != "ORA-01405: fetched column value is NULL\n" {
+			return err
+		}
 	}
 
 	if rv == C.OCI_NO_DATA {

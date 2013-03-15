@@ -422,7 +422,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		C.OCI_DEFAULT)
 	if rv == C.OCI_ERROR {
 		err := ociGetError(rc.s.c.err)
-		if err.Error() != "ORA-01405: fetched column value is NULL\n" {
+		if err.Error()[:9] != "ORA-01405" {
 			return err
 		}
 	}

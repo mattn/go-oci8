@@ -37,15 +37,23 @@ type OCI8Tx struct {
 }
 
 func (tx *OCI8Tx) Commit() error {
-	if err := tx.c.exec("COMMIT"); err != nil {
-		return err
+	rv := C.OCITransCommit(
+		(*C.OCIServer)(tx.c.svc),
+		(*C.OCIError)(tx.c.err),
+		0)
+	if rv == C.OCI_ERROR {
+		return ociGetError(tx.c.err)
 	}
 	return nil
 }
 
 func (tx *OCI8Tx) Rollback() error {
-	if err := tx.c.exec("ROLLBACK"); err != nil {
-		return err
+	rv := C.OCITransRollback(
+		(*C.OCIServer)(tx.c.svc),
+		(*C.OCIError)(tx.c.err),
+		0)
+	if rv == C.OCI_ERROR {
+		return ociGetError(tx.c.err)
 	}
 	return nil
 }
@@ -60,8 +68,13 @@ func (c *OCI8Conn) exec(cmd string) error {
 }
 
 func (c *OCI8Conn) Begin() (driver.Tx, error) {
-	if err := c.exec("BEGIN"); err != nil {
-		return nil, err
+	rv := C.OCITransStart(
+		(*C.OCIServer)(c.svc),
+		(*C.OCIError)(c.err),
+		60,
+		C.OCI_TRANS_NEW)
+	if rv == C.OCI_ERROR {
+		return nil, ociGetError(c.err)
 	}
 	return &OCI8Tx{c}, nil
 }

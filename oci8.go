@@ -461,7 +461,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_DAT:
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
-			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, time.UTC)
+			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, time.Local)
 		case C.SQLT_CHR:
 			switch {
 			case rc.cols[i].ind == 0: //Normal

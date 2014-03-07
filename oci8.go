@@ -246,18 +246,42 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 		return nil
 	}
 
-	var bp *C.OCIBind
+	var (
+		bp   *C.OCIBind
+		dty  int
+		data []byte
+	)
+
 	for i, v := range args {
-		b := []byte(fmt.Sprintf("%v", v))
-		b = append(b, 0)
+		switch v.(type) {
+		case time.Time:
+			dty = C.SQLT_DAT
+			now := v.(time.Time)
+			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
+			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
+			data = []byte{
+				byte(now.Year()/100 + 100),
+				byte(now.Year()%100 + 100),
+				byte(now.Month()),
+				byte(now.Day()),
+				byte(now.Hour() + 1),
+				byte(now.Minute() + 1),
+				byte(now.Second() + 1),
+			}
+		default:
+			dty = C.SQLT_STR
+			data = []byte(fmt.Sprintf("%v", v))
+			data = append(data, 0)
+		}
+
 		rv := C.OCIBindByPos(
 			(*C.OCIStmt)(s.s),
 			&bp,
 			(*C.OCIError)(s.c.err),
 			C.ub4(i+1),
-			unsafe.Pointer(&b[0]),
-			C.sb4(len(b)),
-			C.SQLT_STR,
+			unsafe.Pointer(&data[0]),
+			C.sb4(len(data)),
+			C.ub2(dty),
 			nil,
 			nil,
 			nil,

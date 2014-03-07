@@ -274,6 +274,10 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 			data = append(data, 0)
 		}
 
+		if v == nil {
+			data = []byte{0}
+		}
+
 		rv := C.OCIBindByPos(
 			(*C.OCIStmt)(s.s),
 			&bp,

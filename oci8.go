@@ -39,10 +39,11 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	svc   unsafe.Pointer
-	env   unsafe.Pointer
-	err   unsafe.Pointer
-	attrs Values
+	svc      unsafe.Pointer
+	env      unsafe.Pointer
+	err      unsafe.Pointer
+	attrs    Values
+	location *time.Location
 }
 
 type OCI8Tx struct {
@@ -216,6 +217,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, ociGetError(conn.err)
 	}
 
+	conn.location = dsn.Location
+
 	return &conn, nil
 }
 
@@ -313,7 +316,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 		switch v.(type) {
 		case time.Time:
 			dty = C.SQLT_DAT
-			now := v.(time.Time)
+			now := v.(time.Time).In(s.c.location)
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			data = []byte{
@@ -578,7 +581,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_DAT:
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
-			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, time.Local)
+			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, rc.s.c.location)
 		case C.SQLT_CHR:
 			switch {
 			case rc.cols[i].ind == 0: //Normal

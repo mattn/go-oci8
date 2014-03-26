@@ -14,12 +14,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
 )
+
+type DSN struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	SID      string
+	Location *time.Location
+}
 
 func init() {
 	sql.Register("oci8", &OCI8Driver{})
@@ -48,6 +58,52 @@ func (vs Values) Set(k string, v interface{}) {
 func (vs Values) Get(k string) (v interface{}) {
 	v, _ = vs[k]
 	return
+}
+
+func ParseDSN(dsnString string) (dsn *DSN, err error) {
+	var (
+		params string
+	)
+
+	dsn = &DSN{Location: time.Local}
+
+	dsnString = strings.Replace(dsnString, "/", " / ", 2)
+	dsnString = strings.Replace(dsnString, "@", " @ ", 1)
+	dsnString = strings.Replace(dsnString, ":", " : ", 1)
+	dsnString = strings.Replace(dsnString, "?", " ?", 1)
+
+	if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s : %d / %s", &dsn.Username, &dsn.Password, &dsn.Host, &dsn.Port, &dsn.SID); err != nil {
+		panic(err)
+	}
+
+	if i := strings.Index(dsnString, "?"); i != -1 {
+		params = dsnString[i+1:]
+	}
+
+	if len(params) > 0 {
+		for _, v := range strings.Split(params, "&") {
+			param := strings.SplitN(v, "=", 2)
+			if len(param) != 2 {
+				continue
+			}
+
+			if param[1], err = url.QueryUnescape(param[1]); err != nil {
+				panic(err)
+			}
+
+			switch value := param[1]; param[0] {
+			case "loc":
+				if value, err = url.QueryUnescape(value); err != nil {
+					return nil, err
+				}
+				if dsn.Location, err = time.LoadLocation(value); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return dsn, nil
 }
 
 func (tx *OCI8Tx) Commit() error {
@@ -93,10 +149,15 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 	return &OCI8Tx{c}, nil
 }
 
-func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
-	var conn OCI8Conn
-	token := strings.SplitN(dsn, "@", 2)
-	userpass := strings.SplitN(token[0], "/", 2)
+func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
+	var (
+		conn OCI8Conn
+		dsn  *DSN
+	)
+
+	if dsn, err = ParseDSN(dsnString); err != nil {
+		return nil, err
+	}
 
 	// set safe defaults
 	conn.attrs = make(Values)
@@ -133,16 +194,12 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, ociGetError(conn.err)
 	}
 
-	var phost *C.char
-	phostlen := C.size_t(0)
-	if len(token) > 1 {
-		phost = C.CString(token[1])
-		defer C.free(unsafe.Pointer(phost))
-		phostlen = C.strlen(phost)
-	}
-	puser := C.CString(userpass[0])
+	phost := C.CString(dsn.Host)
+	defer C.free(unsafe.Pointer(phost))
+	phostlen := C.strlen(phost)
+	puser := C.CString(dsn.Username)
 	defer C.free(unsafe.Pointer(puser))
-	ppass := C.CString(userpass[1])
+	ppass := C.CString(dsn.Password)
 	defer C.free(unsafe.Pointer(ppass))
 
 	rv = C.OCILogon(

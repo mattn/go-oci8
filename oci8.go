@@ -61,6 +61,12 @@ func (vs Values) Get(k string) (v interface{}) {
 	return
 }
 
+func FreeCStrings(strings []*C.char) {
+	for _, s := range strings {
+		C.free(unsafe.Pointer(s))
+	}
+}
+
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	var (
 		params string
@@ -301,19 +307,25 @@ func (s *OCI8Stmt) NumInput() int {
 	return int(num)
 }
 
-func (s *OCI8Stmt) bind(args []driver.Value) error {
+func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []*C.char, err error) {
 	if args == nil {
-		return nil
+		return nil, nil
 	}
 
 	var (
-		bp   *C.OCIBind
-		dty  int
-		data []byte
+		bp    *C.OCIBind
+		dty   int
+		data  []byte
+		cdata *C.char
 	)
 
 	for i, v := range args {
+		data = []byte{}
+
 		switch v.(type) {
+		case nil:
+			dty = C.SQLT_STR
+			data = []byte{0}
 		case time.Time:
 			dty = C.SQLT_DAT
 			now := v.(time.Time).In(s.c.location)
@@ -334,16 +346,14 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 			data = append(data, 0)
 		}
 
-		if v == nil {
-			data = []byte{0}
-		}
-
+		cdata = C.CString(string(data))
+		boundParameters = append(boundParameters, cdata)
 		rv := C.OCIBindByPos(
 			(*C.OCIStmt)(s.s),
 			&bp,
 			(*C.OCIError)(s.c.err),
 			C.ub4(i+1),
-			unsafe.Pointer(&data[0]),
+			unsafe.Pointer(cdata),
 			C.sb4(len(data)),
 			C.ub2(dty),
 			nil,
@@ -354,16 +364,23 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 			C.OCI_DEFAULT)
 
 		if rv == C.OCI_ERROR {
-			return ociGetError(s.c.err)
+			defer FreeCStrings(boundParameters)
+			return nil, ociGetError(s.c.err)
 		}
 	}
-	return nil
+	return boundParameters, nil
 }
 
-func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	if err := s.bind(args); err != nil {
+func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
+	var (
+		boundParmeters []*C.char
+	)
+
+	if boundParmeters, err = s.bind(args); err != nil {
 		return nil, err
 	}
+
+	defer FreeCStrings(boundParmeters)
 
 	var t C.int
 	C.OCIAttrGet(
@@ -508,10 +525,16 @@ func (r *OCI8Result) RowsAffected() (int64, error) {
 	return int64(t), nil
 }
 
-func (s *OCI8Stmt) Exec(args []driver.Value) (driver.Result, error) {
-	if err := s.bind(args); err != nil {
+func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
+	var (
+		boundParmeters []*C.char
+	)
+
+	if boundParmeters, err = s.bind(args); err != nil {
 		return nil, err
 	}
+
+	defer FreeCStrings(boundParmeters)
 
 	rv := C.OCIStmtExecute(
 		(*C.OCIServer)(s.c.svc),

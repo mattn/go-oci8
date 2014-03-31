@@ -307,17 +307,24 @@ func (s *OCI8Stmt) NumInput() int {
 	return int(num)
 }
 
-func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []*C.char, err error) {
+func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err error) {
 	if args == nil {
 		return nil, nil
 	}
 
 	var (
-		bp    *C.OCIBind
-		dty   int
-		data  []byte
-		cdata *C.char
+		bp              *C.OCIBind
+		dty             int
+		data            []byte
+		cdata           *C.char
+		boundParameters []*C.char
 	)
+
+	freeBoundParameters = func() {
+		for _, p := range boundParameters {
+			C.free(unsafe.Pointer(p))
+		}
+	}
 
 	for i, v := range args {
 		data = []byte{}
@@ -364,23 +371,23 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []*C.char, err err
 			C.OCI_DEFAULT)
 
 		if rv == C.OCI_ERROR {
-			defer FreeCStrings(boundParameters)
+			defer freeBoundParameters()
 			return nil, ociGetError(s.c.err)
 		}
 	}
-	return boundParameters, nil
+	return freeBoundParameters, nil
 }
 
 func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	var (
-		boundParmeters []*C.char
+		freeBoundParameters func()
 	)
 
-	if boundParmeters, err = s.bind(args); err != nil {
+	if freeBoundParameters, err = s.bind(args); err != nil {
 		return nil, err
 	}
 
-	defer FreeCStrings(boundParmeters)
+	defer freeBoundParameters()
 
 	var t C.int
 	C.OCIAttrGet(
@@ -527,14 +534,14 @@ func (r *OCI8Result) RowsAffected() (int64, error) {
 
 func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	var (
-		boundParmeters []*C.char
+		freeBoundParameters func()
 	)
 
-	if boundParmeters, err = s.bind(args); err != nil {
+	if freeBoundParameters, err = s.bind(args); err != nil {
 		return nil, err
 	}
 
-	defer FreeCStrings(boundParmeters)
+	defer freeBoundParameters()
 
 	rv := C.OCIStmtExecute(
 		(*C.OCIServer)(s.c.svc),

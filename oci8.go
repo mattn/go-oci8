@@ -305,19 +305,32 @@ func (s *OCI8Stmt) NumInput() int {
 	return int(num)
 }
 
-func (s *OCI8Stmt) bind(args []driver.Value) error {
+func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err error) {
 	if args == nil {
-		return nil
+    return func() {}, nil
 	}
 
 	var (
-		bp   *C.OCIBind
-		dty  int
-		data []byte
+		bp              *C.OCIBind
+		dty             int
+		data            []byte
+		cdata           *C.char
+		boundParameters []*C.char
 	)
 
+	freeBoundParameters = func() {
+		for _, p := range boundParameters {
+			C.free(unsafe.Pointer(p))
+		}
+	}
+
 	for i, v := range args {
+		data = []byte{}
+
 		switch v.(type) {
+		case nil:
+			dty = C.SQLT_STR
+			data = []byte{0}
 		case time.Time:
 			dty = C.SQLT_DAT
 			now := v.(time.Time).In(s.c.location)
@@ -338,16 +351,14 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 			data = append(data, 0)
 		}
 
-		if v == nil {
-			data = []byte{0}
-		}
-
+		cdata = C.CString(string(data))
+		boundParameters = append(boundParameters, cdata)
 		rv := C.OCIBindByPos(
 			(*C.OCIStmt)(s.s),
 			&bp,
 			(*C.OCIError)(s.c.err),
 			C.ub4(i+1),
-			unsafe.Pointer(&data[0]),
+			unsafe.Pointer(cdata),
 			C.sb4(len(data)),
 			C.ub2(dty),
 			nil,
@@ -358,16 +369,23 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 			C.OCI_DEFAULT)
 
 		if rv == C.OCI_ERROR {
-			return ociGetError(s.c.err)
+			defer freeBoundParameters()
+			return nil, ociGetError(s.c.err)
 		}
 	}
-	return nil
+	return freeBoundParameters, nil
 }
 
-func (s *OCI8Stmt) Query(args []driver.Value) (driver.Rows, error) {
-	if err := s.bind(args); err != nil {
+func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
+	var (
+		freeBoundParameters func()
+	)
+
+	if freeBoundParameters, err = s.bind(args); err != nil {
 		return nil, err
 	}
+
+	defer freeBoundParameters()
 
 	var t C.int
 	C.OCIAttrGet(
@@ -512,10 +530,16 @@ func (r *OCI8Result) RowsAffected() (int64, error) {
 	return int64(t), nil
 }
 
-func (s *OCI8Stmt) Exec(args []driver.Value) (driver.Result, error) {
-	if err := s.bind(args); err != nil {
+func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
+	var (
+		freeBoundParameters func()
+	)
+
+	if freeBoundParameters, err = s.bind(args); err != nil {
 		return nil, err
 	}
+
+	defer freeBoundParameters()
 
 	rv := C.OCIStmtExecute(
 		(*C.OCIServer)(s.c.svc),

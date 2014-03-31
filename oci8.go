@@ -14,12 +14,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
 )
+
+type DSN struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	SID      string
+	Location *time.Location
+}
 
 func init() {
 	sql.Register("oci8", &OCI8Driver{})
@@ -29,10 +39,11 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	svc   unsafe.Pointer
-	env   unsafe.Pointer
-	err   unsafe.Pointer
-	attrs Values
+	svc      unsafe.Pointer
+	env      unsafe.Pointer
+	err      unsafe.Pointer
+	attrs    Values
+	location *time.Location
 }
 
 type OCI8Tx struct {
@@ -48,6 +59,56 @@ func (vs Values) Set(k string, v interface{}) {
 func (vs Values) Get(k string) (v interface{}) {
 	v, _ = vs[k]
 	return
+}
+
+//ParseDSN parses a DSN used to connect to Oracle
+//It expects to receive a string in the form:
+//user:password@host:port/sid?param1=value1&param2=value2
+//
+//Currently the only parameter supported is 'loc' which
+//sets the timezone to read times in as and to marshal to when writing times to
+//Oracle
+func ParseDSN(dsnString string) (dsn *DSN, err error) {
+	var (
+		params string
+	)
+
+	dsn = &DSN{Location: time.Local}
+
+	dsnString = strings.Replace(dsnString, "/", " / ", 2)
+	dsnString = strings.Replace(dsnString, "@", " @ ", 1)
+	dsnString = strings.Replace(dsnString, ":", " : ", 1)
+	dsnString = strings.Replace(dsnString, "?", " ?", 1)
+
+	if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s : %d / %s", &dsn.Username, &dsn.Password, &dsn.Host, &dsn.Port, &dsn.SID); err != nil {
+		panic(err)
+	}
+
+	if i := strings.Index(dsnString, "?"); i != -1 {
+		params = dsnString[i+1:]
+	}
+
+	if len(params) > 0 {
+		for _, v := range strings.Split(params, "&") {
+			param := strings.SplitN(v, "=", 2)
+			if len(param) != 2 {
+				continue
+			}
+
+			if param[1], err = url.QueryUnescape(param[1]); err != nil {
+				panic(err)
+			}
+
+			switch param[0] {
+			case "loc":
+				if dsn.Location, err = time.LoadLocation(param[1]); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return dsn, nil
 }
 
 func (tx *OCI8Tx) Commit() error {
@@ -93,10 +154,15 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 	return &OCI8Tx{c}, nil
 }
 
-func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
-	var conn OCI8Conn
-	token := strings.SplitN(dsn, "@", 2)
-	userpass := strings.SplitN(token[0], "/", 2)
+func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
+	var (
+		conn OCI8Conn
+		dsn  *DSN
+	)
+
+	if dsn, err = ParseDSN(dsnString); err != nil {
+		return nil, err
+	}
 
 	// set safe defaults
 	conn.attrs = make(Values)
@@ -133,16 +199,12 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, ociGetError(conn.err)
 	}
 
-	var phost *C.char
-	phostlen := C.size_t(0)
-	if len(token) > 1 {
-		phost = C.CString(token[1])
-		defer C.free(unsafe.Pointer(phost))
-		phostlen = C.strlen(phost)
-	}
-	puser := C.CString(userpass[0])
+	phost := C.CString(fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID))
+	defer C.free(unsafe.Pointer(phost))
+	phostlen := C.strlen(phost)
+	puser := C.CString(dsn.Username)
 	defer C.free(unsafe.Pointer(puser))
-	ppass := C.CString(userpass[1])
+	ppass := C.CString(dsn.Password)
 	defer C.free(unsafe.Pointer(ppass))
 
 	rv = C.OCILogon(
@@ -158,6 +220,8 @@ func (d *OCI8Driver) Open(dsn string) (driver.Conn, error) {
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
+
+	conn.location = dsn.Location
 
 	return &conn, nil
 }
@@ -256,7 +320,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) error {
 		switch v.(type) {
 		case time.Time:
 			dty = C.SQLT_DAT
-			now := v.(time.Time)
+			now := v.(time.Time).In(s.c.location)
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			data = []byte{
@@ -521,7 +585,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_DAT:
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
-			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, time.Local)
+			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, rc.s.c.location)
 		case C.SQLT_CHR:
 			switch {
 			case rc.cols[i].ind == 0: //Normal

@@ -61,12 +61,13 @@ func (vs Values) Get(k string) (v interface{}) {
 	return
 }
 
-func FreeCStrings(strings []*C.char) {
-	for _, s := range strings {
-		C.free(unsafe.Pointer(s))
-	}
-}
-
+//ParseDSN parses a DSN used to connect to Oracle
+//It expects to receive a string in the form:
+//user:password@host:port/sid?param1=value1&param2=value2
+//
+//Currently the only parameter supported is 'loc' which
+//sets the timezone to read times in as and to marshal to when writing times to
+//Oracle
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	var (
 		params string
@@ -98,12 +99,9 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				panic(err)
 			}
 
-			switch value := param[1]; param[0] {
+			switch param[0] {
 			case "loc":
-				if value, err = url.QueryUnescape(value); err != nil {
-					return nil, err
-				}
-				if dsn.Location, err = time.LoadLocation(value); err != nil {
+				if dsn.Location, err = time.LoadLocation(param[1]); err != nil {
 					return nil, err
 				}
 			}

@@ -61,6 +61,13 @@ func (vs Values) Get(k string) (v interface{}) {
 	return
 }
 
+//ParseDSN parses a DSN used to connect to Oracle
+//It expects to receive a string in the form:
+//user:password@host:port/sid?param1=value1&param2=value2
+//
+//Currently the only parameter supported is 'loc' which
+//sets the timezone to read times in as and to marshal to when writing times to
+//Oracle
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	var (
 		params string

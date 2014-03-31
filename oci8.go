@@ -616,10 +616,10 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_CHR:
 			switch {
 			case rc.cols[i].ind == 0: //Normal
-				dest[i] = strings.TrimSpace(string(buf)[0:rc.cols[i].rlen])
+				dest[i] = string(buf)[0:rc.cols[i].rlen]
 			case rc.cols[i].ind == -2 || //Field longer than type (truncated)
 				rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
-				dest[i] = strings.TrimSpace(string(buf))
+				dest[i] = string(buf)
 			default:
 				return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
 			}

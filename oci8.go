@@ -307,7 +307,7 @@ func (s *OCI8Stmt) NumInput() int {
 
 func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err error) {
 	if args == nil {
-    return func() {}, nil
+		return func() {}, nil
 	}
 
 	var (

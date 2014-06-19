@@ -410,7 +410,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	C.OCIAttrSet(s.s, C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetch_memory), 0, C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err))
 
 	rv := C.OCIStmtExecute(
-		(*C.OCIServer)(s.c.svc),
+		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
 		(*C.OCIError)(s.c.err),
 		iter,
@@ -542,7 +542,7 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	defer freeBoundParameters()
 
 	rv := C.OCIStmtExecute(
-		(*C.OCIServer)(s.c.svc),
+		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
 		(*C.OCIError)(s.c.err),
 		1,

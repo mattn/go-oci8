@@ -113,7 +113,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 func (tx *OCI8Tx) Commit() error {
 	rv := C.OCITransCommit(
-		(*C.OCIServer)(tx.c.svc),
+		(*C.OCISvcCtx)(tx.c.svc),
 		(*C.OCIError)(tx.c.err),
 		0)
 	if rv == C.OCI_ERROR {
@@ -124,7 +124,7 @@ func (tx *OCI8Tx) Commit() error {
 
 func (tx *OCI8Tx) Rollback() error {
 	rv := C.OCITransRollback(
-		(*C.OCIServer)(tx.c.svc),
+		(*C.OCISvcCtx)(tx.c.svc),
 		(*C.OCIError)(tx.c.err),
 		0)
 	if rv == C.OCI_ERROR {
@@ -144,7 +144,7 @@ func (c *OCI8Conn) exec(cmd string) error {
 
 func (c *OCI8Conn) Begin() (driver.Tx, error) {
 	rv := C.OCITransStart(
-		(*C.OCIServer)(c.svc),
+		(*C.OCISvcCtx)(c.svc),
 		(*C.OCIError)(c.err),
 		60,
 		C.OCI_TRANS_NEW)
@@ -210,7 +210,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	rv = C.OCILogon(
 		(*C.OCIEnv)(conn.env),
 		(*C.OCIError)(conn.err),
-		(**C.OCIServer)(unsafe.Pointer(&conn.svc)),
+		(**C.OCISvcCtx)(unsafe.Pointer(&conn.svc)),
 		(*C.OraText)(unsafe.Pointer(puser)),
 		C.ub4(C.strlen(puser)),
 		(*C.OraText)(unsafe.Pointer(ppass)),
@@ -228,7 +228,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 
 func (c *OCI8Conn) Close() error {
 	rv := C.OCILogoff(
-		(*C.OCIServer)(c.svc),
+		(*C.OCISvcCtx)(c.svc),
 		(*C.OCIError)(c.err))
 	if rv == C.OCI_ERROR {
 		return ociGetError(c.err)
@@ -410,7 +410,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	C.OCIAttrSet(s.s, C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetch_memory), 0, C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err))
 
 	rv := C.OCIStmtExecute(
-		(*C.OCIServer)(s.c.svc),
+		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
 		(*C.OCIError)(s.c.err),
 		iter,
@@ -542,7 +542,7 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	defer freeBoundParameters()
 
 	rv := C.OCIStmtExecute(
-		(*C.OCIServer)(s.c.svc),
+		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
 		(*C.OCIError)(s.c.err),
 		1,

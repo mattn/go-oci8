@@ -321,15 +321,23 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 
 	var (
 		bp              *C.OCIBind
-		dty             int
+		dty             C.ub2
 		data            []byte
 		cdata           *C.char
-		boundParameters []*C.char
+		boundParameters []oci8bind
 	)
 
 	freeBoundParameters = func() {
-		for _, p := range boundParameters {
-			C.free(unsafe.Pointer(p))
+		for _, col := range boundParameters {
+			if col.pbuf != nil {
+				if col.kind == C.SQLT_CLOB || col.kind == C.SQLT_BLOB {
+					C.OCIDescriptorFree(
+						col.pbuf,
+						C.OCI_DTYPE_LOB)
+				} else {
+					C.free(col.pbuf)
+				}
+			}
 		}
 	}
 
@@ -339,7 +347,77 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 		switch v.(type) {
 		case nil:
 			dty = C.SQLT_STR
-			data = []byte{0}
+			boundParameters = append(boundParameters, oci8bind{dty, nil})
+			rv := C.OCIBindByPos(
+				(*C.OCIStmt)(s.s),
+				&bp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				nil,
+				0,
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
+		case []byte:
+			// FIXME: Currently, CLOB not supported
+			dty = C.SQLT_BLOB
+			data = v.([]byte)
+			var bamt C.ub4
+			var pbuf unsafe.Pointer
+			rv := C.OCIDescriptorAlloc(
+				s.c.env,
+				&pbuf,
+				C.OCI_DTYPE_LOB,
+				0,
+				nil)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
+			rv = C.OCILobWrite(
+				(*C.OCISvcCtx)(s.c.svc),
+				(*C.OCIError)(s.c.err),
+				(*C.OCILobLocator)(pbuf),
+				&bamt,
+				1,
+                unsafe.Pointer(&data[0]),
+				C.ub4(len(data)),
+				C.OCI_ONE_PIECE,
+                nil,
+                nil,
+                0,
+				C.SQLCS_IMPLICIT)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
+			boundParameters = append(boundParameters, oci8bind{dty, pbuf})
+			rv = C.OCIBindByPos(
+				(*C.OCIStmt)(s.s),
+				&bp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				unsafe.Pointer(&pbuf),
+				-1,
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
 		case time.Time:
 			dty = C.SQLT_DAT
 			now := v.(time.Time).In(s.c.location)
@@ -354,32 +432,52 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				byte(now.Minute() + 1),
 				byte(now.Second() + 1),
 			}
+
+			cdata = C.CString(string(data))
+			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			rv := C.OCIBindByPos(
+				(*C.OCIStmt)(s.s),
+				&bp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				unsafe.Pointer(cdata),
+				C.sb4(len(data)),
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
 		default:
 			dty = C.SQLT_STR
 			data = []byte(fmt.Sprintf("%v", v))
 			data = append(data, 0)
-		}
 
-		cdata = C.CString(string(data))
-		boundParameters = append(boundParameters, cdata)
-		rv := C.OCIBindByPos(
-			(*C.OCIStmt)(s.s),
-			&bp,
-			(*C.OCIError)(s.c.err),
-			C.ub4(i+1),
-			unsafe.Pointer(cdata),
-			C.sb4(len(data)),
-			C.ub2(dty),
-			nil,
-			nil,
-			nil,
-			0,
-			nil,
-			C.OCI_DEFAULT)
-
-		if rv == C.OCI_ERROR {
-			defer freeBoundParameters()
-			return nil, ociGetError(s.c.err)
+			cdata = C.CString(string(data))
+			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			rv := C.OCIBindByPos(
+				(*C.OCIStmt)(s.s),
+				&bp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				unsafe.Pointer(cdata),
+				C.sb4(len(data)),
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
 		}
 	}
 	return freeBoundParameters, nil
@@ -483,21 +581,46 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 		}
 		oci8cols[i].name = string((*[1 << 30]byte)(unsafe.Pointer(np))[0:int(ns)])
 		oci8cols[i].size = int(lp)
-		oci8cols[i].pbuf = make([]byte, int(lp)+1)
 
 		var defp *C.OCIDefine
-		rv = C.OCIDefineByPos(
-			(*C.OCIStmt)(s.s),
-			&defp,
-			(*C.OCIError)(s.c.err),
-			C.ub4(i+1),
-			unsafe.Pointer(&oci8cols[i].pbuf[0]),
-			C.sb4(lp+1),
-			oci8cols[i].kind,
-			unsafe.Pointer(&oci8cols[i].ind),
-			&oci8cols[i].rlen,
-			nil,
-			C.OCI_DEFAULT)
+		if tp == C.SQLT_CLOB || tp == C.SQLT_BLOB {
+			rv = C.OCIDescriptorAlloc(
+				s.c.env,
+				&oci8cols[i].pbuf,
+				C.OCI_DTYPE_LOB,
+				0,
+				nil)
+			if rv == C.OCI_ERROR {
+				return nil, ociGetError(s.c.err)
+			}
+			rv = C.OCIDefineByPos(
+				(*C.OCIStmt)(s.s),
+				&defp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				unsafe.Pointer(&oci8cols[i].pbuf),
+				-1,
+				oci8cols[i].kind,
+				unsafe.Pointer(&oci8cols[i].ind),
+				&oci8cols[i].rlen,
+				nil,
+				C.OCI_DEFAULT)
+		} else {
+			oci8cols[i].pbuf = C.malloc(C.size_t(lp)+1)
+			rv = C.OCIDefineByPos(
+				(*C.OCIStmt)(s.s),
+				&defp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				oci8cols[i].pbuf,
+				C.sb4(lp+1),
+				oci8cols[i].kind,
+				unsafe.Pointer(&oci8cols[i].ind),
+				&oci8cols[i].rlen,
+				nil,
+				C.OCI_DEFAULT)
+		}
+
 		if rv == C.OCI_ERROR {
 			return nil, ociGetError(s.c.err)
 		}
@@ -571,7 +694,12 @@ type oci8col struct {
 	size int
 	ind  C.sb2
 	rlen C.ub2
-	pbuf []byte
+	pbuf unsafe.Pointer
+}
+
+type oci8bind struct {
+	kind C.ub2
+	pbuf unsafe.Pointer
 }
 
 type OCI8Rows struct {
@@ -581,6 +709,15 @@ type OCI8Rows struct {
 }
 
 func (rc *OCI8Rows) Close() error {
+	for _, col := range rc.cols {
+		if col.kind == C.SQLT_CLOB || col.kind == C.SQLT_BLOB {
+			C.OCIDescriptorFree(
+				col.pbuf,
+				C.OCI_DTYPE_LOB)
+		} else {
+			C.free(col.pbuf)
+		}
+	}
 	return rc.s.Close()
 }
 
@@ -616,16 +753,36 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 			continue
 		}
 
-		buf := rc.cols[i].pbuf
 		switch rc.cols[i].kind {
 		case C.SQLT_DAT:
+			buf := *(*[]byte)(unsafe.Pointer(&rc.cols[i].pbuf))
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, rc.s.c.location)
+		case C.SQLT_BLOB, C.SQLT_CLOB:
+			var bamt C.ub4
+			b := make([]byte, rc.cols[i].size)
+			rv = C.OCILobRead(
+				(*C.OCISvcCtx)(rc.s.c.svc),
+				(*C.OCIError)(rc.s.c.err),
+				(*C.OCILobLocator)(rc.cols[i].pbuf),
+				&bamt,
+				1,
+                unsafe.Pointer(&b[0]),
+				C.ub4(rc.cols[i].size),
+                nil,
+                nil,
+                0,
+				C.SQLCS_IMPLICIT)
+			if rv == C.OCI_ERROR {
+				return ociGetError(rc.s.c.err)
+			}
+			dest[i] = b
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
+			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			switch {
 			case rc.cols[i].ind == 0: //Normal
-				dest[i] = string(buf)[0:rc.cols[i].rlen]
+				dest[i] = string(buf)
 			case rc.cols[i].ind == -2 || //Field longer than type (truncated)
 				rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
 				dest[i] = string(buf)

@@ -10,7 +10,7 @@ import (
 func main() {
 	os.Setenv("NLS_LANG", "")
 
-	db, err := sql.Open("oci8", "scott/tiger")
+	db, err := sql.Open("oci8", "scott/tiger@XE")
 	if err != nil {
 		fmt.Println(err)
 		return

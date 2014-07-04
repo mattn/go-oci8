@@ -81,7 +81,11 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	dsnString = strings.Replace(dsnString, "?", " ?", 1)
 
 	if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s : %d / %s", &dsn.Username, &dsn.Password, &dsn.Host, &dsn.Port, &dsn.SID); err != nil {
-		panic(err)
+		dsn.Host = ""
+		dsn.Port = 0
+		if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s", &dsn.Username, &dsn.Password, &dsn.SID); err != nil {
+			return nil, errors.New("Invalid DSN")
+		}
 	}
 
 	if i := strings.Index(dsnString, "?"); i != -1 {
@@ -199,7 +203,12 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, ociGetError(conn.err)
 	}
 
-	phost := C.CString(fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID))
+	var phost *C.char
+	if dsn.Host != "" {
+		phost = C.CString(fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID))
+	} else {
+		phost = C.CString(dsn.SID)
+	}
 	defer C.free(unsafe.Pointer(phost))
 	phostlen := C.strlen(phost)
 	puser := C.CString(dsn.Username)
@@ -643,7 +652,6 @@ func ociGetError(err unsafe.Pointer) error {
 		512,
 		C.OCI_HTYPE_ERROR)
 	s := C.GoString(&errbuff[0])
-	//println(s)
 	return errors.New(s)
 }
 

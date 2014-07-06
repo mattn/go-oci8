@@ -382,18 +382,34 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
+
+			rv = C.OCILobCreateTemporary(
+				(*C.OCISvcCtx)(s.c.svc),
+				(*C.OCIError)(s.c.err),
+				(*C.OCILobLocator)(pbuf),
+				0,
+				C.SQLCS_IMPLICIT,
+				C.OCI_TEMP_BLOB,
+				C.OCI_ATTR_NOCACHE,
+				C.OCI_DURATION_SESSION)
+			if rv == C.OCI_ERROR {
+				defer freeBoundParameters()
+				return nil, ociGetError(s.c.err)
+			}
+
+			bamt = C.ub4(len(data))
 			rv = C.OCILobWrite(
 				(*C.OCISvcCtx)(s.c.svc),
 				(*C.OCIError)(s.c.err),
 				(*C.OCILobLocator)(pbuf),
 				&bamt,
 				1,
-                unsafe.Pointer(&data[0]),
+				unsafe.Pointer(&data[0]),
 				C.ub4(len(data)),
 				C.OCI_ONE_PIECE,
-                nil,
-                nil,
-                0,
+				nil,
+				nil,
+				0,
 				C.SQLCS_IMPLICIT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
@@ -406,7 +422,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				(*C.OCIError)(s.c.err),
 				C.ub4(i+1),
 				unsafe.Pointer(&pbuf),
-				-1,
+				0,
 				dty,
 				nil,
 				nil,
@@ -606,7 +622,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 				nil,
 				C.OCI_DEFAULT)
 		} else {
-			oci8cols[i].pbuf = C.malloc(C.size_t(lp)+1)
+			oci8cols[i].pbuf = C.malloc(C.size_t(lp) + 1)
 			rv = C.OCIDefineByPos(
 				(*C.OCIStmt)(s.s),
 				&defp,
@@ -768,11 +784,11 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				(*C.OCILobLocator)(rc.cols[i].pbuf),
 				&bamt,
 				1,
-                unsafe.Pointer(&b[0]),
+				unsafe.Pointer(&b[0]),
 				C.ub4(rc.cols[i].size),
-                nil,
-                nil,
-                0,
+				nil,
+				nil,
+				0,
 				C.SQLCS_IMPLICIT)
 			if rv == C.OCI_ERROR {
 				return ociGetError(rc.s.c.err)

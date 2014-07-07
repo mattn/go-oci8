@@ -1,12 +1,26 @@
 go-oci8
 =======
 
-DESCRIPTION
+Description
 -----------
 
-oracle driver for go that using database/sql
+oracle driver conforming to the built-in database/sql interface
 
-LICENSE
+Installation
+------------
+
+This package can be installed with the go get command:
+
+    go get github.com/mattn/go-oci8
+
+Documentation
+-------------
+
+API documentation can be found here: http://godoc.org/github.com/mattn/go-oci8
+
+Examples can be found under the `./_example` directory
+
+License
 -------
 
-MIT: http://mattn.mit-license.org/2011
+MIT: http://mattn.mit-license.org/2014

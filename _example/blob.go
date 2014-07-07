@@ -31,14 +31,6 @@ func main() {
 		return
 	}
 
-	/*
-		_, err = db.Exec("update blob_example set data = :2 where id = :1", "001", []byte("こんにちわ世界"))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	*/
-
 	rows, err := db.Query("select * from blob_example")
 	if err != nil {
 		fmt.Println(err)

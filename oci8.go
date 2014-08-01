@@ -177,21 +177,19 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.attrs.Set(k, v)
 	}
 
-	rv := C.OCIInitialize(
-		C.OCI_DEFAULT,
+	// https://github.com/mattn/go-oci8/issues/22
+	rv := C.OCIEnvCreate(
+		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
+		C.OCI_THREADED,
 		nil,
 		nil,
 		nil,
+		nil,
+		0,
 		nil)
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
-	rv = C.OCIEnvInit(
-		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
-		C.OCI_DEFAULT,
-		0,
-		nil)
 
 	rv = C.OCIHandleAlloc(
 		conn.env,

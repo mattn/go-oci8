@@ -181,14 +181,15 @@ func (c *OCI8Conn) exec(cmd string) error {
 }
 
 func (c *OCI8Conn) Begin() (driver.Tx, error) {
-	rv := C.OCITransStart(
-		(*C.OCISvcCtx)(c.svc),
-		(*C.OCIError)(c.err),
-		60,
-		C.OCI_TRANS_NEW)
-	if err := c.check(rv, "OCI8Conn.Begin"); err != nil {
-		return nil, err
-	}
+	/*
+		http://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci08sca.htm#i431599
+		Many applications work with only simple local transactions.
+		In these applications, an implicit transaction is created
+		when the application makes database changes.
+		The only transaction-specific calls needed by such applications are:
+			OCITransCommit() - to commit the transaction
+			OCITransRollback() - to roll back the transaction
+	*/
 	return &OCI8Tx{c}, nil
 }
 

@@ -14,12 +14,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
+)
+
+const (
+	// ORA-01405: fetched column value is NULL
+	ERR_COLUMN_VALUE_IS_NULL = 1405
 )
 
 type DSN struct {
@@ -29,6 +35,7 @@ type DSN struct {
 	Password string
 	SID      string
 	Location *time.Location
+	LogDebug bool
 }
 
 func init() {
@@ -44,6 +51,7 @@ type OCI8Conn struct {
 	err      unsafe.Pointer
 	attrs    Values
 	location *time.Location
+	logDebug bool
 }
 
 type OCI8Tx struct {
@@ -108,6 +116,11 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				if dsn.Location, err = time.LoadLocation(param[1]); err != nil {
 					return nil, err
 				}
+			case "debug":
+				val, err := strconv.ParseBool(param[1])
+				if err == nil {
+					dsn.LogDebug = val
+				}
 			}
 		}
 	}
@@ -120,9 +133,10 @@ func (tx *OCI8Tx) Commit() error {
 		(*C.OCISvcCtx)(tx.c.svc),
 		(*C.OCIError)(tx.c.err),
 		0)
-	if rv == C.OCI_ERROR {
-		return ociGetError(tx.c.err)
+	if err := tx.c.check(rv, "OCI8Tx.Commit"); err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -131,8 +145,28 @@ func (tx *OCI8Tx) Rollback() error {
 		(*C.OCISvcCtx)(tx.c.svc),
 		(*C.OCIError)(tx.c.err),
 		0)
-	if rv == C.OCI_ERROR {
-		return ociGetError(tx.c.err)
+	if err := tx.c.check(rv, "OCI8Tx.Rollback"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *OCI8Conn) debug(format string, args ...interface{}) {
+	if c.logDebug {
+		log.Printf("oci8 "+format, args...)
+	}
+}
+
+func (c *OCI8Conn) check(rv C.sword, context string) error {
+	c.debug("context=%s rv=%v\n", context, rv)
+	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
+		if rv != C.OCI_INVALID_HANDLE {
+			err := ociGetError(c.err, context)
+			c.debug("got error %#v\n", err)
+			return err
+		}
+		c.debug("invalid handle\n")
+		return fmt.Errorf("Invalid handler at %s", context)
 	}
 	return nil
 }
@@ -152,8 +186,8 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 		(*C.OCIError)(c.err),
 		60,
 		C.OCI_TRANS_NEW)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(c.err)
+	if err := c.check(rv, "OCI8Conn.Begin"); err != nil {
+		return nil, err
 	}
 	return &OCI8Tx{c}, nil
 }
@@ -187,8 +221,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		nil,
 		0,
 		nil)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(conn.err)
+	if err := conn.check(rv, "OCIEnvCreate"); err != nil {
+		return nil, err
 	}
 
 	rv = C.OCIHandleAlloc(
@@ -197,8 +231,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		C.OCI_HTYPE_ERROR,
 		0,
 		nil)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(conn.err)
+	if err := conn.check(rv, "OCIHandleAlloc"); err != nil {
+		return nil, err
 	}
 
 	var phost *C.char
@@ -224,11 +258,12 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		C.ub4(C.strlen(ppass)),
 		(*C.OraText)(unsafe.Pointer(phost)),
 		C.ub4(phostlen))
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(conn.err)
+	if err := conn.check(rv, "OCILogon"); err != nil {
+		return nil, err
 	}
 
 	conn.location = dsn.Location
+	conn.logDebug = dsn.LogDebug
 
 	return &conn, nil
 }
@@ -237,8 +272,9 @@ func (c *OCI8Conn) Close() error {
 	rv := C.OCILogoff(
 		(*C.OCISvcCtx)(c.svc),
 		(*C.OCIError)(c.err))
-	if rv == C.OCI_ERROR {
-		return ociGetError(c.err)
+
+	if err := c.check(rv, "OCILogoff"); err != nil {
+		return err
 	}
 
 	C.OCIHandleFree(
@@ -268,8 +304,9 @@ func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 		C.OCI_HTYPE_STMT,
 		0,
 		nil)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(c.err)
+
+	if err := c.check(rv, "Prepare.OCIHandleAlloc"); err != nil {
+		return nil, err
 	}
 
 	rv = C.OCIStmtPrepare(
@@ -279,8 +316,9 @@ func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT))
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(c.err)
+
+	if err := c.check(rv, "Prepare.OCIStmtPrepare"); err != nil {
+		return nil, err
 	}
 
 	return &OCI8Stmt{c: c, s: s}, nil
@@ -362,7 +400,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.OCI_DEFAULT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind str")
 			}
 		case []byte:
 			// FIXME: Currently, CLOB not supported
@@ -378,7 +416,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind lob - alloc")
 			}
 
 			rv = C.OCILobCreateTemporary(
@@ -392,7 +430,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.OCI_DURATION_SESSION)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind lob - create temp")
 			}
 
 			bamt = C.ub4(len(data))
@@ -411,7 +449,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.SQLCS_IMPLICIT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind lob - write")
 			}
 			boundParameters = append(boundParameters, oci8bind{dty, pbuf})
 			rv = C.OCIBindByPos(
@@ -430,7 +468,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.OCI_DEFAULT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind lob - bind")
 			}
 		case time.Time:
 			dty = C.SQLT_DAT
@@ -465,7 +503,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.OCI_DEFAULT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind date")
 			}
 		default:
 			dty = C.SQLT_STR
@@ -490,7 +528,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.OCI_DEFAULT)
 			if rv == C.OCI_ERROR {
 				defer freeBoundParameters()
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.bind other")
 			}
 		}
 	}
@@ -539,8 +577,9 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 		nil,
 		nil,
 		C.OCI_DEFAULT)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(s.c.err)
+
+	if err := s.c.check(rv, "OCI8Stmt.Query.OCIStmtExecute"); err != nil {
+		return nil, err
 	}
 
 	var rc C.ub2
@@ -605,7 +644,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 				0,
 				nil)
 			if rv == C.OCI_ERROR {
-				return nil, ociGetError(s.c.err)
+				return nil, ociGetError(s.c.err, "OCI8Stmt.Query.OCIDescriptorAlloc")
 			}
 			rv = C.OCIDefineByPos(
 				(*C.OCIStmt)(s.s),
@@ -635,9 +674,10 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 				C.OCI_DEFAULT)
 		}
 
-		if rv == C.OCI_ERROR {
-			return nil, ociGetError(s.c.err)
+		if err := s.c.check(rv, "OCI8Stmt.Query at end"); err != nil {
+			return nil, err
 		}
+
 	}
 	return &OCI8Rows{s, oci8cols, false}, nil
 }
@@ -656,7 +696,7 @@ func (r *OCI8Result) LastInsertId() (int64, error) {
 		C.OCI_ATTR_ROWID,
 		(*C.OCIError)(r.s.c.err))
 	if rv == C.OCI_ERROR {
-		return 0, ociGetError(r.s.c.err)
+		return 0, ociGetError(r.s.c.err, "OCI8Result.LastInsertId")
 	}
 	return int64(t), nil
 }
@@ -671,7 +711,7 @@ func (r *OCI8Result) RowsAffected() (int64, error) {
 		C.OCI_ATTR_ROW_COUNT,
 		(*C.OCIError)(r.s.c.err))
 	if rv == C.OCI_ERROR {
-		return 0, ociGetError(r.s.c.err)
+		return 0, ociGetError(r.s.c.err, "OCI8Result.RowsAffected")
 	}
 	return int64(t), nil
 }
@@ -696,9 +736,10 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 		nil,
 		nil,
 		C.OCI_DEFAULT)
-	if rv == C.OCI_ERROR {
-		return nil, ociGetError(s.c.err)
+	if err := s.c.check(rv, "OCI8Stmt.Exec"); err != nil {
+		return nil, err
 	}
+
 	return &OCI8Result{s}, nil
 }
 
@@ -752,8 +793,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		C.OCI_DEFAULT)
 
 	if rv == C.OCI_ERROR {
-		err := ociGetError(rc.s.c.err)
-		if err.Error()[:9] != "ORA-01405" {
+		err := ociGetError(rc.s.c.err, "OCI8Rows.Next")
+		if err.code != ERR_COLUMN_VALUE_IS_NULL {
 			return err
 		}
 	}
@@ -789,7 +830,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				0,
 				C.SQLCS_IMPLICIT)
 			if rv == C.OCI_ERROR {
-				return ociGetError(rc.s.c.err)
+				return ociGetError(rc.s.c.err, "OCI8Rows.Next clob")
 			}
 			dest[i] = b
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
@@ -811,19 +852,32 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	return nil
 }
 
-func ociGetError(err unsafe.Pointer) error {
+type OCIError struct {
+	code    int
+	msg     string
+	context string
+}
+
+func (o *OCIError) Error() string {
+	return o.msg
+}
+
+func ociGetError(err unsafe.Pointer, context string) *OCIError {
 	var errcode C.sb4
 	var errbuff [512]C.char
-	C.OCIErrorGet(
+	if rv := C.OCIErrorGet(
 		err,
 		1,
 		nil,
 		&errcode,
 		(*C.OraText)(unsafe.Pointer(&errbuff[0])),
 		512,
-		C.OCI_HTYPE_ERROR)
+		C.OCI_HTYPE_ERROR); rv != C.OCI_SUCCESS {
+		return &OCIError{0, "no oracle error?", ""}
+	}
+
 	s := C.GoString(&errbuff[0])
-	return errors.New(s)
+	return &OCIError{int(errcode), s, context}
 }
 
 func parseEnviron(env []string) (out map[string]interface{}) {

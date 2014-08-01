@@ -29,13 +29,14 @@ const (
 )
 
 type DSN struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	SID      string
-	Location *time.Location
-	LogDebug bool
+	Host       string
+	Port       int
+	Username   string
+	Password   string
+	SID        string
+	Location   *time.Location
+	LogDebug   bool
+	LogBadConn bool
 }
 
 func init() {
@@ -46,12 +47,13 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	svc      unsafe.Pointer
-	env      unsafe.Pointer
-	err      unsafe.Pointer
-	attrs    Values
-	location *time.Location
-	logDebug bool
+	svc        unsafe.Pointer
+	env        unsafe.Pointer
+	err        unsafe.Pointer
+	attrs      Values
+	location   *time.Location
+	logDebug   bool
+	logBadConn bool
 }
 
 type OCI8Tx struct {
@@ -121,6 +123,11 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				if err == nil {
 					dsn.LogDebug = val
 				}
+			case "log-bad-conn":
+				val, err := strconv.ParseBool(param[1])
+				if err == nil {
+					dsn.LogBadConn = val
+				}
 			}
 		}
 	}
@@ -163,6 +170,20 @@ func (c *OCI8Conn) check(rv C.sword, context string) error {
 		if rv != C.OCI_INVALID_HANDLE {
 			err := ociGetError(c.err, context)
 			c.debug("got error %#v\n", err)
+			/*
+			   ORA-01012: not logged on
+			   ORA-01034: ORACLE not available,,
+			   ORA-03113: end-of-file on communication channel
+			   ORA-03114: not connected to ORACLE
+			   ORA-03135: connection lost contact
+			*/
+			switch err.code {
+			case 1012, 1034, 3113, 3114, 7445, 3135:
+				if c.logBadConn || c.logDebug {
+					log.Printf("oci8 BadConn: %s\n", err.Error())
+				}
+				return driver.ErrBadConn
+			}
 			return err
 		}
 		c.debug("invalid handle\n")
@@ -265,6 +286,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 
 	conn.location = dsn.Location
 	conn.logDebug = dsn.LogDebug
+	conn.logBadConn = dsn.LogBadConn
 
 	return &conn, nil
 }

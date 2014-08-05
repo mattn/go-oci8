@@ -47,21 +47,17 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	env        unsafe.Pointer // OCIEnv
-	srv        unsafe.Pointer // OCIServer
-	svc        unsafe.Pointer // OCISvcCtx
-	usr        unsafe.Pointer // OCISession
-	err        unsafe.Pointer // OCIError
+	env unsafe.Pointer // OCIEnv
+	srv unsafe.Pointer // OCIServer
+	svc unsafe.Pointer // OCISvcCtx
+	usr unsafe.Pointer // OCISession
+	err unsafe.Pointer // OCIError
+
 	attrs      Values
 	location   *time.Location
 	logDebug   bool
 	logBadConn bool
 	inTx       bool
-}
-
-type OCI8Tx struct {
-	c  *OCI8Conn
-	tx unsafe.Pointer // OCITrans
 }
 
 type Values map[string]interface{}
@@ -139,54 +135,17 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	return dsn, nil
 }
 
-func (tx *OCI8Tx) free() error {
-	tx.c.inTx = false
-	// XXX: add free tx handler
-	return nil
-}
-
-func (tx *OCI8Tx) Commit() error {
-	if !tx.c.inTx {
-		panic("Can't commit, no active transaction?")
-	}
-	rv := C.OCITransCommit(
-		(*C.OCISvcCtx)(tx.c.svc),
-		(*C.OCIError)(tx.c.err),
-		0)
-	if err := tx.c.check(rv, "OCI8Tx.Commit"); err != nil {
-		return err
-	}
-	return tx.free()
-}
-
-func (tx *OCI8Tx) Rollback() error {
-	if !tx.c.inTx {
-		panic("Can't rollback, no active transaction?")
-	}
-
-	rv := C.OCITransRollback(
-		(*C.OCISvcCtx)(tx.c.svc),
-		(*C.OCIError)(tx.c.err),
-		0,
-	)
-	if err := tx.c.check(rv, "OCI8Tx.Rollback"); err != nil {
-		return err
-	}
-	return tx.free()
-}
-
-func (c *OCI8Conn) debug(format string, args ...interface{}) {
-	if c.logDebug {
+func (conn *OCI8Conn) debug(format string, args ...interface{}) {
+	if conn.logDebug {
 		log.Printf("oci8 "+format, args...)
 	}
 }
 
-func (c *OCI8Conn) check(rv C.sword, context string) error {
-	c.debug("context=%s rv=%v\n", context, rv)
+func (conn *OCI8Conn) check(rv C.sword, context string) error {
 	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
 		if rv != C.OCI_INVALID_HANDLE {
-			err := ociGetError(c.err, context)
-			c.debug("got error %#v\n", err)
+			err := ociGetError(conn.err, context)
+			conn.debug("got error %#v\n", err)
 			/*
 			   ORA-01012: not logged on
 			   ORA-01034: ORACLE not available,,
@@ -196,14 +155,14 @@ func (c *OCI8Conn) check(rv C.sword, context string) error {
 			*/
 			switch err.code {
 			case 1012, 1034, 3113, 3114, 7445, 3135:
-				if c.logBadConn || c.logDebug {
+				if conn.logBadConn || conn.logDebug {
 					log.Printf("oci8 BadConn: %s\n", err.Error())
 				}
 				return driver.ErrBadConn
 			}
 			return err
 		}
-		c.debug("invalid handle\n")
+		conn.debug("invalid handle\n")
 		return fmt.Errorf("Invalid handler at %s", context)
 	}
 	return nil
@@ -211,30 +170,43 @@ func (c *OCI8Conn) check(rv C.sword, context string) error {
 
 func (conn *OCI8Conn) Begin() (driver.Tx, error) {
 	if conn.inTx {
-		return nil, errors.New("transaction already in proggress")
+		return nil, errors.New("transaction already in progress")
 	}
 
-	tx := OCI8Tx{}
-
-	rv := C.OCIHandleAlloc(
-		conn.env,
-		&tx.tx,
-		C.OCI_HTYPE_TRANS,
-		0,
+	var txHandle unsafe.Pointer
+	// determine if a transaction handle was previously allocated
+	rv := C.OCIAttrGet(
+		conn.svc,
+		C.OCI_HTYPE_SVCCTX,
+		unsafe.Pointer(&txHandle),
 		nil,
+		C.OCI_ATTR_TRANS,
+		(*C.OCIError)(conn.err),
 	)
-	if err := conn.check(rv, "Begin.OCIHandleAlloc tx"); err != nil {
+	if err := conn.check(rv, "OCI8Conn.Begin() find existing transaction handle"); err != nil {
 		return nil, err
+	}
+	if txHandle == nil {
+		rv := C.OCIHandleAlloc(
+			conn.env,
+			&txHandle,
+			C.OCI_HTYPE_TRANS,
+			0,
+			nil,
+		)
+		if err := conn.check(rv, "OCI8Conn.Begin() allocate transaction handle"); err != nil {
+			return nil, err
+		}
 	}
 	rv = C.OCIAttrSet(
 		conn.svc,
 		C.OCI_HTYPE_SVCCTX,
-		tx.tx,
+		txHandle,
 		0,
 		C.OCI_ATTR_TRANS,
 		(*C.OCIError)(conn.err),
 	)
-	if err := conn.check(rv, "Begin.OCIAttrSet tx"); err != nil {
+	if err := conn.check(rv, "OCI8Conn.Begin(): associate transaction"); err != nil {
 		return nil, err
 	}
 
@@ -244,10 +216,37 @@ func (conn *OCI8Conn) Begin() (driver.Tx, error) {
 		60,
 		C.OCI_TRANS_NEW,
 	)
-	conn.inTx = true
-	tx.c = conn
+	if err := conn.check(rv, "OCI8Conn.Begin(): start transaction"); err != nil {
+		return nil, err
+	}
 
-	return &tx, nil
+	conn.inTx = true
+
+	return conn, nil
+}
+
+func (conn *OCI8Conn) Commit() error {
+	if !conn.inTx {
+		panic("Can't commit, not in transaction?")
+	}
+	rv := C.OCITransCommit(
+		(*C.OCISvcCtx)(conn.svc),
+		(*C.OCIError)(conn.err),
+		0)
+	conn.inTx = false
+	return conn.check(rv, "OCI8Conn.Commit()")
+}
+
+func (conn *OCI8Conn) Rollback() error {
+	if !conn.inTx {
+		panic("Can't rollback, not in transaction?")
+	}
+	rv := C.OCITransRollback(
+		(*C.OCISvcCtx)(conn.svc),
+		(*C.OCIError)(conn.err),
+		0)
+	conn.inTx = false
+	return conn.check(rv, "OCI8Conn.Rollback()")
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
@@ -269,11 +268,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.attrs.Set(k, v)
 	}
 
-	// https://github.com/mattn/go-oci8/issues/22
-	// C.OCI_NO_MUTEX -?
+	/*
+		OCI_ENV_NO_MUTEX - No mutual exclusion (mutex) locking occurs in this mode.
+		All OCI calls done on the environment handle,
+		or on handles derived from the environment handle, must be serialized.
+		OCI_THREADED must also be specified when OCI_ENV_NO_MUTEX is specified.
+	*/
 	rv := C.OCIEnvCreate(
 		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
-		C.OCI_THREADED,
+		C.OCI_THREADED|C.OCI_ENV_NO_MUTEX,
 		nil,
 		nil,
 		nil,
@@ -418,22 +421,25 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	return &conn, nil
 }
 
-func (c *OCI8Conn) Close() error {
-	rv := C.OCILogoff(
-		(*C.OCISvcCtx)(c.svc),
-		(*C.OCIError)(c.err))
-
-	if err := c.check(rv, "OCILogoff"); err != nil {
-		return err
-	}
-
+func (conn *OCI8Conn) Close() error {
+	//TODO: add C.OCITransRollback()
+	C.OCISessionEnd(
+		(*C.OCISvcCtx)(conn.svc),
+		(*C.OCIError)(conn.err),
+		(*C.OCISession)(conn.usr),
+		C.OCI_DEFAULT)
+	C.OCIServerDetach(
+		(*C.OCIServer)(conn.srv),
+		(*C.OCIError)(conn.err),
+		C.OCI_DEFAULT)
 	C.OCIHandleFree(
-		c.env,
+		conn.env,
 		C.OCI_HTYPE_ENV)
 
-	c.svc = nil
-	c.env = nil
-	c.err = nil
+	conn.srv = nil
+	conn.svc = nil
+	conn.env = nil
+	conn.err = nil
 	return nil
 }
 
@@ -443,35 +449,35 @@ type OCI8Stmt struct {
 	closed bool
 }
 
-func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
+func (conn *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
 	var s unsafe.Pointer
 
 	rv := C.OCIHandleAlloc(
-		c.env,
+		conn.env,
 		&s,
 		C.OCI_HTYPE_STMT,
 		0,
 		nil)
 
-	if err := c.check(rv, "Prepare.OCIHandleAlloc"); err != nil {
+	if err := conn.check(rv, "OCI8Conn.Prepare() allocate statement handle"); err != nil {
 		return nil, err
 	}
 
 	rv = C.OCIStmtPrepare(
 		(*C.OCIStmt)(s),
-		(*C.OCIError)(c.err),
+		(*C.OCIError)(conn.err),
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT))
 
-	if err := c.check(rv, "Prepare.OCIStmtPrepare"); err != nil {
+	if err := conn.check(rv, "OCI8Conn.Prepare() prepare statement"); err != nil {
 		return nil, err
 	}
 
-	return &OCI8Stmt{c: c, s: s}, nil
+	return &OCI8Stmt{c: conn, s: s}, nil
 }
 
 func (s *OCI8Stmt) Close() error {

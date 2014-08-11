@@ -771,10 +771,10 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 
 		switch rc.cols[i].kind {
 		case C.SQLT_DAT:
-			buf := *(*[]byte)(unsafe.Pointer(&rc.cols[i].pbuf))
+			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
-			dest[i] = time.Date(((int(buf[0])-100)*100)+(int(buf[1])-100), time.Month(int(buf[2])), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1, 0, rc.s.c.location)
+			dest[i] = fmt.Sprintf("%v-%v-%v %v:%v:%v", ((int(buf[0])-100)*100)+(int(buf[1])-100),int(buf[2]), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1)
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			var bamt C.ub4
 			b := make([]byte, rc.cols[i].size)

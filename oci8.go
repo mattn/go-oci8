@@ -782,8 +782,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			datestr := fmt.Sprintf(dateStrFmt, ((int(buf[0])-100)*100)+(int(buf[1])-100), int(buf[2]), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1)
-			// TODO Use ParseLocation to handle timezones
-			dest[i], err = time.Parse(dateFmt, datestr)
+			dest[i], err = time.ParseInLocation(dateFmt, datestr, rc.s.c.location)
 			if err != nil {
 				return fmt.Errorf("Unknown date format:", err)
 			}

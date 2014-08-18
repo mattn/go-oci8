@@ -745,6 +745,11 @@ func (rc *OCI8Rows) Columns() []string {
 	return cols
 }
 
+const (
+	dateStrFmt = "%v-%v-%v %v:%v:%v"
+	dateFmt    = "2006-1-2 15:4:5"
+)
+
 func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	rv := C.OCIStmtFetch(
 		(*C.OCIStmt)(rc.s.s),
@@ -763,6 +768,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
 	}
+
+	var err error
 	for i := range dest {
 		if rc.cols[i].ind == -1 { //Null
 			dest[i] = nil
@@ -774,7 +781,11 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
-			dest[i] = fmt.Sprintf("%v-%v-%v %v:%v:%v", ((int(buf[0])-100)*100)+(int(buf[1])-100),int(buf[2]), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1)
+			datestr := fmt.Sprintf(dateStrFmt, ((int(buf[0])-100)*100)+(int(buf[1])-100), int(buf[2]), int(buf[3]), int(buf[4])-1, int(buf[5])-1, int(buf[6])-1)
+			dest[i], err = time.ParseInLocation(dateFmt, datestr, rc.s.c.location)
+			if err != nil {
+				return fmt.Errorf("Unknown date format:", err)
+			}
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			var bamt C.ub4
 			b := make([]byte, rc.cols[i].size)

@@ -159,14 +159,15 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
-	var (
-		conn OCI8Conn
-		dsn  *DSN
-	)
-
-	if dsn, err = ParseDSN(dsnString); err != nil {
+	dsn, err := ParseDSN(dsnString); 
+	if err != nil {
 		return nil, err
 	}
+	return d.OpenDSN(dsn);
+}
+
+func (d *OCI8Driver) OpenDSN(dsn *DSN) (connection driver.Conn, err error) {
+	var conn OCI8Conn
 
 	// set safe defaults
 	conn.attrs = make(Values)

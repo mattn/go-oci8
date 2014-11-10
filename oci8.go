@@ -108,6 +108,16 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				if dsn.Location, err = time.LoadLocation(param[1]); err != nil {
 					return nil, err
 				}
+			case "encoded":
+				if param[1] == "true" {
+					if dsn.Username, err = url.QueryUnescape(dsn.Username); err!=nil {
+						panic(err)
+					}
+					if dsn.Password, _ = url.QueryUnescape(dsn.Password); err!=nil {
+						panic(err)
+					}
+				}
+
 			}
 		}
 	}
@@ -159,11 +169,11 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
-	dsn, err := ParseDSN(dsnString); 
+	dsn, err := ParseDSN(dsnString)
 	if err != nil {
 		return nil, err
 	}
-	return d.OpenDSN(dsn);
+	return d.OpenDSN(dsn)
 }
 
 func (d *OCI8Driver) OpenDSN(dsn *DSN) (connection driver.Conn, err error) {

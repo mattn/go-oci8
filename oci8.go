@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -69,49 +70,62 @@ func (vs Values) Get(k string) (v interface{}) {
 //sets the timezone to read times in as and to marshal to when writing times to
 //Oracle
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
-	var (
-		params string
-	)
+	rs := []byte(dsnString)
+break_loop:
+	for i, r := range rs {
+		if r == '/' {
+			rs[i] = ':'
+			dsnString = string(rs)
+			break break_loop
+		}
+		if r == '@' {
+			break break_loop
+		}
+	}
 
+	if !strings.HasPrefix(dsnString, "oracle://") {
+		dsnString = "oracle://" +  dsnString
+	}
+	u, err := url.Parse(dsnString)
+	if err != nil {
+		return nil, err
+	}
 	dsn = &DSN{Location: time.Local}
 
-	dsnString = strings.Replace(dsnString, "/", " / ", 2)
-	dsnString = strings.Replace(dsnString, "@", " @ ", 1)
-	dsnString = strings.Replace(dsnString, ":", " : ", 1)
-	dsnString = strings.Replace(dsnString, "?", " ?", 1)
-
-	if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s : %d / %s", &dsn.Username, &dsn.Password, &dsn.Host, &dsn.Port, &dsn.SID); err != nil {
-		dsn.Host = ""
-		dsn.Port = 0
-		if _, err = fmt.Sscanf(dsnString, "%s / %s @ %s", &dsn.Username, &dsn.Password, &dsn.SID); err != nil {
-			return nil, errors.New("Invalid DSN")
-		}
-	}
-
-	if i := strings.Index(dsnString, "?"); i != -1 {
-		params = dsnString[i+1:]
-	}
-
-	if len(params) > 0 {
-		for _, v := range strings.Split(params, "&") {
-			param := strings.SplitN(v, "=", 2)
-			if len(param) != 2 {
-				continue
-			}
-
-			if param[1], err = url.QueryUnescape(param[1]); err != nil {
-				panic(err)
-			}
-
-			switch param[0] {
-			case "loc":
-				if dsn.Location, err = time.LoadLocation(param[1]); err != nil {
-					return nil, err
-				}
+	if u.User != nil {
+		dsn.Username = u.User.Username()
+		password, ok := u.User.Password()
+		if ok {
+			dsn.Password = password
+		} else {
+			if tok := strings.SplitN(dsn.Username, "/", 2); len(tok) >= 2 {
+				dsn.Username = tok[0]
+				dsn.Password = tok[1]
 			}
 		}
 	}
+	host, port, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		if err.Error() == "missing port in address" {
+			return nil, fmt.Errorf("Invalid DSN: %v", err)
+		}
+		port = "0"
+	}
+	dsn.Host = host
+	nport, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid DSN: %v", err)
+	}
+	dsn.Port = nport
+	dsn.SID = strings.Trim(u.Path, "/")
 
+	for k, v := range u.Query() {
+		if k == "loc" && len(v) > 0 {
+			if dsn.Location, err = time.LoadLocation(v[0]); err != nil {
+				return nil, fmt.Errorf("Invalid DSN: %v", err)
+			}
+		}
+	}
 	return dsn, nil
 }
 

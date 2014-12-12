@@ -218,7 +218,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	}
 
 	var phost *C.char
-	if dsn.Host != "" {
+	if dsn.Host != "" && dsn.SID != "" {
 		phost = C.CString(fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID))
 	} else {
 		phost = C.CString(dsn.SID)

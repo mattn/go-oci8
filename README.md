@@ -42,3 +42,13 @@ License
 -------
 
 MIT: http://mattn.mit-license.org/2014
+
+Author
+------
+
+Yasuhiro Matsumoto (a.k.a mattn)
+
+Special Thanks
+--------------
+
+Jamil Djadala

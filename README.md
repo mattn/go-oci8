@@ -43,6 +43,11 @@ License
 
 MIT: http://mattn.mit-license.org/2014
 
+ToDo
+----
+
+* LastInserted is not int64
+
 Author
 ------
 

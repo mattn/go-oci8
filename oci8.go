@@ -247,12 +247,13 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, ociGetError(conn.err)
 	}
 
-	var phost *C.char
+	var host string
 	if dsn.Host != "" && dsn.SID != "" {
-		phost = C.CString(fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID))
+		host = fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID)
 	} else {
-		phost = C.CString(dsn.SID)
+		host = dsn.SID
 	}
+	phost := C.CString(host)
 	defer C.free(unsafe.Pointer(phost))
 	phostlen := C.strlen(phost)
 	puser := C.CString(dsn.Username)

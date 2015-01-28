@@ -47,6 +47,7 @@ ToDo
 ----
 
 * LastInserted is not int64
+* Fetch number is more improvable
 
 Author
 ------

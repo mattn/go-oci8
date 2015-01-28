@@ -687,36 +687,70 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	return &OCI8Rows{s, oci8cols, false}, nil
 }
 
-type OCI8Result struct {
-	s *OCI8Stmt
-}
+// OCI_ATTR_ROWID must be get in handle -> alloc
+// can be coverted to char, but not to int64
 
-func (r *OCI8Result) LastInsertId() (int64, error) {
+/*
+func (s *OCI8Stmt) lastInsertId() (int64, error) {
+	retUb4 := C.OCIAttrGetUb4(s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, (*C.OCIError)(s.c.err))
+	if retUb4.rv != C.OCI_SUCCESS {
+		return 0, ociGetError(s.c.err)
+	}
+	return int64(retUb4.num), nil
+}
+*/
+
+func (s *OCI8Stmt) lastInsertId() (int64, error) {
 	var t C.ub4
 	if rv := C.OCIAttrGet(
-		r.s.s,
+		s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROWID,
-		(*C.OCIError)(r.s.c.err)); rv != C.OCI_SUCCESS {
-		return 0, ociGetError(r.s.c.err)
+		(*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
+		return 0, ociGetError(s.c.err)
 	}
 	return int64(t), nil
 }
 
-func (r *OCI8Result) RowsAffected() (int64, error) {
+/*
+func (s *OCI8Stmt) rowsAffected() (int64, error) {
+	retUb4 := C.OCIAttrGetUb4(s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, (*C.OCIError)(s.c.err))
+	if retUb4.rv != C.OCI_SUCCESS {
+		return 0, ociGetError(s.c.err)
+	}
+	return int64(retUb4.num), nil
+}
+*/
+
+func (s *OCI8Stmt) rowsAffected() (int64, error) {
 	var t C.ub4
 	if rv := C.OCIAttrGet(
-		r.s.s,
+		s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROW_COUNT,
-		(*C.OCIError)(r.s.c.err)); rv != C.OCI_SUCCESS {
-		return 0, ociGetError(r.s.c.err)
+		(*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
+		return 0, ociGetError(s.c.err)
 	}
 	return int64(t), nil
+}
+
+type OCI8Result struct {
+	n     int64
+	errn  error
+	id    int64
+	errid error
+}
+
+func (r *OCI8Result) LastInsertId() (int64, error) {
+	return r.id, r.errid
+}
+
+func (r *OCI8Result) RowsAffected() (int64, error) {
+	return r.n, r.errn
 }
 
 func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
@@ -747,7 +781,9 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	if rv != C.OCI_SUCCESS {
 		return nil, ociGetError(s.c.err)
 	}
-	return &OCI8Result{s}, nil
+	n, en := s.rowsAffected()
+	id, ei := s.lastInsertId()
+	return &OCI8Result{n: n, errn: en, id: id, errid: ei}, nil
 }
 
 type oci8col struct {
@@ -772,10 +808,7 @@ type OCI8Rows struct {
 
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
 	tptr := *(*unsafe.Pointer)(p)
-
-	if rv := C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype); rv != C.OCI_SUCCESS {
-		log.Fatal("OCIDescriptorFree")
-	}
+	C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype)
 }
 
 func (rc *OCI8Rows) Close() error {

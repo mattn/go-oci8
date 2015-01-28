@@ -11,7 +11,7 @@ import (
 
 func main() {
 	nlsLang := os.Getenv("NLS_LANG")
-	if !strings.HasSuffix(nlsLang, ".AL32UTF8") {
+	if !strings.HasSuffix(nlsLang, "UTF8") {
 		i := strings.LastIndex(nlsLang, ".")
 		if i < 0 {
 			nlsLang = "AMERICAN_AMERICA.AL32UTF8"

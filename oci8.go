@@ -195,21 +195,24 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.attrs.Set(k, v)
 	}
 
-	rv := C.OCIInitialize(
-		C.OCI_DEFAULT,
-		nil,
-		nil,
-		nil,
+	//	rv := C.OCIInitialize(
+	//		C.OCI_DEFAULT,
+	//		nil,
+	//		nil,
+	//		nil,
+	//		nil)
+	//	if rv == C.OCI_ERROR {
+	//		return nil, ociGetError(conn.err)
+	//	}
+
+	rv := C.OCIEnvInit(
+		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
+		C.OCI_DEFAULT|C.OCI_THREADED,
+		0,
 		nil)
 	if rv == C.OCI_ERROR {
 		return nil, ociGetError(conn.err)
 	}
-
-	rv = C.OCIEnvInit(
-		(**C.OCIEnv)(unsafe.Pointer(&conn.env)),
-		C.OCI_DEFAULT,
-		0,
-		nil)
 
 	rv = C.OCIHandleAlloc(
 		conn.env,

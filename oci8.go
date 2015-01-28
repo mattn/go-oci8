@@ -23,6 +23,8 @@ import (
 	"unsafe"
 )
 
+const blobBufSize = 4000
+
 type DSN struct {
 	Host            string
 	Port            int
@@ -808,7 +810,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		}
 
 		switch rc.cols[i].kind {
-		case C.SQLT_DAT:
+		case C.SQLT_DAT: //for test, date are return as timestamp
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
@@ -822,23 +824,37 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				0,
 				rc.s.c.location)
 		case C.SQLT_BLOB, C.SQLT_CLOB:
-			var bamt C.ub4
-			b := make([]byte, rc.cols[i].size)
-			if rv := C.OCILobRead(
+			ptmp := unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(unsafe.Pointer(nil)))
+			bamt := (*C.ub4)(ptmp)
+			ptmp = unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(C.ub4(0)) + unsafe.Sizeof(unsafe.Pointer(nil)))
+			b := (*[1 << 30]byte)(ptmp)[0:blobBufSize]
+			var buf []byte
+		again:
+			rv = C.OCILobRead(
 				(*C.OCISvcCtx)(rc.s.c.svc),
 				(*C.OCIError)(rc.s.c.err),
-				(*C.OCILobLocator)(rc.cols[i].pbuf),
-				&bamt,
+				*(**C.OCILobLocator)(rc.cols[i].pbuf),
+				bamt,
 				1,
-				unsafe.Pointer(&b[0]),
-				C.ub4(rc.cols[i].size),
+				ptmp,
+				C.ub4(blobBufSize),
 				nil,
 				nil,
 				0,
-				C.SQLCS_IMPLICIT); rv != C.OCI_SUCCESS {
+				C.SQLCS_IMPLICIT)
+			if rv == C.OCI_NEED_DATA {
+				buf = append(buf, b[:int(*bamt)]...)
+				goto again
+			}
+			if rv != C.OCI_SUCCESS {
 				return ociGetError(rc.s.c.err)
 			}
-			dest[i] = b
+			//dest[i] = append(buf, b[:int(*bamt)]...)//buf//b[:total+int(bamt)]
+			if rc.cols[i].kind == C.SQLT_BLOB {
+				dest[i] = append(buf, b[:int(*bamt)]...)
+			} else {
+				dest[i] = string(append(buf, b[:int(*bamt)]...))
+			}
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			switch {

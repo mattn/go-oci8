@@ -117,7 +117,11 @@ break_loop:
 		return nil, fmt.Errorf("Invalid DSN: %v", err)
 	}
 	dsn.Port = nport
-	dsn.SID = strings.Trim(u.Path, "/")
+	if u.Path != "" {
+		dsn.SID = strings.Trim(u.Path, "/")
+	} else if u.Host != "" {
+		dsn.SID = u.Host
+	}
 
 	for k, v := range u.Query() {
 		if k == "loc" && len(v) > 0 {

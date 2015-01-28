@@ -770,13 +770,28 @@ type OCI8Rows struct {
 	e    bool
 }
 
+func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
+	tptr := *(*unsafe.Pointer)(p)
+
+	if rv := C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype); rv != C.OCI_SUCCESS {
+		log.Fatal("OCIDescriptorFree")
+	}
+}
+
 func (rc *OCI8Rows) Close() error {
 	for _, col := range rc.cols {
-		if col.kind == C.SQLT_CLOB || col.kind == C.SQLT_BLOB {
-			C.OCIDescriptorFree(
-				col.pbuf,
-				C.OCI_DTYPE_LOB)
-		} else {
+		switch col.kind {
+		case C.SQLT_CLOB, C.SQLT_BLOB:
+			freeDecriptor(col.pbuf, C.OCI_DTYPE_LOB)
+		case C.SQLT_TIMESTAMP:
+			freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP)
+		case C.SQLT_TIMESTAMP_TZ:
+			freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
+		case C.SQLT_INTERVAL_DS:
+			freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_DS)
+		case C.SQLT_INTERVAL_YM:
+			freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_YM)
+		default:
 			C.free(col.pbuf)
 		}
 	}

@@ -279,11 +279,11 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 }
 
 func (c *OCI8Conn) Close() error {
-	rv := C.OCILogoff(
+	var err error
+	if rv := C.OCILogoff(
 		(*C.OCISvcCtx)(c.svc),
-		(*C.OCIError)(c.err))
-	if rv == C.OCI_ERROR {
-		return ociGetError(c.err)
+		(*C.OCIError)(c.err)); rv != C.OCI_SUCCESS {
+		err = ociGetError(c.err)
 	}
 
 	C.OCIHandleFree(
@@ -293,7 +293,7 @@ func (c *OCI8Conn) Close() error {
 	c.svc = nil
 	c.env = nil
 	c.err = nil
-	return nil
+	return err
 }
 
 type OCI8Stmt struct {
@@ -307,24 +307,22 @@ func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 	defer C.free(unsafe.Pointer(pquery))
 	var s unsafe.Pointer
 
-	rv := C.OCIHandleAlloc(
+	if rv := C.OCIHandleAlloc(
 		c.env,
 		&s,
 		C.OCI_HTYPE_STMT,
 		0,
-		nil)
-	if rv == C.OCI_ERROR {
+		nil); rv != C.OCI_SUCCESS {
 		return nil, ociGetError(c.err)
 	}
 
-	rv = C.OCIStmtPrepare(
+	if rv := C.OCIStmtPrepare(
 		(*C.OCIStmt)(s),
 		(*C.OCIError)(c.err),
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
-		C.ub4(C.OCI_DEFAULT))
-	if rv == C.OCI_ERROR {
+		C.ub4(C.OCI_DEFAULT)); rv != C.OCI_SUCCESS {
 		return nil, ociGetError(c.err)
 	}
 
@@ -391,7 +389,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 		case nil:
 			dty = C.SQLT_STR
 			boundParameters = append(boundParameters, oci8bind{dty, nil})
-			rv := C.OCIBindByPos(
+			if rv := C.OCIBindByPos(
 				(*C.OCIStmt)(s.s),
 				&bp,
 				(*C.OCIError)(s.c.err),
@@ -404,8 +402,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil,
 				0,
 				nil,
-				C.OCI_DEFAULT)
-			if rv == C.OCI_ERROR {
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
@@ -415,18 +412,17 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 			data = v.([]byte)
 			var bamt C.ub4
 			var pbuf unsafe.Pointer
-			rv := C.OCIDescriptorAlloc(
+			if rv := C.OCIDescriptorAlloc(
 				s.c.env,
 				&pbuf,
 				C.OCI_DTYPE_LOB,
 				0,
-				nil)
-			if rv == C.OCI_ERROR {
+				nil); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
 
-			rv = C.OCILobCreateTemporary(
+			if rv := C.OCILobCreateTemporary(
 				(*C.OCISvcCtx)(s.c.svc),
 				(*C.OCIError)(s.c.err),
 				(*C.OCILobLocator)(pbuf),
@@ -434,14 +430,13 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				C.SQLCS_IMPLICIT,
 				C.OCI_TEMP_BLOB,
 				C.OCI_ATTR_NOCACHE,
-				C.OCI_DURATION_SESSION)
-			if rv == C.OCI_ERROR {
+				C.OCI_DURATION_SESSION); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
 
 			bamt = C.ub4(len(data))
-			rv = C.OCILobWrite(
+			if rv := C.OCILobWrite(
 				(*C.OCISvcCtx)(s.c.svc),
 				(*C.OCIError)(s.c.err),
 				(*C.OCILobLocator)(pbuf),
@@ -453,13 +448,12 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil,
 				nil,
 				0,
-				C.SQLCS_IMPLICIT)
-			if rv == C.OCI_ERROR {
+				C.SQLCS_IMPLICIT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
 			boundParameters = append(boundParameters, oci8bind{dty, pbuf})
-			rv = C.OCIBindByPos(
+			if rv := C.OCIBindByPos(
 				(*C.OCIStmt)(s.s),
 				&bp,
 				(*C.OCIError)(s.c.err),
@@ -472,8 +466,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil,
 				0,
 				nil,
-				C.OCI_DEFAULT)
-			if rv == C.OCI_ERROR {
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
@@ -494,7 +487,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 
 			cdata = C.CString(string(data))
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
-			rv := C.OCIBindByPos(
+			if rv := C.OCIBindByPos(
 				(*C.OCIStmt)(s.s),
 				&bp,
 				(*C.OCIError)(s.c.err),
@@ -507,8 +500,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil,
 				0,
 				nil,
-				C.OCI_DEFAULT)
-			if rv == C.OCI_ERROR {
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
@@ -519,7 +511,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 
 			cdata = C.CString(string(data))
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
-			rv := C.OCIBindByPos(
+			if rv := C.OCIBindByPos(
 				(*C.OCIStmt)(s.s),
 				&bp,
 				(*C.OCIError)(s.c.err),
@@ -532,8 +524,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (freeBoundParameters func(), err er
 				nil,
 				0,
 				nil,
-				C.OCI_DEFAULT)
-			if rv == C.OCI_ERROR {
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters()
 				return nil, ociGetError(s.c.err)
 			}
@@ -700,14 +691,13 @@ type OCI8Result struct {
 
 func (r *OCI8Result) LastInsertId() (int64, error) {
 	var t C.ub4
-	rv := C.OCIAttrGet(
+	if rv := C.OCIAttrGet(
 		r.s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROWID,
-		(*C.OCIError)(r.s.c.err))
-	if rv == C.OCI_ERROR {
+		(*C.OCIError)(r.s.c.err)); rv != C.OCI_SUCCESS {
 		return 0, ociGetError(r.s.c.err)
 	}
 	return int64(t), nil
@@ -715,14 +705,13 @@ func (r *OCI8Result) LastInsertId() (int64, error) {
 
 func (r *OCI8Result) RowsAffected() (int64, error) {
 	var t C.ub4
-	rv := C.OCIAttrGet(
+	if rv := C.OCIAttrGet(
 		r.s.s,
 		C.OCI_HTYPE_STMT,
 		unsafe.Pointer(&t),
 		nil,
 		C.OCI_ATTR_ROW_COUNT,
-		(*C.OCIError)(r.s.c.err))
-	if rv == C.OCI_ERROR {
+		(*C.OCIError)(r.s.c.err)); rv != C.OCI_SUCCESS {
 		return 0, ociGetError(r.s.c.err)
 	}
 	return int64(t), nil
@@ -835,7 +824,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			var bamt C.ub4
 			b := make([]byte, rc.cols[i].size)
-			rv = C.OCILobRead(
+			if rv := C.OCILobRead(
 				(*C.OCISvcCtx)(rc.s.c.svc),
 				(*C.OCIError)(rc.s.c.err),
 				(*C.OCILobLocator)(rc.cols[i].pbuf),
@@ -846,8 +835,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				nil,
 				nil,
 				0,
-				C.SQLCS_IMPLICIT)
-			if rv == C.OCI_ERROR {
+				C.SQLCS_IMPLICIT); rv != C.OCI_SUCCESS {
 				return ociGetError(rc.s.c.err)
 			}
 			dest[i] = b

@@ -801,6 +801,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
+	} else if rv != C.OCI_SUCCESS {
+		return ociGetError(rc.s.c.err)
 	}
 
 	for i := range dest {

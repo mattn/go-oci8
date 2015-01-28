@@ -807,13 +807,6 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		C.OCI_FETCH_NEXT,
 		C.OCI_DEFAULT)
 
-	if rv == C.OCI_ERROR {
-		err := ociGetError(rc.s.c.err)
-		if err.Error()[:9] != "ORA-01405" {
-			return err
-		}
-	}
-
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
 	}

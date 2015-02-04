@@ -342,15 +342,15 @@ func (vs Values) Get(k string) (v interface{}) {
 	return
 }
 
-//ParseDSN parses a DSN used to connect to Oracle
-//It expects to receive a string in the form:
-//user:password@host:port/sid?param1=value1&param2=value2
+// ParseDSN parses a DSN used to connect to Oracle
+// It expects to receive a string in the form:
+// user:password@host:port/sid?param1=value1&param2=value2
 //
-//Currently the parameters supported is:
-//1 'loc' which
-//sets the timezone to read times in as and to marshal to when writing times to
-//Oracle,
-//2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
+// Currently the parameters supported is:
+// 1 'loc' which
+// sets the timezone to read times in as and to marshal to when writing times to
+// Oracle,
+// 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	rs := []byte(dsnString)
 break_loop:
@@ -508,7 +508,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,
 		0); rv.rv != C.OCI_SUCCESS {
-		return nil, ociGetError(conn.err)
+		// TODO: error handle not yet allocated, we can't get string error from oracle
+		return nil, errors.New("can't OCIEnvCreate")
 	} else {
 		conn.env = rv.ptr
 	}
@@ -745,7 +746,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 						sign = '-'
 					}
 					offset /= 60
-					//oracle accept zones "[+-]hh:mm", try second time
+					// oracle accept zones "[+-]hh:mm", try second time
 					zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
 				} else {
 					break
@@ -756,14 +757,14 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 
 		case string:
 			v := v.(string)
-			dty = C.SQLT_AFC //dont trim strings !!!
+			dty = C.SQLT_AFC // don't trim strings !!!
 			cdata = C.CString(v)
 			clen = C.sb4(len(v))
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 		case int64:
 			val := v.(int64)
 			dty = C.SQLT_INT
-			clen = C.sb4(8) //not tested on i386. may only work on amd64
+			clen = C.sb4(8) // not tested on i386. may only work on amd64
 			cdata = (*C.char)(C.malloc(8))
 			buf := (*[1 << 30]byte)(unsafe.Pointer(cdata))[0:8]
 			buf[0] = byte(val & 0x0ff)
@@ -776,7 +777,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			buf[7] = byte(val >> 56 & 0x0ff)
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 
-		case bool: //oracle dont have bool, handle as 0/1
+		case bool: // oracle dont have bool, handle as 0/1
 			dty = C.SQLT_INT
 			clen = C.sb4(1)
 			cdata = (*C.char)(C.malloc(10))
@@ -910,10 +911,10 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 		switch tp {
 
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
-			//TODO: transfer as clob, read all bytes in loop
-			//lp *= 4 //utf8 enc
-			oci8cols[i].kind = C.SQLT_CHR  //tp
-			oci8cols[i].size = int(lp) * 4 //utf8 enc
+			// TODO: transfer as clob, read all bytes in loop
+			// lp *= 4 // utf8 enc
+			oci8cols[i].kind = C.SQLT_CHR  // tp
+			oci8cols[i].size = int(lp) * 4 // utf8 enc
 			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size) + 1)
 
 		case C.SQLT_BIN:
@@ -932,7 +933,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			oci8cols[i].pbuf = C.malloc(8)
 
 		case C.SQLT_CLOB, C.SQLT_BLOB:
-			//allocate +io buffers + ub4
+			// allocate +io buffers + ub4
 			size := int(unsafe.Sizeof(unsafe.Pointer(nil)) + unsafe.Sizeof(C.ub4(0)))
 			if oci8cols[i].size < blobBufSize {
 				size += blobBufSize
@@ -1002,15 +1003,15 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}
 
-		case C.SQLT_RDD: //rowid
+		case C.SQLT_RDD: // rowid
 			lp = 40
 			oci8cols[i].pbuf = C.malloc(C.size_t(lp) + 1)
-			oci8cols[i].kind = C.SQLT_CHR //tp
+			oci8cols[i].kind = C.SQLT_CHR // tp
 			oci8cols[i].size = int(lp + 1)
 
 		default:
 			oci8cols[i].pbuf = C.malloc(C.size_t(lp) + 1)
-			oci8cols[i].kind = C.SQLT_CHR //tp
+			oci8cols[i].kind = C.SQLT_CHR // tp
 			oci8cols[i].size = int(lp + 1)
 		}
 
@@ -1199,8 +1200,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	}
 
 	for i := range dest {
-		//TODO switch rc.cols[i].ind
-		if rc.cols[i].ind == -1 { //Null
+		// TODO: switch rc.cols[i].ind
+		if rc.cols[i].ind == -1 { // Null
 			dest[i] = nil
 			continue
 		} else if rc.cols[i].ind != 0 {
@@ -1208,10 +1209,10 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		}
 
 		switch rc.cols[i].kind {
-		case C.SQLT_DAT: //for test, date are return as timestamp
+		case C.SQLT_DAT: // for test, date are return as timestamp
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
-			//TODO Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
-			//TODO Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
+			// TODO: Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
+			// TODO: Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			dest[i] = time.Date(
 				(int(buf[0])-100)*100+(int(buf[1])-100),
 				time.Month(int(buf[2])),
@@ -1255,10 +1256,10 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			switch {
-			case rc.cols[i].ind == 0: //Normal
+			case rc.cols[i].ind == 0: // Normal
 				dest[i] = string(buf)
-			case rc.cols[i].ind == -2 || //Field longer than type (truncated)
-				rc.cols[i].ind > 0: //Field longer than type (truncated). Value is original length.
+			case rc.cols[i].ind == -2 || // Field longer than type (truncated)
+				rc.cols[i].ind > 0: // Field longer than type (truncated). Value is original length.
 				dest[i] = string(buf)
 			default:
 				return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
@@ -1278,7 +1279,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				v |= uint32(buf[1]) << 16
 				v |= uint32(buf[0]) << 24
 
-				//SOME ORACLE SHIT ?
+				// Don't know why bits are inverted that way, but it works
 				if buf[0]&0x80 == 0 {
 					v ^= 0xffffffff
 				} else {
@@ -1295,7 +1296,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				v |= uint64(buf[1]) << 48
 				v |= uint64(buf[0]) << 56
 
-				//SOME ORACLE SHIT ?
+				// Don't know why bits are inverted that way, but it works
 				if buf[0]&0x80 == 0 {
 					v ^= 0xffffffffffffffff
 				} else {
@@ -1343,7 +1344,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 			nnn := C.GoStringN((*C.char)((unsafe.Pointer)(&rvz.zone[0])), C.int(rvz.zlen))
 			loc, err := time.LoadLocation(nnn)
 			if err != nil {
-				//TODO reuse locations
+				// TODO: reuse locations
 				loc = time.FixedZone(nnn, int(rvz.h)*60*60+int(rvz.m)*60)
 			}
 			dest[i] = time.Date(

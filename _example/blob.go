@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-oci8"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -25,7 +26,9 @@ func main() {
 		return
 	}
 
-	_, err = db.Exec("insert into blob_example(id, data) values(:1, :2)", "001", []byte("はろ"))
+	// Over 4000bytes
+	b := []byte(strings.Repeat("こんにちわ世界", 200))
+	_, err = db.Exec("insert into blob_example(id, data) values(:1, :2)", "001", b)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -41,6 +44,9 @@ func main() {
 		var id string
 		var data []byte
 		rows.Scan(&id, &data)
+		if string(b) != string(data) {
+			panic("BLOB doesn't work correctly")
+		}
 		fmt.Println(id, string(data))
 	}
 }

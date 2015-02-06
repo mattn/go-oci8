@@ -18,7 +18,7 @@ func main() {
 		} else {
 			nlsLang = nlsLang[:i+1] + "AL32UTF8"
 		}
-		fmt.Fprintf(os.Stderr, "NLS_LANG error: should be %s, not %s!",
+		fmt.Fprintf(os.Stderr, "NLS_LANG error: should be %s, not %s!\n",
 			nlsLang, os.Getenv("NLS_LANG"))
 	}
 

@@ -459,7 +459,7 @@ func (c *OCI8Conn) Begin() (driver.Tx, error) {
 			c.env,
 			C.OCI_HTYPE_TRANS,
 			0); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("cant  allocate  handle")
+			return nil, errors.New("can't allocate handle")
 		} else {
 			th = rv.ptr
 		}
@@ -507,7 +507,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,
-		0); rv.rv != C.OCI_SUCCESS {
+		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
 		// TODO: error handle not yet allocated, we can't get string error from oracle
 		return nil, errors.New("can't OCIEnvCreate")
 	} else {

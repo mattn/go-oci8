@@ -353,19 +353,19 @@ func (vs Values) Get(k string) (v interface{}) {
 // 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	rs := []byte(dsnString)
-break_loop:
-	for i, r := range rs {
-		if r == '/' {
-			rs[i] = ':'
-			dsnString = string(rs)
-			break break_loop
-		}
-		if r == '@' {
-			break break_loop
-		}
-	}
 
 	if !strings.HasPrefix(dsnString, "oracle://") {
+	break_loop:
+		for i, r := range rs {
+			if r == '/' {
+				rs[i] = ':'
+				dsnString = string(rs)
+				break break_loop
+			}
+			if r == '@' {
+				break break_loop
+			}
+		}
 		dsnString = "oracle://" + dsnString
 	}
 	u, err := url.Parse(dsnString)
@@ -389,9 +389,9 @@ break_loop:
 	host, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
 		if err.Error() == "missing port in address" {
-			return nil, fmt.Errorf("Invalid DSN: %v", err)
+			return nil, fmt.Errorf("Invalid DSN: %q %v", dsnString, err)
 		}
-		port = "0"
+		port = "1521"
 	}
 	dsn.Host = host
 	nport, err := strconv.Atoi(port)

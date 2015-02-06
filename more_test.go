@@ -25,9 +25,7 @@ type dbc interface {
 var db *sql.DB
 
 func init() {
-	//os.Setenv("NLS_LANG", ".AL32UTF8")
-	//os.Setenv("NLS_LANG", "BULGARIAN_BULGARIA.AL32UTF8")
-	//os.Setenv("NLS_LANG", "BULGARIAN_BULGARIA.CL8MSWIN1251")
+	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
 
 	var err error
 	dsn := os.Getenv("DSN")

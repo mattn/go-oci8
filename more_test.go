@@ -30,7 +30,7 @@ func init() {
 	var err error
 	dsn := os.Getenv("DSN")
 	if dsn == "" {
-		dsn = "XE"
+		dsn = "scott/tiger@XE"
 	}
 
 	db, err = sql.Open("oci8", dsn)

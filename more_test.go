@@ -31,6 +31,9 @@ func init() {
 
 	var err error
 	dsn := os.Getenv("DSN")
+	if dsn == "" {
+		dsn = "XE"
+	}
 
 	db, err = sql.Open("oci8", dsn)
 	if err != nil {

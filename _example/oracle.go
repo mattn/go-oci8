@@ -54,8 +54,7 @@ func getDSN() string {
 	}
 	fmt.Fprintln(os.Stderr, `Please specifiy connection parameter in GO_OCI8_CONNECT_STRING environment variable,
 or as the first argument! (The format is user/name@host:port/sid)`)
-	os.Exit(1)
-	return ""
+	return "scott/tiger@XE"
 }
 
 func testSelect(db *sql.DB) error {

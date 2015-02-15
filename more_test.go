@@ -611,6 +611,35 @@ func TestTimestampLtz(t *testing.T) {
 	fmt.Println(n, r[f].(time.Time), "equal ?", n.Equal(r[f].(time.Time)))
 }
 
+func TestQueryRowPrepared(t *testing.T) {
+	cn, _, _, _ := runtime.Caller(0)
+	fmt.Println(runtime.FuncForPC(cn).Name())
+
+	sel, err := db.Prepare("select :1 from dual")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const val = 143
+	ccc := val
+
+	err = sel.QueryRow(ccc).Scan(&ccc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(ccc)
+	if ccc != val {
+		t.Fatal(err)
+	}
+
+	err = sel.QueryRow(ccc).Scan(&ccc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(ccc)
+	sel.Close()
+}
+
 //watch mem in top :)    I wish valgrind can run go progs...
 //warn 5 min test !!!!
 func zzTestMem(t *testing.T) {

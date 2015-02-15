@@ -389,7 +389,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	}
 	host, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		if err.Error() == "missing port in address" {
+		if !strings.Contains(err.Error(), "missing port in address") {
 			return nil, fmt.Errorf("Invalid DSN: %q %v", dsnString, err)
 		}
 		port = "1521"

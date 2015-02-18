@@ -160,7 +160,7 @@ func TestSelect1(t *testing.T) {
 
 	sqlstest(db, t,
 		"select :0 as nil, :1 as true, :2 as false, :3 as int64, :4 as time, :5 as string, :6 as bytes, :7 as float64 from dual",
-		nil, true, false, 1234567890123456789, time.Now(), "bee     ", []byte{61, 62, 63, 64, 65, 66, 67, 68}, 3.14)
+		nil, true, false, int64(1234567890123456789), time.Now(), "bee     ", []byte{61, 62, 63, 64, 65, 66, 67, 68}, 3.14)
 }
 
 func TestInterval1(t *testing.T) {

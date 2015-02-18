@@ -292,6 +292,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -300,6 +301,8 @@ import (
 )
 
 const blobBufSize = 4000
+
+var reDSN = regexp.MustCompile(`^([^/]+)/([^@]+)(@[^/]+)?([^?]*)(\?.*)?$`)
 
 type DSN struct {
 	Host            string
@@ -353,25 +356,38 @@ func (vs Values) Get(k string) (v interface{}) {
 // Oracle,
 // 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
-	rs := []byte(dsnString)
+	var u *url.URL
 
 	if !strings.HasPrefix(dsnString, "oracle://") {
-	break_loop:
-		for i, r := range rs {
-			if r == '/' {
-				rs[i] = ':'
-				dsnString = string(rs)
-				break break_loop
+		token := reDSN.FindStringSubmatch(dsnString)
+		if len(token) == 6 {
+			host := token[3]
+			if len(host) > 0 {
+				host = host[1:]
 			}
-			if r == '@' {
-				break break_loop
+			query := token[5]
+			if len(query) > 0 {
+				query = query[1:]
+			}
+			u = &url.URL{
+				Scheme:   "oracle",
+				User:     url.UserPassword(token[1], token[2]),
+				Host:     host,
+				Path:     token[4],
+				RawQuery: query,
+			}
+		} else {
+			u = &url.URL{
+				Scheme: "oracle",
+				Opaque: dsnString,
 			}
 		}
-		dsnString = "oracle://" + dsnString
-	}
-	u, err := url.Parse(dsnString)
-	if err != nil {
-		return nil, err
+	} else {
+		var err error
+		u, err = url.Parse(dsnString)
+		if err != nil {
+			return nil, err
+		}
 	}
 	dsn = &DSN{Location: time.Local}
 

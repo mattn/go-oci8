@@ -736,8 +736,9 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 
 			// oracle accepts zones "[+-]hh:mm"
 			zone := fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
+			zoneTxt := now.Location().String()
 
-			size := len(zone)
+			size := len(zoneTxt)
 			if size < 8 {
 				size = 8
 			}
@@ -778,7 +779,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 						defer freeBoundParameters(boundParameters)
 						return nil, ociGetError(s.c.err)
 					}
-					zone = now.Location().String() // now.Zone()==EDT less likely to work than, now.Location().String()==EST5EDT
+					zone = zoneTxt
 				} else {
 					break
 				}

@@ -725,7 +725,17 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			var zp unsafe.Pointer
 
 			now := v.(time.Time)
-			zone, offset := now.Zone()
+			_, offset := now.Zone()
+
+			sign := '+'
+			if offset < 0 {
+				offset = -offset
+				sign = '-'
+			}
+			offset /= 60
+
+			// oracle accepts zones "[+-]hh:mm"
+			zone := fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
 
 			size := len(zone)
 			if size < 8 {
@@ -768,14 +778,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 						defer freeBoundParameters(boundParameters)
 						return nil, ociGetError(s.c.err)
 					}
-					sign := '+'
-					if offset < 0 {
-						offset = -offset
-						sign = '-'
-					}
-					offset /= 60
-					// oracle accept zones "[+-]hh:mm", try second time
-					zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
+					zone = now.Location().String() // now.Zone()==EDT less likely to work than, now.Location().String()==EST5EDT
 				} else {
 					break
 				}

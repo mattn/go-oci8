@@ -335,9 +335,10 @@ func TestFooLargeBlob(t *testing.T) {
 	}
 
 	id := "idlblob"
-	DB().Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select c21 from foo where cend= :1", id)
+	r := sqlstest(db, t, "select c21 from foo where cend= :1", id)
 	if !bytes.Equal(n, r["C21"].([]byte)) {
 		t.Fatal(r["C21"], "!=", n)
 	}
@@ -353,9 +354,10 @@ func TestSmallBlob(t *testing.T) {
 	}
 
 	id := "idsblob"
-	DB().Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select c21 from foo where cend=:1", id)
+	r := sqlstest(db, t, "select c21 from foo where cend=:1", id)
 	if !bytes.Equal(n, r["C21"].([]byte)) {
 		t.Fatal(r["C21"], "!=", n)
 	}
@@ -404,10 +406,11 @@ func TestBigClob(t *testing.T) {
 	n := "Abc" + strings.Repeat("1234567890", 2000) + "xyZ"
 
 	id := "idBigClob"
-	DB().Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
 
 	println(1)
-	r := sqlstest(DB(), t, "select c19 from foo where cend= :1", id)
+	r := sqlstest(db, t, "select c19 from foo where cend= :1", id)
 	println(1)
 	if n != r["C19"].(string) {
 		println(3)
@@ -421,9 +424,10 @@ func TestSmallClob(t *testing.T) {
 
 	n := "Z"
 	id := "idSmallClob"
-	DB().Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select c19 from foo where cend= :1", id)
+	r := sqlstest(db, t, "select c19 from foo where cend= :1", id)
 	if n != r["C19"].(string) {
 		t.Fatal(r["C19"], "!=", n)
 	}
@@ -435,9 +439,10 @@ func TestNvarchar(t *testing.T) {
 
 	n := "Zкирddd"
 	id := "idNvarchar"
-	DB().Exec("insert into foo( c2, cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( c2, cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select c2 from foo where cend= :1", id)
+	r := sqlstest(db, t, "select c2 from foo where cend= :1", id)
 	if n != r["C2"].(string) {
 		t.Fatal(r["C2"], "!=", n)
 	}
@@ -449,9 +454,10 @@ func TestNumber1(t *testing.T) {
 	f := "C3"
 	n := "123456.55"
 	id := "idNumc3"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if n != r[f].(string) {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -463,9 +469,10 @@ func TestNumber2(t *testing.T) {
 	f := "C3"
 	n := 991236.5
 	id := "idNum2c3"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if "991236.5" != r[f].(string) {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -477,9 +484,10 @@ func TestFloat1(t *testing.T) {
 	f := "C4"
 	n := 991236.5
 	id := "idFc4"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if "991236.5" != r[f].(string) {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -491,9 +499,10 @@ func TestBinFloat1(t *testing.T) {
 	f := "C7"
 	n := 1.5
 	id := "idbFc7"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if n != r[f].(float64) {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -505,9 +514,10 @@ func TestBinFloat2(t *testing.T) {
 	f := "C8"
 	n := 9971236.757
 	id := "idbdFc8"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if n != r[f].(float64) {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -519,9 +529,10 @@ func TestNchar(t *testing.T) {
 	f := "C18"
 	n := "XXкирda"
 	id := "idbdNC18"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if strings.TrimRight(n, " ") != strings.TrimRight(r[f].(string), " ") {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -534,9 +545,10 @@ func TestChar(t *testing.T) {
 	f := "C17"
 	n := "XXкирda"
 	id := "idbdC17"
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	if strings.TrimRight(n, " ") != strings.TrimRight(r[f].(string), " ") {
 		t.Fatal(r[f], "!=", n)
 	}
@@ -544,6 +556,7 @@ func TestChar(t *testing.T) {
 
 func TestDate(t *testing.T) {
 	cn, _, _, _ := runtime.Caller(0)
+
 	fmt.Println(runtime.FuncForPC(cn).Name())
 	f := "C6"
 
@@ -575,9 +588,10 @@ func TestTimestamp(t *testing.T) {
 	}
 
 	id := "idTstamp" + f
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	fmt.Println(n, r[f].(time.Time))
 }
 
@@ -594,9 +608,10 @@ func TestTimestampTz(t *testing.T) {
 	}
 
 	id := "idTs" + f
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	fmt.Println(n, r[f].(time.Time))
 }
 
@@ -613,9 +628,10 @@ func TestTimestampLtz(t *testing.T) {
 	}
 
 	id := "idTs" + f
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	fmt.Println(n, r[f].(time.Time), "equal ?", n.Equal(r[f].(time.Time)))
 }
 

@@ -555,9 +555,10 @@ func TestDate(t *testing.T) {
 	}
 
 	id := "idbdate" + f
-	DB().Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
+	db := DB()
+	db.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
 
-	r := sqlstest(DB(), t, "select "+f+" from foo where cend= :1", id)
+	r := sqlstest(db, t, "select "+f+" from foo where cend= :1", id)
 	fmt.Println(n, r[f].(time.Time))
 }
 

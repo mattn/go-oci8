@@ -4,19 +4,12 @@ language: go
 
 go:
   - 1.3
-  - 1.4.2
-
-addons:
-  postgresql: "9.3"
 
 env:
   global:
     - ORACLE_INSTANTCLIENT_FILE=oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
     - ORACLE_INSTANTCLIENT_SDK_FILE=oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
-    - PKG_CONFIG_PATH="$TRAVIS_BUILD_DIR/.travis/oracle-instantclient"
 
 before_install:
   - .travis/oracle-instantclient/download_instantclient.sh
   - .travis/oracle-instantclient/install_instantclient.sh
-  - .travis/oracle-instantclient/download_instantclient_sdk.sh
-  - .travis/oracle-instantclient/install_instantclient_sdk.sh

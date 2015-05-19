@@ -7,6 +7,9 @@ go:
 
 env:
   global: # following instructions from https://github.com/cbandy/travis-oracle
+  - ORACLE_FILE=oracle-xe-11.2.0-1.0.x86_64.rpm.zip
+  - ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
+  - ORACLE_SID=XE
   - ORACLE_INSTANTCLIENT_FILE=oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
   - ORACLE_INSTANTCLIENT_SDK_FILE=oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
   - PKG_CONFIG_PATH="$TRAVIS_BUILD_DIR:$PKG_CONFIG_PATH"
@@ -16,5 +19,7 @@ env:
   - secure: aFdUsTvO/bzqNvUoLgAvxgDtTuYHRbxA6nhNY2fN9RQoAoSdy+5jkpUflTG4QAvu0UAbk67MDwaLVrkg2SP/n6+oCRPxAzW0QwKf3CZg0Y0nYxfUt/D+4dJ0X6/iBLZiVlEmhS0PBR2EFEXdLMzx7gOzBpyyckLsxAZPNMpMPK7dS00UoGwJssRSNBjgkMrryuQcYYNtOdPNGv1G7/+J2gqH+LXPHwDrGPUgK0j6Soco1L61DBs6u0NEyWtjqvhEkgaClUxg5SH+aYRJ2OG3etohw8O700I8iBafgTVHp8wLGtA8vkDDNhJtHlshTgupymsPsXJaWAiNuUppBhB8iVpYNZ2GLDWwccW7cHxMsAE9/LJDrkctVC9YiqIgMk9O8p/XU1lmeazRYj+ghz8MlujDwwFKheUjZrqlUKVWEk7NQDDSqSQ6hqQ4ctNHjQmKEB/MzCLxsM7TafvJjQUSPyEfwv1vHpM6v+y4G8dwzqP9i6DRweNCPAMM1cXHnJTDDtgJmfRK+RILIiCpRyz+zHyS5oiDRZxX4D2xkcHZTX9MBkIdjKX/LGnnMehvy/WdJhft1sVhjFCIRh5Yfnb7/hw04GyH78hzFRAGvvOAhfrD0J71W0SgzphE/UHind20dOlXQI87EE+5FEaS9eCdjSpAX9gLk0xUnalExU3MeNY=
 
 before_install:
+  - ".travis/oracle/download.sh"
+  - ".travis/oracle/install.sh"
   - ".travis/oracle-instantclient/download_instantclient.sh"
   - ".travis/oracle-instantclient/install_instantclient.sh"

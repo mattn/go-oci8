@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-oci8"
+	_ "github.com/jonlawlor/go-oci8"
 	"math/rand"
 	"os"
 	"runtime"

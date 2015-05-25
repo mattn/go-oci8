@@ -1,4 +1,4 @@
-package oci8_test
+package oci8
 
 // ( . oracle.sh ;DSN='user:pass@:0/(description=(address_list=(address=(protocol=tcp)(host=192.168.1.1)(port=1521)))(connect_data=(sid=SID)))?isolation=SERIALIZABLE'  go test )
 
@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-oci8"
 	"math/rand"
 	"os"
 	"runtime"

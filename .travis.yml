@@ -16,3 +16,9 @@ before_install:
       echo "Cflags: -I$ORACLE_HOME/rdbms/public";
       echo "Libs: -L$ORACLE_HOME/lib -Wl,-rpath,$ORACLE_HOME/lib -lclntsh";
     } | tee oci8.pc
+
+before_script:
+  - >
+    { echo "CREATE USER scott IDENTIFIED BY tiger;";
+      echo "GRANT CONNECT, RESOURCE to scott;";
+    } | "$ORACLE_HOME/bin/sqlplus" -L -S / AS SYSDBA

@@ -1,4 +1,4 @@
-package oci8_test
+package oci8
 
 import (
 	"database/sql"

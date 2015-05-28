@@ -1068,7 +1068,6 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 // OCI_ATTR_ROWID must be get in handle -> alloc
 // can be coverted to char, but not to int64
 
-/*
 func (s *OCI8Stmt) lastInsertId() (int64, error) {
 	retUb4 := C.WrapOCIAttrGetUb4(s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, (*C.OCIError)(s.c.err))
 	if retUb4.rv != C.OCI_SUCCESS {
@@ -1076,23 +1075,7 @@ func (s *OCI8Stmt) lastInsertId() (int64, error) {
 	}
 	return int64(retUb4.num), nil
 }
-*/
 
-func (s *OCI8Stmt) lastInsertId() (int64, error) {
-	var t C.ub4
-	if rv := C.OCIAttrGet(
-		s.s,
-		C.OCI_HTYPE_STMT,
-		unsafe.Pointer(&t),
-		nil,
-		C.OCI_ATTR_ROWID,
-		(*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
-		return 0, ociGetError(s.c.err)
-	}
-	return int64(t), nil
-}
-
-/*
 func (s *OCI8Stmt) rowsAffected() (int64, error) {
 	retUb4 := C.WrapOCIAttrGetUb4(s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, (*C.OCIError)(s.c.err))
 	if retUb4.rv != C.OCI_SUCCESS {
@@ -1100,35 +1083,17 @@ func (s *OCI8Stmt) rowsAffected() (int64, error) {
 	}
 	return int64(retUb4.num), nil
 }
-*/
-
-func (s *OCI8Stmt) rowsAffected() (int64, error) {
-	var t C.ub4
-	if rv := C.OCIAttrGet(
-		s.s,
-		C.OCI_HTYPE_STMT,
-		unsafe.Pointer(&t),
-		nil,
-		C.OCI_ATTR_ROW_COUNT,
-		(*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
-		return 0, ociGetError(s.c.err)
-	}
-	return int64(t), nil
-}
 
 type OCI8Result struct {
-	n     int64
-	errn  error
-	id    int64
-	errid error
+	s *OCI8Stmt
 }
 
 func (r *OCI8Result) LastInsertId() (int64, error) {
-	return r.id, r.errid
+	return r.s.lastInsertId()
 }
 
 func (r *OCI8Result) RowsAffected() (int64, error) {
-	return r.n, r.errn
+	return r.s.rowsAffected()
 }
 
 func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
@@ -1159,9 +1124,25 @@ func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	if rv != C.OCI_SUCCESS {
 		return nil, ociGetError(s.c.err)
 	}
-	n, en := s.rowsAffected()
-	id, ei := s.lastInsertId()
-	return &OCI8Result{n: n, errn: en, id: id, errid: ei}, nil
+
+	/*
+		rv = C.OCIStmtFetch(
+			(*C.OCIStmt)(s.s),
+			(*C.OCIError)(s.c.err),
+			1,
+			C.OCI_FETCH_NEXT,
+			C.OCI_DEFAULT)
+
+		if rv == C.OCI_NO_DATA {
+			return nil, io.EOF
+		} else if rv != C.OCI_SUCCESS {
+			return nil, ociGetError(s.c.err)
+		}
+		n, en := s.rowsAffected()
+		id, ei := s.lastInsertId()
+		return &OCI8Result{s: s, n: n, errn: en, id: id, errid: ei}, nil
+	*/
+	return &OCI8Result{s: s}, nil
 }
 
 type oci8col struct {

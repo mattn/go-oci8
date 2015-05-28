@@ -366,7 +366,15 @@ func TestFooRowid(t *testing.T) {
 	cn, _, _, _ := runtime.Caller(0)
 	fmt.Println(runtime.FuncForPC(cn).Name())
 
-	sqlstest(DB(), t, "select rowid from foo")
+	n := "Z"
+	id := "idSmallClob"
+	db := DB()
+	_, e := db.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	sqlstest(db, t, "select rowid from foo")
 }
 
 //this test fail if transactions are readonly
@@ -408,9 +416,7 @@ func TestBigClob(t *testing.T) {
 	db := DB()
 	db.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
 
-	println(1)
 	r := sqlstest(db, t, "select c19 from foo where cend= :1", id)
-	println(1)
 	if n != r["C19"].(string) {
 		println(3)
 		t.Fatal(r["C19"], "!=", n)

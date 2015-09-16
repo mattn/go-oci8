@@ -8,6 +8,19 @@ package oci8
 #cgo pkg-config: oci8
 
 typedef struct {
+  char err[1024];
+  sword rv;
+} retErr;
+
+static retErr
+WrapOCIErrorGet(OCIError *err) {
+  retErr vvv;
+  sb4 errcode;
+  OCIErrorGet(err, 1, NULL, &errcode, vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
+  return vvv;
+}
+
+typedef struct {
   int num;
   sword rv;
 } retInt;
@@ -1415,17 +1428,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 }
 
 func ociGetError(err unsafe.Pointer) error {
-	var errcode C.sb4
-	var errbuff [512]C.char
-	C.OCIErrorGet(
-		err,
-		1,
-		nil,
-		&errcode,
-		(*C.OraText)(unsafe.Pointer(&errbuff[0])),
-		512,
-		C.OCI_HTYPE_ERROR)
-	s := C.GoString(&errbuff[0])
+	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
+	s := C.GoString(&rv.err[0])
 	return errors.New(s)
 }
 

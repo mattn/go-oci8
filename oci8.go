@@ -1288,6 +1288,15 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_BIN: // RAW
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			dest[i] = buf
+		case C.SQLT_NUM: // NUMBER
+			buf := (*[21]byte)(unsafe.Pointer(rc.cols[i].pbuf))
+			dest[i] = buf
+		case C.SQLT_VNU: // VARNUM
+			buf := (*[22]byte)(unsafe.Pointer(rc.cols[i].pbuf))
+			dest[i] = buf
+		case C.SQLT_INT: // INT
+			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
+			dest[i] = buf
 		case C.SQLT_LNG: // LONG
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:rc.cols[i].rlen]
 			dest[i] = buf

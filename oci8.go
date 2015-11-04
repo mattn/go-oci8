@@ -969,7 +969,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 
 		case C.SQLT_NUM:
 			oci8cols[i].kind = C.SQLT_CHR
-			oci8cols[i].size = int(lp)
+			oci8cols[i].size = int(lp * 4)
 			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size) + 1)
 
 		case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:

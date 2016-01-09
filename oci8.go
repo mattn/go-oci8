@@ -4,6 +4,7 @@ package oci8
 #include <oci.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #cgo pkg-config: oci8
 

@@ -16,7 +16,7 @@ static retErr
 WrapOCIErrorGet(OCIError *err) {
   retErr vvv;
   sb4 errcode;
-  OCIErrorGet(err, 1, NULL, &errcode, vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
+  OCIErrorGet(err, 1, NULL, &errcode, (OraText*) vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
   return vvv;
 }
 
@@ -293,6 +293,10 @@ WrapOCIAttrSetUb4(dvoid *h, ub4 type, ub4 value, ub4  attrtype, OCIError *err) {
   return OCIAttrSet(h, type, &value, 0, attrtype, err);
 }
 
+static sword
+WrapOCIDefineByPos(OCIStmt *stmtp, OCIDefine **defnpp, OCIError *errhp, ub4 position, dvoid *valuep, sb4 value_sz, ub2 dty, uintptr_t indp, ub2 *rlenp, ub2 *rcodep, ub4 mode) {
+  return OCIDefineByPos(stmtp, defnpp, errhp, position, valuep, value_sz, dty, (void*)indp, rlenp, rcodep, mode);
+}
 */
 import "C"
 import (
@@ -1060,7 +1064,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			oci8cols[i].size = int(lp + 1)
 		}
 
-		if rv := C.OCIDefineByPos(
+		if rv := C.WrapOCIDefineByPos(
 			(*C.OCIStmt)(s.s),
 			s.defp,
 			(*C.OCIError)(s.c.err),
@@ -1068,7 +1072,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			oci8cols[i].pbuf,
 			C.sb4(oci8cols[i].size),
 			oci8cols[i].kind,
-			unsafe.Pointer(&oci8cols[i].ind),
+			C.uintptr_t(uintptr(unsafe.Pointer(&oci8cols[i].ind))),
 			&oci8cols[i].rlen,
 			nil,
 			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {

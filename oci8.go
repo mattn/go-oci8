@@ -131,7 +131,7 @@ WrapOCIDescriptorAlloc(dvoid *env, ub4 type, size_t extra) {
     &vvv.ptr,
     type,
     extra,
-    &vvv.extra);
+    ptr);
   return vvv;
 }
 

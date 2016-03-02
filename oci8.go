@@ -712,22 +712,21 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 		clen  C.sb4
 	)
 	*s.bp = nil
-	for i, v := range args {
+	for i, uv := range args {
 
-		switch v.(type) {
+		switch v := uv.(type) {
 		case nil:
 			dty = C.SQLT_STR
 			cdata = nil
 			clen = 0
 		case []byte:
-			v := v.([]byte)
 			dty = C.SQLT_BIN
 			cdata = CByte(v)
 			clen = C.sb4(len(v))
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 
 		case float64:
-			fb := math.Float64bits(v.(float64))
+			fb := math.Float64bits(v)
 			if fb&0x8000000000000000 != 0 {
 				fb ^= 0xffffffffffffffff
 			} else {
@@ -743,7 +742,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			var pt unsafe.Pointer
 			var zp unsafe.Pointer
 
-			now := v.(time.Time)
+			now := v
 			_, offset := now.Zone()
 
 			sign := '+'
@@ -807,32 +806,30 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			cdata = (*C.char)(pt)
 
 		case string:
-			v := v.(string)
 			dty = C.SQLT_AFC // don't trim strings !!!
 			cdata = C.CString(v)
 			clen = C.sb4(len(v))
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 		case int64:
-			val := v.(int64)
 			dty = C.SQLT_INT
 			clen = C.sb4(8) // not tested on i386. may only work on amd64
 			cdata = (*C.char)(C.malloc(8))
 			buf := (*[1 << 30]byte)(unsafe.Pointer(cdata))[0:8]
-			buf[0] = byte(val & 0x0ff)
-			buf[1] = byte(val >> 8 & 0x0ff)
-			buf[2] = byte(val >> 16 & 0x0ff)
-			buf[3] = byte(val >> 24 & 0x0ff)
-			buf[4] = byte(val >> 32 & 0x0ff)
-			buf[5] = byte(val >> 40 & 0x0ff)
-			buf[6] = byte(val >> 48 & 0x0ff)
-			buf[7] = byte(val >> 56 & 0x0ff)
+			buf[0] = byte(v & 0x0ff)
+			buf[1] = byte(v >> 8 & 0x0ff)
+			buf[2] = byte(v >> 16 & 0x0ff)
+			buf[3] = byte(v >> 24 & 0x0ff)
+			buf[4] = byte(v >> 32 & 0x0ff)
+			buf[5] = byte(v >> 40 & 0x0ff)
+			buf[6] = byte(v >> 48 & 0x0ff)
+			buf[7] = byte(v >> 56 & 0x0ff)
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 
 		case bool: // oracle dont have bool, handle as 0/1
 			dty = C.SQLT_INT
 			clen = C.sb4(1)
 			cdata = (*C.char)(C.malloc(10))
-			if v.(bool) {
+			if v {
 				*cdata = 1
 			} else {
 				*cdata = 0

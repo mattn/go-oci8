@@ -742,21 +742,9 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			var pt unsafe.Pointer
 			var zp unsafe.Pointer
 
-			now := v
-			_, offset := now.Zone()
+			zone, offset := v.Zone()
 
-			sign := '+'
-			if offset < 0 {
-				offset = -offset
-				sign = '-'
-			}
-			offset /= 60
-
-			// oracle accepts zones "[+-]hh:mm"
-			zone := fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
-			zoneTxt := now.Location().String()
-
-			size := len(zoneTxt)
+			size := len(zone)
 			if size < 8 {
 				size = 8
 			}
@@ -776,30 +764,69 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 				boundParameters = append(boundParameters, oci8bind{dty, pt})
 
 			}
-			for first := true; ; first = false {
+
+			tryagain := false
+
+			copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
+			rv := C.OCIDateTimeConstruct(
+				s.c.env,
+				(*C.OCIError)(s.c.err),
+				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
+				C.sb2(v.Year()),
+				C.ub1(v.Month()),
+				C.ub1(v.Day()),
+				C.ub1(v.Hour()),
+				C.ub1(v.Minute()),
+				C.ub1(v.Second()),
+				C.ub4(v.Nanosecond()),
+				(*C.OraText)(zp),
+				C.size_t(len(zone)),
+			)
+			if rv != C.OCI_SUCCESS {
+				tryagain = true
+			} else {
+				//check if oracle timezone offset is same ?
+				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
+					(*C.OCIEnv)(s.c.env),
+					(*C.OCIError)(s.c.err),
+					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
+				if rvz.rv != C.OCI_SUCCESS {
+					return nil, ociGetError(rvz.rv, s.c.err)
+				}
+				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
+					//fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
+					tryagain = true
+				}
+			}
+
+			if tryagain {
+				sign := '+'
+				if offset < 0 {
+					offset = -offset
+					sign = '-'
+				}
+				offset /= 60
+				// oracle accept zones "[+-]hh:mm", try second time
+				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
+
 				copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
 				rv := C.OCIDateTimeConstruct(
 					s.c.env,
 					(*C.OCIError)(s.c.err),
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-					C.sb2(now.Year()),
-					C.ub1(now.Month()),
-					C.ub1(now.Day()),
-					C.ub1(now.Hour()),
-					C.ub1(now.Minute()),
-					C.ub1(now.Second()),
-					C.ub4(now.Nanosecond()),
+					C.sb2(v.Year()),
+					C.ub1(v.Month()),
+					C.ub1(v.Day()),
+					C.ub1(v.Hour()),
+					C.ub1(v.Minute()),
+					C.ub1(v.Second()),
+					C.ub4(v.Nanosecond()),
 					(*C.OraText)(zp),
 					C.size_t(len(zone)),
 				)
 				if rv != C.OCI_SUCCESS {
-					if !first {
-						defer freeBoundParameters(boundParameters)
-						return nil, ociGetError(rv, s.c.err)
-					}
-					zone = zoneTxt
-				} else {
-					break
+					defer freeBoundParameters(boundParameters)
+					return nil, ociGetError(rv, s.c.err)
 				}
 			}
 

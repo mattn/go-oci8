@@ -610,6 +610,10 @@ func (c *OCI8Conn) Close() error {
 		c.env,
 		C.OCI_HTYPE_ENV)
 
+	C.OCIHandleFree(
+		c.err,
+		C.OCI_HTYPE_ERROR)
+
 	c.svc = nil
 	c.env = nil
 	c.err = nil
@@ -702,7 +706,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 }
 
 func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err error) {
-	if args == nil {
+	if len(args) == 0 {
 		return nil, nil
 	}
 
@@ -1296,11 +1300,11 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			ptmp := unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(unsafe.Pointer(nil)))
 			bamt := (*C.ub4)(ptmp)
-			*bamt = 0
 			ptmp = unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(C.ub4(0)) + unsafe.Sizeof(unsafe.Pointer(nil)))
 			b := (*[1 << 30]byte)(ptmp)[0:blobBufSize]
 			var buf []byte
 		again:
+			*bamt = 0
 			rv = C.OCILobRead(
 				(*C.OCISvcCtx)(rc.s.c.svc),
 				(*C.OCIError)(rc.s.c.err),

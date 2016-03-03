@@ -706,7 +706,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 }
 
 func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err error) {
-	if args == nil {
+	if len(args) == 0 {
 		return nil, nil
 	}
 

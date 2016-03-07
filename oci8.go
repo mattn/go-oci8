@@ -308,10 +308,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
-	"net/url"
 	"os"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -321,20 +318,39 @@ import (
 
 const blobBufSize = 4000
 
-var reDSN = regexp.MustCompile(`^([^/]+)/([^@]+)(@[^/]+)?([^?]*)(\?.*)?$`)
-
 type DSN struct {
-	Host            string
-	Port            int
+	Connect         string
 	Username        string
 	Password        string
-	SID             string
+	prefetch_rows   uint32
+	prefetch_memory uint32
 	Location        *time.Location
 	transactionMode C.ub4
 }
 
+var (
+	defaultPrefetchRows   uint32
+	defaultPrefetchMemory uint32
+)
+
 func init() {
 	sql.Register("oci8", &OCI8Driver{})
+
+	// set safe defaults
+	defaultPrefetchRows = 10
+	defaultPrefetchMemory = 0
+
+	if v := os.Getenv("PREFETCH_ROWS"); v != "" {
+		if uv, err := strconv.ParseUint(v, 10, 32); err == nil {
+			defaultPrefetchRows = uint32(uv)
+		}
+	}
+	if v := os.Getenv("PREFETCH_MEMORY"); v != "" {
+		if uv, err := strconv.ParseUint(v, 10, 32); err == nil {
+			//OCIAttrSet OCI_ATTR_PREFETCH_MEMORY accepts 4 byte integer
+			defaultPrefetchMemory = uint32(uv)
+		}
+	}
 }
 
 type OCI8Driver struct {
@@ -344,7 +360,8 @@ type OCI8Conn struct {
 	svc             unsafe.Pointer
 	env             unsafe.Pointer
 	err             unsafe.Pointer
-	attrs           Values
+	prefetch_rows   uint32
+	prefetch_memory uint32
 	location        *time.Location
 	transactionMode C.ub4
 	inTransaction   bool
@@ -354,17 +371,6 @@ type OCI8Tx struct {
 	c *OCI8Conn
 }
 
-type Values map[string]interface{}
-
-func (vs Values) Set(k string, v interface{}) {
-	vs[k] = v
-}
-
-func (vs Values) Get(k string) (v interface{}) {
-	v, _ = vs[k]
-	return
-}
-
 // ParseDSN parses a DSN used to connect to Oracle
 // It expects to receive a string in the form:
 // user:password@host:port/sid?param1=value1&param2=value2
@@ -372,82 +378,44 @@ func (vs Values) Get(k string) (v interface{}) {
 // Currently the parameters supported is:
 // 1 'loc' which
 // sets the timezone to read times in as and to marshal to when writing times to
-// Oracle,
+// Oracle date,
 // 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
+// 3 'prefetch_rows'
+// 4 'prefetch_memory'
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
-	var u *url.URL
 
-	if !strings.HasPrefix(dsnString, "oracle://") {
-		token := reDSN.FindStringSubmatch(dsnString)
-		if len(token) == 6 {
-			host := token[3]
-			path := token[4]
-			if len(host) > 0 {
-				host = host[1:]
-				if path == "" {
-					path = host
-					host = ""
-				}
-			}
-			query := token[5]
-			if len(query) > 0 {
-				query = query[1:]
-			}
-			u = &url.URL{
-				Scheme:   "oracle",
-				User:     url.UserPassword(token[1], token[2]),
-				Host:     host,
-				Path:     path,
-				RawQuery: query,
-			}
-		} else {
-			u = &url.URL{
-				Scheme: "oracle",
-				Opaque: dsnString,
-			}
-		}
-	} else {
-		var err error
-		u, err = url.Parse(dsnString)
+	dsn = &DSN{Location: time.Local}
+
+	if dsnString == "" {
+		return nil, errors.New("empty dsn")
+	}
+
+	const prefix = "oracle://"
+
+	if strings.HasPrefix(dsnString, prefix) {
+		dsnString = dsnString[len(prefix):]
+	}
+
+	authority, dsnString := split(dsnString, "@")
+	if authority != "" {
+		dsn.Username, dsn.Password, err = parseAuthority(authority)
 		if err != nil {
 			return nil, err
 		}
 	}
-	dsn = &DSN{Location: time.Local}
 
-	if u.User != nil {
-		dsn.Username = u.User.Username()
-		password, ok := u.User.Password()
-		if ok {
-			dsn.Password = password
-		} else {
-			if tok := strings.SplitN(dsn.Username, "/", 2); len(tok) >= 2 {
-				dsn.Username = tok[0]
-				dsn.Password = tok[1]
-			}
-		}
-	}
-	host, port, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		if !strings.Contains(err.Error(), "missing port in address") {
-			return nil, fmt.Errorf("Invalid DSN: %q %v", dsnString, err)
-		}
-		host = u.Host
-		port = "1521"
-	}
-	dsn.Host = host
-	nport, err := strconv.Atoi(port)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid DSN: %v", err)
-	}
-	dsn.Port = nport
-	if u.Path != "" {
-		dsn.SID = strings.Trim(u.Path, "/")
-	} else if u.Host != "" {
-		dsn.SID = u.Host
+	host, params := split(dsnString, "?")
+
+	if host, err = unescape(host, encodeHost); err != nil {
+		return nil, err
 	}
 
-	for k, v := range u.Query() {
+	dsn.Connect = host
+	dsn.prefetch_rows = defaultPrefetchRows
+	dsn.prefetch_memory = defaultPrefetchMemory
+
+	qp, err := ParseQuery(params)
+	for k, v := range qp {
 		switch k {
 		case "loc":
 			if len(v) > 0 {
@@ -466,8 +434,22 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			default:
 				return nil, fmt.Errorf("Invalid isolation: %v", v[0])
 			}
-		}
+		case "prefetch_rows":
+			z, err := strconv.ParseUint(v[0], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefetch_rows", v[0])
+			}
+			dsn.prefetch_rows = uint32(z)
+		case "prefetch_memory":
+			z, err := strconv.ParseUint(v[0], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefetch_memory", v[0])
+			}
+			dsn.prefetch_memory = uint32(z)
+			//default:
+			//log.Println("unused parameter", k)
 
+		}
 	}
 	return dsn, nil
 }
@@ -538,15 +520,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, err
 	}
 
-	// set safe defaults
-	conn.attrs = make(Values)
-	conn.attrs.Set("prefetch_rows", 10)
-	conn.attrs.Set("prefetch_memory", int64(0))
-
-	for k, v := range parseEnviron(os.Environ()) {
-		conn.attrs.Set(k, v)
-	}
-
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,
 		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
@@ -565,13 +538,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.err = rv.ptr
 	}
 
-	var host string
-	if dsn.Host != "" && dsn.SID != "" {
-		host = fmt.Sprintf("%s:%d/%s", dsn.Host, dsn.Port, dsn.SID)
-	} else {
-		host = dsn.SID
-	}
-	phost := C.CString(host)
+	phost := C.CString(dsn.Connect)
 	defer C.free(unsafe.Pointer(phost))
 	puser := C.CString(dsn.Username)
 	defer C.free(unsafe.Pointer(puser))
@@ -586,13 +553,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		(*C.OraText)(unsafe.Pointer(ppass)),
 		C.ub4(len(dsn.Password)),
 		(*C.OraText)(unsafe.Pointer(phost)),
-		C.ub4(len(host))); rv.rv != C.OCI_SUCCESS {
+		C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS {
 		return nil, ociGetError(rv.rv, conn.err)
 	} else {
 		conn.svc = rv.ptr
 	}
 	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode
+	conn.prefetch_rows = dsn.prefetch_rows
+	conn.prefetch_memory = dsn.prefetch_memory
 	c := &conn
 	runtime.SetFinalizer(c, (*OCI8Conn).Close)
 	return c, nil
@@ -915,16 +884,16 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	}
 
 	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
-	if prefetch_size := C.ub4(s.c.attrs.Get("prefetch_rows").(int)); prefetch_size > 0 {
-		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, prefetch_size, C.OCI_ATTR_PREFETCH_ROWS, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
+	if s.c.prefetch_rows > 0 {
+		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, C.ub4(s.c.prefetch_rows), C.OCI_ATTR_PREFETCH_ROWS, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, s.c.err)
 		}
 	}
 
 	// if non-zero, oci will fetch rows until the memory limit or row prefetch limit is hit.
 	// useful for memory constrained systems
-	if prefetch_memory := C.ub4(s.c.attrs.Get("prefetch_memory").(int64)); prefetch_memory > 0 {
-		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, prefetch_memory, C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
+	if s.c.prefetch_memory > 0 {
+		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, C.ub4(s.c.prefetch_memory), C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, s.c.err)
 		}
 	}
@@ -1495,23 +1464,6 @@ func ociGetError(rv C.sword, err unsafe.Pointer) error {
 		return ociGetErrorS(err)
 	}
 	return fmt.Errorf("oracle return error code %d", rv)
-}
-
-func parseEnviron(env []string) (out map[string]interface{}) {
-	out = make(map[string]interface{})
-
-	for _, v := range env {
-		parts := strings.SplitN(v, "=", 2)
-
-		// Better to have a type error here than later during query execution
-		switch parts[0] {
-		case "PREFETCH_ROWS":
-			out["prefetch_rows"], _ = strconv.Atoi(parts[1])
-		case "PREFETCH_MEMORY":
-			out["prefetch_memory"], _ = strconv.ParseInt(parts[1], 10, 64)
-		}
-	}
-	return out
 }
 
 func CByte(b []byte) *C.char {

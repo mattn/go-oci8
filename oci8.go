@@ -308,7 +308,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -328,29 +327,8 @@ type DSN struct {
 	transactionMode C.ub4
 }
 
-var (
-	defaultPrefetchRows   uint32
-	defaultPrefetchMemory uint32
-)
-
 func init() {
 	sql.Register("oci8", &OCI8Driver{})
-
-	// set safe defaults
-	defaultPrefetchRows = 10
-	defaultPrefetchMemory = 0
-
-	if v := os.Getenv("PREFETCH_ROWS"); v != "" {
-		if uv, err := strconv.ParseUint(v, 10, 32); err == nil {
-			defaultPrefetchRows = uint32(uv)
-		}
-	}
-	if v := os.Getenv("PREFETCH_MEMORY"); v != "" {
-		if uv, err := strconv.ParseUint(v, 10, 32); err == nil {
-			//OCIAttrSet OCI_ATTR_PREFETCH_MEMORY accepts 4 byte integer
-			defaultPrefetchMemory = uint32(uv)
-		}
-	}
 }
 
 type OCI8Driver struct {
@@ -411,8 +389,9 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	}
 
 	dsn.Connect = host
-	dsn.prefetch_rows = defaultPrefetchRows
-	dsn.prefetch_memory = defaultPrefetchMemory
+	// set safe defaults
+	dsn.prefetch_rows = 10
+	dsn.prefetch_memory = 0
 
 	qp, err := ParseQuery(params)
 	for k, v := range qp {

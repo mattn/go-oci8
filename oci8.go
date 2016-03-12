@@ -1,4 +1,4 @@
-0package oci8
+package oci8
 
 /*
 #include <oci.h>

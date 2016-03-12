@@ -1,4 +1,4 @@
-package oci8
+0package oci8
 
 /*
 #include <oci.h>
@@ -575,7 +575,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	if rv := C.WrapxaoEnv((*C.OraText)(unsafe.Pointer(c_dsn))); rv.rv == C.OCI_SUCCESS || rv.rv == C.OCI_SUCCESS_WITH_INFO {
 		conn.env = rv.ptr
 		conn.isXA = true
-		fmt.Printf("Got Env from XA %p\n", conn.env)
 	} else {
 
 		if dsn, err = ParseDSN(dsnString); err != nil {
@@ -596,7 +595,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.env,
 		C.OCI_HTYPE_ERROR,
 		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-		fmt.Printf("Error code: %d\n", rv.rv)
 		return nil, errors.New("cant  allocate error handle")
 	} else {
 		conn.err = rv.ptr
@@ -604,7 +602,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 
 	//Probably use xaoSvcCtx
 	if rv := C.WrapxaoSvcCtx((*C.OraText)(unsafe.Pointer(c_dsn))); rv.rv == C.OCI_SUCCESS || rv.rv == C.OCI_SUCCESS_WITH_INFO {
-		fmt.Print("Got SvcCtx from XA\n")
 		conn.svc = rv.ptr
 	} else {
 

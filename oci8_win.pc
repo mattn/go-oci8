@@ -1,0 +1,14 @@
+prefix=./target/
+exec_prefix=${prefix}
+libdir=C:/Oracle/instantclient_12_1/oci.dll
+includedir=C:/Oracle/instantclient_12_1/sdk/include
+
+glib_genmarshal=glib-genmarshal
+gobject_query=gobject-query
+glib_mkenums=glib-mkenums
+
+Name: oci8_win
+Version: 12.1
+Description: oci8 library
+Libs: -L${libdir}
+Cflags: -I${includedir}

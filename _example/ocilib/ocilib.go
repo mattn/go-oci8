@@ -20,12 +20,12 @@ package main
 //
 //     OCI_Initialize(err_handler, NULL, OCI_ENV_DEFAULT);
 //
-//     cn = OCI_ConnectionCreate("localhost:1521/xe.oracle.docker", "system", "oracle", OCI_SESSION_DEFAULT);
+//     cn = OCI_ConnectionCreate("localhost:1521/xe.oracle.docker", "scott", "tiger", OCI_SESSION_DEFAULT);
 //     st = OCI_StatementCreate(cn);
 //
 //     print_ostr(OCI_GetUserName(cn));
 //
-//     OCI_ExecuteStmt(st, "select id, name from example");
+//     OCI_ExecuteStmt(st, "select id, name from system.example");
 //
 //     rs = OCI_GetResultset(st);
 //

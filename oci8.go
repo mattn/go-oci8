@@ -532,7 +532,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		(*C.OraText)(unsafe.Pointer(ppass)),
 		C.ub4(len(dsn.Password)),
 		(*C.OraText)(unsafe.Pointer(phost)),
-		C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS {
+		C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
 		return nil, ociGetError(rv.rv, conn.err)
 	} else {
 		conn.svc = rv.ptr

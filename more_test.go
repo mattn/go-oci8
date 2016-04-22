@@ -295,6 +295,22 @@ func TestBytes2(t *testing.T) {
 	}
 }
 
+func TestQuestionMark(t *testing.T) {
+	fmt.Println("test question mark placeholders")
+	a, b := 4, 5
+	c := "zz"
+	r := sqlstest(DB(), t, "select ? as v1, ? as v2, ? as v3 from dual", a, b, c)
+	if fmt.Sprintf("%v", r["V1"]) != fmt.Sprintf("%v", a) {
+		t.Fatal(r["V1"], "!=", a)
+	}
+	if fmt.Sprintf("%v", r["V2"]) != fmt.Sprintf("%v", b) {
+		t.Fatal(r["V2"], "!=", b)
+	}
+	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
+		t.Fatal(r["V3"], "!=", c)
+	}
+}
+
 func TestString1(t *testing.T) {
 	fmt.Println("test string1:")
 	n := strings.Repeat("1234567890", 400)

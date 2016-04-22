@@ -308,6 +308,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -574,7 +575,7 @@ type OCI8Stmt struct {
 }
 
 func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
-	pquery := C.CString(query)
+	pquery := C.CString(placeholders(query))
 	defer C.free(unsafe.Pointer(pquery))
 	var s, bp, defp unsafe.Pointer
 
@@ -1446,4 +1447,15 @@ func CByte(b []byte) *C.char {
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], b)
 	return (*C.char)(p)
+}
+
+var phre = regexp.MustCompile(`\?`)
+
+// converts "?" characters to  :1, :2, ... :n
+func placeholders(sql string) string {
+	n := 0
+	return phre.ReplaceAllStringFunc(sql, func(string) string {
+		n++
+		return ":" + strconv.Itoa(n)
+	})
 }

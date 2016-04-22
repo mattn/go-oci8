@@ -558,10 +558,6 @@ func (c *OCI8Conn) Close() error {
 		c.env,
 		C.OCI_HTYPE_ENV)
 
-	C.OCIHandleFree(
-		c.err,
-		C.OCI_HTYPE_ERROR)
-
 	c.svc = nil
 	c.env = nil
 	c.err = nil

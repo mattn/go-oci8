@@ -21,7 +21,10 @@ type dbc interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
-var db *sql.DB
+var (
+	db        *sql.DB
+	dsnStruct *DSN
+)
 
 func DB() *sql.DB {
 	if db != nil {
@@ -37,6 +40,10 @@ func DB() *sql.DB {
 	}
 
 	db, err := sql.Open("oci8", dsn)
+	if err != nil {
+		panic(err)
+	}
+	dsnStruct, err = ParseDSN(dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -296,6 +303,9 @@ func TestBytes2(t *testing.T) {
 }
 
 func TestQuestionMark(t *testing.T) {
+	if !dsnStruct.enableQMPlaceholders {
+		return
+	}
 	fmt.Println("test question mark placeholders")
 	a, b := 4, 5
 	c := "zz"

@@ -309,7 +309,6 @@ import (
 	"io"
 	"math"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -555,9 +554,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	conn.prefetch_rows = dsn.prefetch_rows
 	conn.prefetch_memory = dsn.prefetch_memory
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
-	c := &conn
-	runtime.SetFinalizer(c, (*OCI8Conn).Close)
-	return c, nil
+	return &conn, nil
 }
 
 func (c *OCI8Conn) Close() error {
@@ -575,7 +572,6 @@ func (c *OCI8Conn) Close() error {
 	c.svc = nil
 	c.env = nil
 	c.err = nil
-	runtime.SetFinalizer(c, nil)
 	return err
 }
 
@@ -616,9 +612,7 @@ func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 		return nil, ociGetError(rv, c.err)
 	}
 
-	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
-	runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
-	return ss, nil
+	return &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
 }
 
 func (s *OCI8Stmt) Close() error {
@@ -631,7 +625,6 @@ func (s *OCI8Stmt) Close() error {
 		s.s,
 		C.OCI_HTYPE_STMT)
 	s.s = nil
-	runtime.SetFinalizer(s, nil)
 	return nil
 }
 

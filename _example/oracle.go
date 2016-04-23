@@ -70,12 +70,6 @@ func testSelect(db *sql.DB) error {
 		rows.Scan(&f1, &f2)
 		println(f1, f2) // 3.14 foo
 	}
-	_, err = db.Exec("create table foo(bar varchar2(256))")
-	_, err = db.Exec("drop table foo")
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

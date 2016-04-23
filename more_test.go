@@ -21,7 +21,10 @@ type dbc interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
-var db *sql.DB
+var (
+	db        *sql.DB
+	dsnStruct *DSN
+)
 
 func DB() *sql.DB {
 	if db != nil {
@@ -37,6 +40,10 @@ func DB() *sql.DB {
 	}
 
 	db, err := sql.Open("oci8", dsn)
+	if err != nil {
+		panic(err)
+	}
+	dsnStruct, err = ParseDSN(dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -292,6 +299,25 @@ func TestBytes2(t *testing.T) {
 	r := sqlstest(DB(), t, "select :0 as bytes from dual", n)
 	if !bytes.Equal(n, r["BYTES"].([]byte)) {
 		t.Fatal(r["BYTES"], "!=", n)
+	}
+}
+
+func TestQuestionMark(t *testing.T) {
+	if !dsnStruct.enableQMPlaceholders {
+		return
+	}
+	fmt.Println("test question mark placeholders")
+	a, b := 4, 5
+	c := "zz"
+	r := sqlstest(DB(), t, "select ? as v1, ? as v2, ? as v3 from dual", a, b, c)
+	if fmt.Sprintf("%v", r["V1"]) != fmt.Sprintf("%v", a) {
+		t.Fatal(r["V1"], "!=", a)
+	}
+	if fmt.Sprintf("%v", r["V2"]) != fmt.Sprintf("%v", b) {
+		t.Fatal(r["V2"], "!=", b)
+	}
+	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
+		t.Fatal(r["V3"], "!=", c)
 	}
 }
 

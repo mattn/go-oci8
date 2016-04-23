@@ -308,6 +308,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -318,13 +319,14 @@ import (
 const blobBufSize = 4000
 
 type DSN struct {
-	Connect         string
-	Username        string
-	Password        string
-	prefetch_rows   uint32
-	prefetch_memory uint32
-	Location        *time.Location
-	transactionMode C.ub4
+	Connect              string
+	Username             string
+	Password             string
+	prefetch_rows        uint32
+	prefetch_memory      uint32
+	Location             *time.Location
+	transactionMode      C.ub4
+	enableQMPlaceholders bool
 }
 
 func init() {
@@ -335,14 +337,15 @@ type OCI8Driver struct {
 }
 
 type OCI8Conn struct {
-	svc             unsafe.Pointer
-	env             unsafe.Pointer
-	err             unsafe.Pointer
-	prefetch_rows   uint32
-	prefetch_memory uint32
-	location        *time.Location
-	transactionMode C.ub4
-	inTransaction   bool
+	svc                  unsafe.Pointer
+	env                  unsafe.Pointer
+	err                  unsafe.Pointer
+	prefetch_rows        uint32
+	prefetch_memory      uint32
+	location             *time.Location
+	transactionMode      C.ub4
+	inTransaction        bool
+	enableQMPlaceholders bool
 }
 
 type OCI8Tx struct {
@@ -360,6 +363,7 @@ type OCI8Tx struct {
 // 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
 // 3 'prefetch_rows'
 // 4 'prefetch_memory'
+// 5 'questionph' =YES,NO,TRUE,FALSE enable question-mark placeholders, default to false
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn = &DSN{Location: time.Local}
@@ -412,6 +416,15 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				dsn.transactionMode = C.OCI_TRANS_READWRITE
 			default:
 				return nil, fmt.Errorf("Invalid isolation: %v", v[0])
+			}
+		case "questionph":
+			switch v[0] {
+			case "YES", "TRUE":
+				dsn.enableQMPlaceholders = true
+			case "NO", "FALSE":
+				dsn.enableQMPlaceholders = false
+			default:
+				return nil, fmt.Errorf("Invalid questionpm: %v", v[0])
 			}
 		case "prefetch_rows":
 			z, err := strconv.ParseUint(v[0], 10, 32)
@@ -541,6 +554,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetch_rows = dsn.prefetch_rows
 	conn.prefetch_memory = dsn.prefetch_memory
+	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
 	c := &conn
 	runtime.SetFinalizer(c, (*OCI8Conn).Close)
 	return c, nil
@@ -558,10 +572,6 @@ func (c *OCI8Conn) Close() error {
 		c.env,
 		C.OCI_HTYPE_ENV)
 
-	C.OCIHandleFree(
-		c.err,
-		C.OCI_HTYPE_ERROR)
-
 	c.svc = nil
 	c.env = nil
 	c.err = nil
@@ -578,6 +588,9 @@ type OCI8Stmt struct {
 }
 
 func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
+	if c.enableQMPlaceholders {
+		query = placeholders(query)
+	}
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
 	var s, bp, defp unsafe.Pointer
@@ -1450,4 +1463,15 @@ func CByte(b []byte) *C.char {
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], b)
 	return (*C.char)(p)
+}
+
+var phre = regexp.MustCompile(`\?`)
+
+// converts "?" characters to  :1, :2, ... :n
+func placeholders(sql string) string {
+	n := 0
+	return phre.ReplaceAllStringFunc(sql, func(string) string {
+		n++
+		return ":" + strconv.Itoa(n)
+	})
 }

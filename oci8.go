@@ -429,13 +429,13 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		case "prefetch_rows":
 			z, err := strconv.ParseUint(v[0], 10, 32)
 			if err != nil {
-				return nil, fmt.Errorf("invalid prefetch_rows", v[0])
+				return nil, fmt.Errorf("invalid prefetch_rows: %v", v[0])
 			}
 			dsn.prefetch_rows = uint32(z)
 		case "prefetch_memory":
 			z, err := strconv.ParseUint(v[0], 10, 32)
 			if err != nil {
-				return nil, fmt.Errorf("invalid prefetch_memory", v[0])
+				return nil, fmt.Errorf("invalid prefetch_memory: %v", v[0])
 			}
 			dsn.prefetch_memory = uint32(z)
 			//default:

@@ -16,6 +16,7 @@ This package can be installed with the go get command:
     $ go get github.com/mattn/go-oci8
     
 To enable XA distributed transaction processing, you need to pass CGO_CFLAGS env variable with "-DOCI8_ENABLE_XA", for example:
+
     $ export CGO_CFLAGS=-DOCI8_ENABLE_XA
     $ go get github.com/mattn/go-oci8
 

@@ -178,10 +178,12 @@ static ret2ptr
 WrapxaoEnv(OraText *p) {
   ret2ptr vvv = {NULL, NULL, 0};
 
+#ifdef OCI8_ENABLE_XA
   if (!p[0])
   {
   	vvv.ptr = (dvoid *)xaoEnv(NULL);
   }
+#endif
 
   return vvv;
 }
@@ -190,10 +192,13 @@ WrapxaoEnv(OraText *p) {
 static ret2ptr
 WrapxaoSvcCtx(OraText *p) {
   ret2ptr vvv = {NULL, NULL, 0};
+  
+#ifdef OCI8_ENABLE_XA
   if (!p[0])
   {
     vvv.ptr = (dvoid *)xaoSvcCtx(NULL);
   }
+#endif
 
   return vvv;
 }

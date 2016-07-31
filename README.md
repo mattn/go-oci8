@@ -20,6 +20,7 @@ To enable XA distributed transaction processing for go application servers (e.g.
     $ export CGO_CFLAGS=-DOCI8_ENABLE_XA
     $ go get github.com/mattn/go-oci8
 
+Also when driver is built for XA, you need to pass the "enable_xa=YES" flag to connection string. In this case settings like host, port, username, password and SID are ignored. You can put dummy values there.
     
 You need to put `oci8.pc` like into your `$PKG_CONFIG_PATH`. `oci8.pc` should be like below. This is an example for windows.
 

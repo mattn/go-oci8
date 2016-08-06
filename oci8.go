@@ -76,6 +76,41 @@ WrapOCIAttrGetUb4(dvoid *ss, ub4 hType, ub4 aType, OCIError *err) {
 }
 
 typedef struct {
+  OraText rowid[19];
+  sword rv;
+} retRowid;
+
+#include <stdio.h>
+
+static retRowid
+WrapOCIAttrRowId(dvoid *ss, dvoid *st, ub4 hType, ub4 aType, OCIError *err) {
+  OCIRowid *ptr;
+  ub4 size;
+  retRowid vvv;
+  vvv.rv = OCIDescriptorAlloc(
+    ss,
+    (dvoid*)&ptr,
+    OCI_DTYPE_ROWID,
+    0,
+    NULL);
+  if (vvv.rv == OCI_SUCCESS) {
+    vvv.rv = OCIAttrGet(
+      st,
+      hType,
+      ptr,
+      &size,
+      aType,
+      err);
+    if (vvv.rv == OCI_SUCCESS) {
+      ub2 idsize = 18;
+      memset(vvv.rowid, 0, sizeof(vvv.rowid));
+      vvv.rv = OCIRowidToChar(ptr, vvv.rowid, &idsize, err);
+    }
+  }
+  return vvv;
+}
+
+typedef struct {
   char *ptr;
   ub4 size;
   sword rv;
@@ -525,7 +560,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		conn.env,
 		C.OCI_HTYPE_ERROR,
 		0); rv.rv != C.OCI_SUCCESS {
-		return nil, errors.New("cant  allocate error handle")
+		return nil, errors.New("cant allocate error handle")
 	} else {
 		conn.err = rv.ptr
 	}
@@ -1082,25 +1117,20 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 // can be coverted to char, but not to int64
 
 func (s *OCI8Stmt) lastInsertId() (int64, error) {
-	/*
-		rv := C.OCIStmtFetch(
-			(*C.OCIStmt)(s.s),
-			(*C.OCIError)(s.c.err),
-			1,
-			C.OCI_FETCH_NEXT,
-			C.OCI_DEFAULT)
-		if rv == C.OCI_NO_DATA {
-			return 0, io.EOF
-		} else if rv != C.OCI_SUCCESS {
-			return 0, ociGetError(s.c.err)
+	retRowid := C.WrapOCIAttrRowId(s.c.env, s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, (*C.OCIError)(s.c.err))
+	if retRowid.rv == C.OCI_SUCCESS {
+		bs := make([]byte, 19)
+		for i, b := range retRowid.rowid {
+			bs[i] = byte(b)
 		}
-		retUb4 := C.WrapOCIAttrGetRowid(s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, (*C.OCIError)(s.c.err))
-		if retUb4.rv != C.OCI_SUCCESS {
-			return 0, ociGetError(s.c.err)
-		}
-		return int64(retUb4.rowid), nil
-	*/
-	return int64(0), fmt.Errorf("LastInsertId not supported")
+		rowid := string(bs)
+		return int64(uintptr(unsafe.Pointer(&rowid))), nil
+	}
+	return int64(0), nil
+}
+
+func GetLastInsertId(id int64) string {
+	return *(*string)(unsafe.Pointer(uintptr(id)))
 }
 
 func (s *OCI8Stmt) rowsAffected() (int64, error) {

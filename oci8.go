@@ -346,6 +346,7 @@ type OCI8Conn struct {
 	transactionMode      C.ub4
 	inTransaction        bool
 	enableQMPlaceholders bool
+	closed               bool
 }
 
 type OCI8Tx struct {
@@ -561,6 +562,11 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 }
 
 func (c *OCI8Conn) Close() error {
+	if c.closed {
+		return nil
+	}
+	c.closed = true
+
 	var err error
 	if rv := C.OCILogoff(
 		(*C.OCISvcCtx)(c.svc),
@@ -1076,7 +1082,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			return nil, ociGetError(rv, s.c.err)
 		}
 	}
-	return &OCI8Rows{s, oci8cols, false, indrlenptr}, nil
+	return &OCI8Rows{s, oci8cols, false, indrlenptr, false}, nil
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc
@@ -1185,6 +1191,7 @@ type OCI8Rows struct {
 	cols       []oci8col
 	e          bool
 	indrlenptr unsafe.Pointer
+	closed     bool
 }
 
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
@@ -1193,6 +1200,11 @@ func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
 }
 
 func (rc *OCI8Rows) Close() error {
+	if rc.closed {
+		return nil
+	}
+	rc.closed = true
+
 	C.free(rc.indrlenptr)
 	for _, col := range rc.cols {
 		switch col.kind {

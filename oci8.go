@@ -80,8 +80,6 @@ typedef struct {
   sword rv;
 } retRowid;
 
-#include <stdio.h>
-
 static retRowid
 WrapOCIAttrRowId(dvoid *ss, dvoid *st, ub4 hType, ub4 aType, OCIError *err) {
   OCIRowid *ptr;

@@ -1121,14 +1121,17 @@ func (s *OCI8Stmt) lastInsertId() (int64, error) {
 		for i, b := range retRowid.rowid {
 			bs[i] = byte(b)
 		}
-		rowid := string(bs)
-		return int64(uintptr(unsafe.Pointer(&rowid))), nil
+		return strconv.ParseInt(fmt.Sprintf("%x", string(bs)), 16, 64)
+
 	}
 	return int64(0), nil
 }
 
 func GetLastInsertId(id int64) string {
-	return *(*string)(unsafe.Pointer(uintptr(id)))
+	var s string
+	f := strconv.FormatInt(id, 16)
+	fmt.Sscanf(f, "%x", &s)
+	return s
 }
 
 func (s *OCI8Stmt) rowsAffected() (int64, error) {

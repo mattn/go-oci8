@@ -60,5 +60,12 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	println(oci8.GetLastInsertId(lastInsertId))
+	rowID := oci8.GetLastInsertId(lastInsertId)
+	var id string
+	err = db.QueryRow("select id from lastinsertid_example where rowid = :1", rowID).Scan(&id)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(id)
 }

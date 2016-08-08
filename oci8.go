@@ -1117,8 +1117,8 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 func (s *OCI8Stmt) lastInsertId() (int64, error) {
 	retRowid := C.WrapOCIAttrRowId(s.c.env, s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, (*C.OCIError)(s.c.err))
 	if retRowid.rv == C.OCI_SUCCESS {
-		bs := make([]byte, 19)
-		for i, b := range retRowid.rowid {
+		bs := make([]byte, 18)
+		for i, b := range retRowid.rowid[:18] {
 			bs[i] = byte(b)
 		}
 		rowid := string(bs)

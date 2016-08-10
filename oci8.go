@@ -1264,7 +1264,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
-	} else if rv != C.OCI_SUCCESS {
+	} else if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
 		return ociGetError(rv, rc.s.c.err)
 	}
 

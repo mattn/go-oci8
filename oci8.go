@@ -1466,6 +1466,9 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 func ociGetErrorS(err unsafe.Pointer) error {
 	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
 	s := C.GoString(&rv.err[0])
+	if len(s) > 8 && (s[0:9] == "ORA-03114" || s[0:9] == "ORA-01012") {
+    return driver.ErrBadConn
+	}
 	return errors.New(s)
 }
 

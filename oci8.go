@@ -411,7 +411,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		dsnString = dsnString[len(prefix):]
 	}
 
-	authority, dsnString := split(dsnString, "@")
+	authority, dsnString := splitRight(dsnString, "@")
 	if authority != "" {
 		dsn.Username, dsn.Password, err = parseAuthority(authority)
 		if err != nil {
@@ -419,7 +419,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		}
 	}
 
-	host, params := split(dsnString, "?")
+	host, params := splitRight(dsnString, "?")
 
 	if host, err = unescape(host, encodeHost); err != nil {
 		return nil, err
@@ -1467,7 +1467,7 @@ func ociGetErrorS(err unsafe.Pointer) error {
 	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
 	s := C.GoString(&rv.err[0])
 	if len(s) > 8 && (s[0:9] == "ORA-03114" || s[0:9] == "ORA-01012") {
-    return driver.ErrBadConn
+		return driver.ErrBadConn
 	}
 	return errors.New(s)
 }

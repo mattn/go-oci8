@@ -1216,7 +1216,28 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 			return nil, ociGetError(rv, s.c.err)
 		}
 	}
-	return &OCI8Rows{s, oci8cols, false, indrlenptr, false}, nil
+
+	rows = &OCI8Rows{
+		s:          s,
+		cols:       oci8cols,
+		e:          false,
+		indrlenptr: indrlenptr,
+		closed:     false,
+		done:       make(chan struct{}),
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			C.OCIBreak(
+				unsafe.Pointer(s.c.svc),
+				(*C.OCIError)(s.c.err))
+			rows.Close()
+		case <-rows.(*OCI8Rows).done:
+		}
+	}()
+
+	return rows, nil
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc
@@ -1290,6 +1311,18 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			C.OCIBreak(
+				unsafe.Pointer(s.c.svc),
+				(*C.OCIError)(s.c.err))
+		case <-done:
+		}
+	}()
+
 	rv := C.OCIStmtExecute(
 		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
@@ -1332,6 +1365,7 @@ type OCI8Rows struct {
 	e          bool
 	indrlenptr unsafe.Pointer
 	closed     bool
+	done       chan struct{}
 }
 
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
@@ -1344,6 +1378,9 @@ func (rc *OCI8Rows) Close() error {
 		return nil
 	}
 	rc.closed = true
+	if rc.done != nil {
+		close(rc.done)
+	}
 
 	C.free(rc.indrlenptr)
 	for _, col := range rc.cols {

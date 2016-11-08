@@ -346,6 +346,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"golang.org/x/net/context"
 )
 
 const blobBufSize = 4000
@@ -501,7 +503,77 @@ func (tx *OCI8Tx) Rollback() error {
 	return nil
 }
 
+type namedValue struct {
+	Name    string
+	Ordinal int
+	Value   driver.Value
+}
+
+func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	list := make([]namedValue, len(args))
+	for i, v := range args {
+		list[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return c.exec(context.Background(), query, list)
+}
+
+func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
+	s, err := c.prepare(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	res, err := s.(*OCI8Stmt).exec(ctx, args)
+	if err != nil && err != driver.ErrSkip {
+		s.Close()
+		return nil, err
+	}
+	return res, nil
+}
+
+// Query implements Queryer.
+func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	list := make([]namedValue, len(args))
+	for i, v := range args {
+		list[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return c.query(context.Background(), query, list)
+}
+
+func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
+	s, err := c.prepare(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.(*OCI8Stmt).query(ctx, args)
+	if err != nil && err != driver.ErrSkip {
+		s.Close()
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (c *OCI8Conn) ping(ctx context.Context) error {
+	rv := C.OCIPing(
+		(*C.OCISvcCtx)(c.svc),
+		(*C.OCIError)(c.err),
+		C.OCI_DEFAULT)
+	if rv != C.OCI_SUCCESS {
+		return errors.New("ping failed")
+	}
+	return nil
+}
+
 func (c *OCI8Conn) Begin() (driver.Tx, error) {
+	return c.begin(context.Background())
+}
+
+func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 	if c.transactionMode != C.OCI_TRANS_READWRITE {
 		var th unsafe.Pointer
 		if rv := C.WrapOCIHandleAlloc(
@@ -623,6 +695,10 @@ type OCI8Stmt struct {
 }
 
 func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
+	return c.prepare(context.Background(), query)
+}
+
+func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, error) {
 	if c.enableQMPlaceholders {
 		query = placeholders(query)
 	}
@@ -698,7 +774,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 	}
 }
 
-func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err error) {
+func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -711,7 +787,7 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 	*s.bp = nil
 	for i, uv := range args {
 
-		switch v := uv.(type) {
+		switch v := uv.Value.(type) {
 		case nil:
 			dty = C.SQLT_STR
 			cdata = nil
@@ -868,28 +944,60 @@ func (s *OCI8Stmt) bind(args []driver.Value) (boundParameters []oci8bind, err er
 			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 		}
 
-		if rv := C.OCIBindByPos(
-			(*C.OCIStmt)(s.s),
-			s.bp,
-			(*C.OCIError)(s.c.err),
-			C.ub4(i+1),
-			unsafe.Pointer(cdata),
-			clen,
-			dty,
-			nil,
-			nil,
-			nil,
-			0,
-			nil,
-			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
-			defer freeBoundParameters(boundParameters)
-			return nil, ociGetError(rv, s.c.err)
+		if uv.Name != "" {
+			cname := C.CString(uv.Name)
+			defer C.free(unsafe.Pointer(cname))
+			if rv := C.OCIBindByName(
+				(*C.OCIStmt)(s.s),
+				s.bp,
+				(*C.OCIError)(s.c.err),
+				(*C.OraText)(unsafe.Pointer(cname)),
+				C.sb4(len(uv.Name)),
+				unsafe.Pointer(cdata),
+				clen,
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+			}
+		} else {
+			if rv := C.OCIBindByPos(
+				(*C.OCIStmt)(s.s),
+				s.bp,
+				(*C.OCIError)(s.c.err),
+				C.ub4(i+1),
+				unsafe.Pointer(cdata),
+				clen,
+				dty,
+				nil,
+				nil,
+				nil,
+				0,
+				nil,
+				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+				defer freeBoundParameters(boundParameters)
+				return nil, ociGetError(rv, s.c.err)
+			}
 		}
 	}
 	return boundParameters, nil
 }
 
 func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
+	list := make([]namedValue, len(args))
+	for i, v := range args {
+		list[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return s.query(context.Background(), list)
+}
+
+func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Rows, err error) {
 	var (
 		fbp []oci8bind
 	)
@@ -1156,6 +1264,17 @@ func (r *OCI8Result) RowsAffected() (int64, error) {
 }
 
 func (s *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
+	list := make([]namedValue, len(args))
+	for i, v := range args {
+		list[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return s.exec(context.Background(), list)
+}
+
+func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result, err error) {
 	var (
 		fbp []oci8bind
 	)

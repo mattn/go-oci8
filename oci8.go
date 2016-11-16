@@ -341,6 +341,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -364,6 +365,8 @@ type DSN struct {
 }
 
 func init() {
+	os.Setenv("NLS_LANG", "AMERICAN_AMERICA.AL32UTF8")
+
 	sql.Register("oci8", &OCI8Driver{})
 }
 

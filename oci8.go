@@ -864,6 +864,7 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 					(*C.OCIError)(s.c.err),
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
 				if rvz.rv != C.OCI_SUCCESS {
+					defer freeBoundParameters(boundParameters)
 					return nil, ociGetError(rvz.rv, s.c.err)
 				}
 				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {

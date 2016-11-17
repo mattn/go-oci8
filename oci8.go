@@ -1002,6 +1002,7 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var (
 		fbp []oci8bind
+		err error
 	)
 
 	if fbp, err = s.bind(args); err != nil {
@@ -1239,7 +1240,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		}
 	}()
 
-	return rows, err
+	return rows, nil
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc

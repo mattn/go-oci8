@@ -1366,9 +1366,6 @@ func (rc *OCI8Rows) Close() error {
 		return nil
 	}
 	rc.closed = true
-	if rc.done != nil {
-		close(rc.done)
-	}
 
 	C.free(rc.indrlenptr)
 	for _, col := range rc.cols {
@@ -1399,6 +1396,10 @@ func (rc *OCI8Rows) Columns() []string {
 }
 
 func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
+	if c.closed {
+		return nil
+	}
+
 	done := make(chan struct{})
 	defer close(done)
 	go func() {

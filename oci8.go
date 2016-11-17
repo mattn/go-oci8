@@ -1225,10 +1225,9 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 		e:          false,
 		indrlenptr: indrlenptr,
 		closed:     false,
-		ctx:        ctx,
+		done:        make(chan struct{}),
 	}
 
-	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -1236,19 +1235,11 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 				unsafe.Pointer(s.c.svc),
 				(*C.OCIError)(s.c.err))
 			rows.Close()
-			err = ctx.Err()
-		case <-done:
+		case <-rows.done:
 		}
 	}()
 
-	return &OCI8Rows{
-		s:          s,
-		cols:       oci8cols,
-		e:          false,
-		indrlenptr: indrlenptr,
-		closed:     false,
-		done:       done,
-	}, err
+	return rows, err
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc

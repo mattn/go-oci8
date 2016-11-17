@@ -1219,27 +1219,13 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 		}
 	}
 
-	rows = &OCI8Rows{
+	return &OCI8Rows{
 		s:          s,
 		cols:       oci8cols,
 		e:          false,
 		indrlenptr: indrlenptr,
 		closed:     false,
-		done:       make(chan struct{}),
 	}
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			C.OCIBreak(
-				unsafe.Pointer(s.c.svc),
-				(*C.OCIError)(s.c.err))
-			rows.Close()
-		case <-rows.(*OCI8Rows).done:
-		}
-	}()
-
-	return rows, nil
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc
@@ -1412,7 +1398,21 @@ func (rc *OCI8Rows) Columns() []string {
 	return cols
 }
 
-func (rc *OCI8Rows) Next(dest []driver.Value) error {
+func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			C.OCIBreak(
+				unsafe.Pointer(rc.s.c.svc),
+				(*C.OCIError)(rc.s.c.err))
+			rc.Close()
+			err = ctx.Err()
+		case <-done:
+		}
+	}()
+
 	rv := C.OCIStmtFetch(
 		(*C.OCIStmt)(rc.s.s),
 		(*C.OCIError)(rc.s.c.err),

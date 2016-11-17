@@ -1412,7 +1412,7 @@ func (rc *OCI8Rows) Columns() []string {
 }
 
 func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
-	if c.closed {
+	if rc.closed {
 		return nil
 	}
 

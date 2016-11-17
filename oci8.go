@@ -1219,7 +1219,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 		}
 	}
 
-	rows := &OCI8Rows{
+	rc := &OCI8Rows{
 		s:          s,
 		cols:       oci8cols,
 		e:          false,
@@ -1234,12 +1234,12 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (rows driver.Ro
 			C.OCIBreak(
 				unsafe.Pointer(s.c.svc),
 				(*C.OCIError)(s.c.err))
-			rows.Close()
-		case <-rows.done:
+			rc.Close()
+		case <-rc.done:
 		}
 	}()
 
-	return rows, err
+	return rc, err
 }
 
 // OCI_ATTR_ROWID must be get in handle -> alloc

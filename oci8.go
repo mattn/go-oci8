@@ -341,6 +341,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1667,4 +1668,161 @@ func placeholders(sql string) string {
 		n++
 		return ":" + strconv.Itoa(n)
 	})
+}
+
+// ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
+func (rc *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
+	var p unsafe.Pointer
+	var tp C.ub2
+
+	rp := C.WrapOCIParamGet(rc.s.s, C.OCI_HTYPE_STMT, (*C.OCIError)(rc.s.c.err), C.ub4(i+1))
+	if rp.rv == C.OCI_SUCCESS {
+		p = rp.ptr
+	}
+
+	tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, (*C.OCIError)(rc.s.c.err))
+	if tpr.rv == C.OCI_SUCCESS {
+		tp = tpr.num
+	}
+
+	switch tp {
+	case C.SQLT_CHR:
+		return "SQLT_CHR"
+	case C.SQLT_NUM:
+		return "SQLT_NUM"
+	case C.SQLT_INT:
+		return "SQLT_INT"
+	case C.SQLT_FLT:
+		return "SQLT_FLT"
+	case C.SQLT_STR:
+		return "SQLT_STR"
+	case C.SQLT_VNU:
+		return "SQLT_VNU"
+	case C.SQLT_LNG:
+		return "SQLT_LNG"
+	case C.SQLT_VCS:
+		return "SQLT_VCS"
+	case C.SQLT_DAT:
+		return "SQLT_DAT"
+	case C.SQLT_VBI:
+		return "SQLT_VBI"
+	case C.SQLT_BFLOAT:
+		return "SQLT_BFLOAT"
+	case C.SQLT_BDOUBLE:
+		return "SQLT_BDOUBLE"
+	case C.SQLT_BIN:
+		return "SQLT_BIN"
+	case C.SQLT_LBI:
+		return "SQLT_LBI"
+	case C.SQLT_UIN:
+		return "SQLT_UIN"
+	case C.SQLT_LVC:
+		return "SQLT_LVC"
+	case C.SQLT_LVB:
+		return "SQLT_LVB"
+	case C.SQLT_AFC:
+		return "SQLT_AFC"
+	case C.SQLT_AVC:
+		return "SQLT_AVC"
+	case C.SQLT_RDD:
+		return "SQLT_RDD"
+	case C.SQLT_NTY:
+		return "SQLT_NTY"
+	case C.SQLT_REF:
+		return "SQLT_REF"
+	case C.SQLT_CLOB:
+		return "SQLT_CLOB"
+	case C.SQLT_BLOB:
+		return "SQLT_BLOB"
+	case C.SQLT_FILE:
+		return "SQLT_FILE"
+	case C.SQLT_VST:
+		return "SQLT_VST"
+	case C.SQLT_ODT:
+		return "SQLT_ODT"
+	case C.SQLT_DATE:
+		return "SQLT_DATE"
+	case C.SQLT_TIMESTAMP:
+		return "SQLT_TIMESTAMP"
+	case C.SQLT_TIMESTAMP_TZ:
+		return "SQLT_TIMESTAMP_TZ"
+	case C.SQLT_INTERVAL_YM:
+		return "SQLT_INTERVAL_YM"
+	case C.SQLT_INTERVAL_DS:
+		return "SQLT_INTERVAL_DS"
+	case C.SQLT_TIMESTAMP_LTZ:
+		return "SQLT_TIMESTAMP_LTZ"
+	}
+	return ""
+}
+
+func (rc *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
+	var p unsafe.Pointer
+	var lp C.ub2
+
+	rp := C.WrapOCIParamGet(rc.s.s, C.OCI_HTYPE_STMT, (*C.OCIError)(rc.s.c.err), C.ub4(i+1))
+	if rp.rv != C.OCI_SUCCESS {
+		return 0, false
+	}
+	p = rp.ptr
+
+	lpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_SIZE, (*C.OCIError)(rc.s.c.err))
+	if lpr.rv != C.OCI_SUCCESS {
+		return 0, false
+	}
+	lp = lpr.num
+
+	return int64(lp), true
+}
+
+/*
+func (rc *OCI8Rows) ColumnTypePrecisionScale(i int) (precision, scale int64, ok bool) {
+	return 0, 0, false
+}
+*/
+
+// ColumnTypeNullable implement RowsColumnTypeNullable.
+func (rc *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
+	retUb4 := C.WrapOCIAttrGetUb4(rc.s.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_IS_NULL, (*C.OCIError)(rc.s.c.err))
+	if retUb4.rv != C.OCI_SUCCESS {
+		return false, false
+	}
+	return retUb4.num != 0, true
+}
+
+// ColumnTypeScanType implement RowsColumnTypeScanType.
+func (rc *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
+	var p unsafe.Pointer
+	var tp C.ub2
+
+	tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, (*C.OCIError)(rc.s.c.err))
+	if tpr.rv == C.OCI_SUCCESS {
+		tp = tpr.num
+	}
+
+	switch tp {
+	case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
+		return reflect.SliceOf(reflect.TypeOf(""))
+	case C.SQLT_BIN:
+		return reflect.SliceOf(reflect.TypeOf(byte(0)))
+	case C.SQLT_NUM:
+		return reflect.TypeOf(int64(0))
+	case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
+		return reflect.TypeOf(float64(0))
+	case C.SQLT_CLOB, C.SQLT_BLOB:
+		return reflect.SliceOf(reflect.TypeOf(byte(0)))
+	case C.SQLT_TIMESTAMP, C.SQLT_DAT:
+		return reflect.TypeOf(time.Time{})
+	case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
+		return reflect.TypeOf(time.Time{})
+	case C.SQLT_INTERVAL_DS:
+		return reflect.TypeOf(time.Duration(0))
+	case C.SQLT_INTERVAL_YM:
+		return reflect.TypeOf(time.Duration(0))
+	case C.SQLT_RDD: // rowid
+		return reflect.SliceOf(reflect.TypeOf(""))
+	default:
+		return reflect.SliceOf(reflect.TypeOf(""))
+	}
+	return reflect.SliceOf(reflect.TypeOf(byte(0)))
 }

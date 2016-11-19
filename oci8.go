@@ -535,6 +535,7 @@ func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (d
 }
 
 // Query implements Queryer.
+/*
 func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -545,6 +546,7 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 	}
 	return c.query(context.Background(), query, list)
 }
+*/
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
 	s, err := c.prepare(ctx, query)

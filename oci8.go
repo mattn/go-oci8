@@ -343,6 +343,7 @@ import (
 	"math"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -535,7 +536,6 @@ func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (d
 }
 
 // Query implements Queryer.
-/*
 func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -546,7 +546,6 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 	}
 	return c.query(context.Background(), query, list)
 }
-*/
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
 	s, err := c.prepare(ctx, query)
@@ -730,7 +729,9 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 		return nil, ociGetError(rv, c.err)
 	}
 
-	return &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
+	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
+	runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
+	return ss, nil
 }
 
 func (s *OCI8Stmt) Close() error {

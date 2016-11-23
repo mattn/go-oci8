@@ -553,7 +553,9 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 			Value:   v,
 		}
 	}
-	return c.query(context.Background(), query, list)
+	rows, err := c.query(context.Background(), query, list)
+	rows.(*OCI8Rows).cls = true
+	return rows, err
 }
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
@@ -1239,6 +1241,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		indrlenptr: indrlenptr,
 		closed:     false,
 		done:       make(chan struct{}),
+		cls:        false,
 	}
 
 	go func() {
@@ -1381,6 +1384,7 @@ type OCI8Rows struct {
 	indrlenptr unsafe.Pointer
 	closed     bool
 	done       chan struct{}
+	cls        bool
 }
 
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
@@ -1395,6 +1399,10 @@ func (rc *OCI8Rows) Close() error {
 	rc.closed = true
 
 	close(rc.done)
+
+	if rc.cls {
+		rc.s.Close()
+	}
 
 	C.free(rc.indrlenptr)
 	for _, col := range rc.cols {

@@ -554,6 +554,9 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 		}
 	}
 	rows, err := c.query(context.Background(), query, list)
+	if err != nil {
+		return nil, err
+	}
 	rows.(*OCI8Rows).cls = true
 	return rows, err
 }

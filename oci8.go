@@ -964,14 +964,15 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 		}
 
 		if uv.Name != "" {
-			cname := C.CString(uv.Name)
+			name := ":" + uv.Name
+			cname := C.CString(name)
 			defer C.free(unsafe.Pointer(cname))
 			if rv := C.OCIBindByName(
 				(*C.OCIStmt)(s.s),
 				s.bp,
 				(*C.OCIError)(s.c.err),
 				(*C.OraText)(unsafe.Pointer(cname)),
-				C.sb4(len(uv.Name)),
+				C.sb4(len(name)),
 				unsafe.Pointer(cdata),
 				clen,
 				dty,

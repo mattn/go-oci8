@@ -37,7 +37,7 @@ func (c *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stm
 }
 
 // BeginTx implement ConnBeginTx.
-func (c *OCI8Conn) BeginTx(ctx context.Context) (driver.Tx, error) {
+func (c *OCI8Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	return c.begin(ctx)
 }
 

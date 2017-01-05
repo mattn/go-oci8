@@ -198,7 +198,7 @@ WrapOCIEnvCreate(ub4 mode, size_t extra) {
     ptr = &vvv.extra;
   }
   if (getenv("NLS_LANG") == NULL && !OCIEnvInit(&env, OCI_DEFAULT, 0, NULL)) {
-    charsetid = OCINlsCharSetNameToId(env, "AL32UTF8");
+    charsetid = OCINlsCharSetNameToId(env, (const oratext*)"AL32UTF8");
     OCIHandleFree(env, OCI_HTYPE_ENV);
   }
 

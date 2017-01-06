@@ -533,6 +533,7 @@ func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error
 
 func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
 	s, err := c.prepare(ctx, query)
+	defer s.Close()
 	if err != nil {
 		return nil, err
 	}

@@ -563,12 +563,12 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
 	s, err := c.prepare(ctx, query)
+	defer s.Close()
 	if err != nil {
 		return nil, err
 	}
 	rows, err := s.(*OCI8Stmt).query(ctx, args)
-	if err != nil && err != driver.ErrSkip {
-		s.Close()
+	if err != nil && err != driver.ErrSkip {		
 		return nil, err
 	}
 	return rows, nil

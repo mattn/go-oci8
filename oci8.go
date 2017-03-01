@@ -754,6 +754,7 @@ func (s *OCI8Stmt) Close() error {
 	}
 	s.closed = true
 
+	runtime.SetFinalizer(s, nil)
 	C.OCIHandleFree(
 		s.s,
 		C.OCI_HTYPE_STMT)
@@ -1373,7 +1374,7 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 		nil,
 		nil,
 		mode)
-	if rv != C.OCI_SUCCESS {
+	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
 		return nil, ociGetError(rv, s.c.err)
 	}
 

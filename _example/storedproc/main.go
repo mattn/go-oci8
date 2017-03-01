@@ -13,8 +13,8 @@ func main() {
 		log.Fatal(err)
 	}
 	_, err = db.Exec(`
-	CREATE OR REPLACE FUNCTION MY_SUM
-	(
+    CREATE OR REPLACE FUNCTION MY_SUM
+    (
       P_NUM1 IN NUMBER,
       P_NUM2 IN NUMBER
     )
@@ -23,12 +23,12 @@ func main() {
       R_NUM NUMBER(2) DEFAULT 0;
     BEGIN
       FOR i IN 1..P_NUM2
-	  LOOP
+      LOOP
         R_NUM := R_NUM + P_NUM1;
       END LOOP;
       RETURN R_NUM;
     END;
-	`)
+    `)
 	if err != nil {
 		log.Fatal(err)
 	}

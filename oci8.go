@@ -451,6 +451,16 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				if dsn.Location, err = time.LoadLocation(v[0]); err != nil {
 					return nil, fmt.Errorf("Invalid loc: %v: %v", v[0], err)
 				}
+			case "encoded":
+				if param[1] == "true" {
+					if dsn.Username, err = url.QueryUnescape(dsn.Username); err!=nil {
+						panic(err)
+					}
+					if dsn.Password, _ = url.QueryUnescape(dsn.Password); err!=nil {
+						panic(err)
+					}
+				}
+
 			}
 		case "isolation":
 			switch v[0] {
@@ -624,14 +634,15 @@ func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
-	var (
-		conn OCI8Conn
-		dsn  *DSN
-	)
-
-	if dsn, err = ParseDSN(dsnString); err != nil {
+	dsn, err := ParseDSN(dsnString)
+	if err != nil {
 		return nil, err
 	}
+	return d.OpenDSN(dsn)
+}
+
+func (d *OCI8Driver) OpenDSN(dsn *DSN) (connection driver.Conn, err error) {
+	var conn OCI8Conn
 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,

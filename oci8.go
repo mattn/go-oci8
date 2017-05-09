@@ -10,14 +10,13 @@ package oci8
 
 typedef struct {
   char err[1024];
-  sword rv;
+  sb4 errcode;
 } retErr;
 
 static retErr
 WrapOCIErrorGet(OCIError *err) {
   retErr vvv;
-  sb4 errcode;
-  OCIErrorGet(err, 1, NULL, &errcode, (OraText*) vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
+  OCIErrorGet(err, 1, NULL, &vvv.errcode, (OraText*) vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
   return vvv;
 }
 
@@ -337,8 +336,8 @@ WrapOCIAttrSetUb4(dvoid *h, ub4 type, ub4 value, ub4  attrtype, OCIError *err) {
 }
 
 typedef struct  {
-	sb2 ind;
-	ub2 rlen;
+       sb2 ind;
+       ub2 rlen;
 } indrlen;
 
 */
@@ -361,7 +360,15 @@ import (
 	"golang.org/x/net/context"
 )
 
-const blobBufSize = 4000
+const (
+	blobBufSize                                     = 4000
+	NOT_LOGGED_ON_ERROR_CODE                        = 1012
+	ORACLE_NOT_AVAILABLE_ERROR_CODE                 = 1034
+	END_OF_FILE_ON_COMMUNICATION_CHANNEL_ERROR_CODE = 3113
+	NOT_CONNECTED_TO_ORACLE_ERROR_CODE              = 3114
+	CONNECTION_LOST_CONTACT_ERROR_CODE              = 3135
+	EXCEPTION_ENCOUNTERED_CORE_DUMP_ERROR_CODE      = 7445
+)
 
 type DSN struct {
 	Connect              string
@@ -1056,6 +1063,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 	if !s.c.inTransaction {
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
+
 	if rv := C.OCIStmtExecute(
 		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
@@ -1107,9 +1115,9 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 			lp = lpr.num
 		}
 		/*
-			var (
-				defp *C.OCIDefine
-			)
+		   var (
+		          defp *C.OCIDefine
+		   )
 		*/
 		*s.defp = nil
 		switch tp {
@@ -1174,13 +1182,13 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 
 			}
 
-			//      testing
-			//		case C.SQLT_DAT:
-			//
-			//			oci8cols[i].kind = C.SQLT_DAT
-			//			oci8cols[i].size = int(lp)
-			//			oci8cols[i].pbuf = C.malloc(C.size_t(lp))
-			//
+		//      testing
+		//            case C.SQLT_DAT:
+		//
+		//                   oci8cols[i].kind = C.SQLT_DAT
+		//                   oci8cols[i].size = int(lp)
+		//                   oci8cols[i].pbuf = C.malloc(C.size_t(lp))
+		//
 
 		case C.SQLT_TIMESTAMP, C.SQLT_DAT:
 			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_TIMESTAMP, C.size_t(unsafe.Sizeof(unsafe.Pointer(nil)))); ret.rv != C.OCI_SUCCESS {
@@ -1670,8 +1678,21 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 	return nil
 }
 
+func isBadConn(errcode int) (bool, error) {
+	switch errcode {
+	case NOT_LOGGED_ON_ERROR_CODE, ORACLE_NOT_AVAILABLE_ERROR_CODE,
+		END_OF_FILE_ON_COMMUNICATION_CHANNEL_ERROR_CODE, NOT_CONNECTED_TO_ORACLE_ERROR_CODE,
+		CONNECTION_LOST_CONTACT_ERROR_CODE, EXCEPTION_ENCOUNTERED_CORE_DUMP_ERROR_CODE:
+		return true, driver.ErrBadConn
+	}
+	return false, nil
+}
+
 func ociGetErrorS(err unsafe.Pointer) error {
 	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
+	if isBadConn, badConnErr := isBadConn(int(rv.errcode)); isBadConn == true {
+		return badConnErr
+	}
 	s := C.GoString(&rv.err[0])
 	if len(s) > 8 && (s[0:9] == "ORA-03114" || s[0:9] == "ORA-01012") {
 		return driver.ErrBadConn

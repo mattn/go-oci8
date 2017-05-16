@@ -362,6 +362,12 @@ import (
 )
 
 const blobBufSize = 4000
+/**
+	ORA-03114: Not Connected to Oracle
+	ORA-01012: Not logged on
+	ORA-03113: end-of-file on communication channel
+ */
+var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113"}
 
 type DSN struct {
 	Connect              string
@@ -1673,10 +1679,23 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 func ociGetErrorS(err unsafe.Pointer) error {
 	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
 	s := C.GoString(&rv.err[0])
-	if len(s) > 8 && (s[0:9] == "ORA-03114" || s[0:9] == "ORA-01012") {
+	if isBadConnection(s) {
 		return driver.ErrBadConn
 	}
 	return errors.New(s)
+}
+
+func isBadConnection(error string) bool {
+	if len(error) <= 8 {
+		return false
+	}
+	errorCode := error[0:9]
+	for _, badConnCode := range badConnCodes {
+		if badConnCode == errorCode {
+			return true
+		}
+	}
+	return false
 }
 
 func ociGetError(rv C.sword, err unsafe.Pointer) error {

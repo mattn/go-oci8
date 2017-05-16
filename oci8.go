@@ -1685,10 +1685,11 @@ func ociGetErrorS(err unsafe.Pointer) error {
 	return errors.New(s)
 }
 
-func isBadConnection(errorCode string) bool {
-	if len(errorCode) <= 8 {
+func isBadConnection(error string) bool {
+	if len(error) <= 8 {
 		return false
 	}
+	errorCode := error[0:9]
 	for _, badConnCode := range badConnCodes {
 		if badConnCode == errorCode {
 			return true

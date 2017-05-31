@@ -1143,23 +1143,9 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 			oci8cols[i].pbuf = C.malloc(8)
 
 		case C.SQLT_LNG:
-			// allocate +io buffers + ub4
-			size := int(unsafe.Sizeof(unsafe.Pointer(nil)) + unsafe.Sizeof(C.ub4(0)))
-			if oci8cols[i].size < blobBufSize {
-				size += blobBufSize
-			} else {
-				size += oci8cols[i].size
-			}
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
-				return nil, ociGetError(ret.rv, s.c.err)
-			} else {
-
-				oci8cols[i].kind = tp
-				oci8cols[i].size = size
-				oci8cols[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
-
-			}
+			oci8cols[i].kind = C.SQLT_BIN
+			oci8cols[i].size = 2000
+			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_CLOB, C.SQLT_BLOB:
 			// allocate +io buffers + ub4

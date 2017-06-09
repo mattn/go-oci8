@@ -1268,6 +1268,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 				(*C.OCIError)(s.c.err))
 			rows.Close()
 		case <-rows.done:
+			rows.s.Close()
 		}
 	}()
 

@@ -550,6 +550,20 @@ func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (d
 	return res, nil
 }
 
+/*
+FIXME:
+Queryer is disabled because of incresing cursor numbers.
+See https://github.com/mattn/go-oci8/issues/151
+OCIStmtExecute doesn't return anything to close resource.
+This mean that OCI8Rows.Close can't close statement handle. For example,
+prepared statement is called twice like below.
+
+    stmt, _ := db.Prepare("...")
+    stmt.QueryRow().Scan(&x)
+    stmt.QueryRow().Scan(&x)
+
+If OCI8Rows close handle of statement, this fails.
+
 // Query implements Queryer.
 func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
@@ -566,6 +580,7 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 	rows.(*OCI8Rows).cls = true
 	return rows, err
 }
+*/
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
 	s, err := c.prepare(ctx, query)

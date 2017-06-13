@@ -824,17 +824,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 }
 
 func getInt64(p unsafe.Pointer) int64 {
-	buf := (*[1 << 30]byte)(p)[0:8]
-
-	ret := int64(buf[0])
-	ret += int64(buf[1]) << 8
-	ret += int64(buf[2]) << 16
-	ret += int64(buf[3]) << 24
-	ret += int64(buf[4]) << 32
-	ret += int64(buf[5]) << 40
-	ret += int64(buf[6]) << 48
-	ret += int64(buf[7]) << 56
-	return ret
+	return int64(*(*C.sb8)(p))
 }
 
 func outputBoundParameters(boundParameters []oci8bind) {

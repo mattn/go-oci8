@@ -16,9 +16,11 @@ func (c *OCI8Conn) Ping(ctx context.Context) error {
 
 func toNamedValue(nv driver.NamedValue) namedValue {
 	mv := namedValue(nv)
-	if out, ok := mv.Value.(sql.Out); ok {
-		mv.Value = outValue{Dest: out.Dest, In: out.In}
-	}
+	// FIXME
+	// This is my fault that I've add code using sql.Out until next release.
+	//if out, ok := mv.Value.(sql.Out); ok {
+	//	mv.Value = outValue{Dest: out.Dest, In: out.In}
+	//}
 	return mv
 }
 

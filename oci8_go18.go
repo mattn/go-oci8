@@ -3,6 +3,7 @@
 package oci8
 
 import (
+	"database/sql"
 	"database/sql/driver"
 
 	"context"
@@ -11,6 +12,14 @@ import (
 // Ping implement Pinger.
 func (c *OCI8Conn) Ping(ctx context.Context) error {
 	return c.ping(ctx)
+}
+
+func toNamedValue(nv driver.NamedValue) namedValue {
+	mv := namedValue(nv)
+	if out, ok := mv.Value.(sql.Out); ok {
+		mv.Value = outValue{Dest: out.Dest, In: out.In}
+	}
+	return mv
 }
 
 // QueryContext implement QueryerContext.
@@ -57,4 +66,13 @@ func (s *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (d
 		list[i] = namedValue(nv)
 	}
 	return s.exec(ctx, list)
+}
+
+func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch nv.Value.(type) {
+	default:
+		return driver.ErrSkip
+	case sql.Out:
+		return nil
+	}
 }

@@ -3,6 +3,7 @@
 package oci8
 
 import (
+	"database/sql"
 	"database/sql/driver"
 
 	"context"
@@ -57,4 +58,13 @@ func (s *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (d
 		list[i] = namedValue(nv)
 	}
 	return s.exec(ctx, list)
+}
+
+func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch nv.Value.(type) {
+	default:
+		return driver.ErrSkip
+	case sql.Out:
+		return nil
+	}
 }

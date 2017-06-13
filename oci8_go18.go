@@ -14,6 +14,14 @@ func (c *OCI8Conn) Ping(ctx context.Context) error {
 	return c.ping(ctx)
 }
 
+func toNamedValue(nv driver.NamedValue) namedValue {
+	mv := namedValue(nv)
+	if out, ok := mv.Value.(sql.Out); ok {
+		mv.Value = outValue{Dest: out.Dest, In: out.In}
+	}
+	return mv
+}
+
 // QueryContext implement QueryerContext.
 func (c *OCI8Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	list := make([]namedValue, len(args))

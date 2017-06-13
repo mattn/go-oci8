@@ -527,6 +527,11 @@ type namedValue struct {
 	Value   driver.Value
 }
 
+type outValue struct {
+	Dest interface{}
+	In   bool
+}
+
 func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -892,7 +897,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		var sbind oci8bind
 
 		vv := uv.Value
-		if out, ok := vv.(sql.Out); ok {
+		if out, ok := vv.(outValue); ok {
 			sbind.out = out.Dest
 			vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
 			if err != nil {

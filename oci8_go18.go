@@ -26,7 +26,7 @@ func toNamedValue(nv driver.NamedValue) namedValue {
 func (c *OCI8Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
-		list[i] = namedValue(nv)
+		list[i] = toNamedValue(nv)
 	}
 	return c.query(ctx, query, list)
 }
@@ -35,7 +35,7 @@ func (c *OCI8Conn) QueryContext(ctx context.Context, query string, args []driver
 func (c *OCI8Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
-		list[i] = namedValue(nv)
+		list[i] = toNamedValue(nv)
 	}
 	return c.exec(ctx, query, list)
 }
@@ -54,7 +54,7 @@ func (c *OCI8Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.T
 func (s *OCI8Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
-		list[i] = namedValue(nv)
+		list[i] = toNamedValue(nv)
 	}
 	return s.query(ctx, list)
 }
@@ -63,7 +63,7 @@ func (s *OCI8Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (
 func (s *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
-		list[i] = namedValue(nv)
+		list[i] = toNamedValue(nv)
 	}
 	return s.exec(ctx, list)
 }

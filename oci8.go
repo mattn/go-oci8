@@ -367,8 +367,9 @@ const blobBufSize = 4000
 ORA-03114: Not Connected to Oracle
 ORA-01012: Not logged on
 ORA-03113: end-of-file on communication channel
+ORA-12528: TNS:listener: all appropriate instances are blocking new connections
 */
-var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113"}
+var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113", "ORA-12528"}
 
 type DSN struct {
 	Connect              string

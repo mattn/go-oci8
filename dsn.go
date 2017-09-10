@@ -220,6 +220,14 @@ func split(s string, c string) (string, string) {
 	return s[:i], s[i+len(c):]
 }
 
+func splitRight(s string, c string) (string, string) {
+	i := strings.LastIndex(s, c)
+	if i < 0 {
+		return s, ""
+	}
+	return s[:i], s[i+len(c):]
+}
+
 func parseAuthority(authority string) (user, pass string, err error) {
 
 	if i := strings.IndexAny(authority, ":/"); i < 0 {

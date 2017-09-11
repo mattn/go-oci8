@@ -216,7 +216,6 @@ WrapOCIEnvCreate(ub4 mode, size_t extra) {
   return vvv;
 }
 
-//madars.vitolins@gmail.com XA support:
 static ret2ptr
 WrapxaoEnv() {
   ret2ptr vvv = {NULL, NULL, 0};
@@ -228,7 +227,6 @@ WrapxaoEnv() {
   return vvv;
 }
 
-//madars.vitolins@gmail.com XA support:
 static ret2ptr
 WrapxaoSvcCtx() {
   ret2ptr vvv = {NULL, NULL, 0};
@@ -424,8 +422,8 @@ type OCI8Conn struct {
 	transactionMode      C.ub4
 	inTransaction        bool
 	enableQMPlaceholders bool
-	is_xa            bool
-    closed               bool
+	is_xa                bool
+	closed               bool
 }
 
 type OCI8Tx struct {
@@ -723,44 +721,47 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	}
 
 	if !conn.is_xa {
-		if rv := C.WrapOCIEnvCreate(
-			C.OCI_DEFAULT|C.OCI_THREADED,
-			0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-			// TODO: error handle not yet allocated, we can't get string error from oracle
-			return nil, errors.New("can't OCIEnvCreate")
+			if rv := C.WrapOCIEnvCreate(
+				C.OCI_DEFAULT|C.OCI_THREADED,
+				0); rv.rv != C.OCI_SUCCESS && 
+					rv.rv != C.OCI_SUCCESS_WITH_INFO {
+				// TODO: error handle not yet allocated, 
+				// we can't get string error from oracle
+				return nil, errors.New("can't OCIEnvCreate")
+			} else {
+				conn.env = rv.ptr
+			}
+
+			if rv := C.WrapOCIHandleAlloc(
+				conn.env,
+				C.OCI_HTYPE_ERROR,
+				0); rv.rv != C.OCI_SUCCESS {
+				return nil, errors.New("cant  allocate error handle")
+			} else {
+				conn.err = rv.ptr
+			}
+
+		phost := C.CString(dsn.Connect)
+		defer C.free(unsafe.Pointer(phost))
+		puser := C.CString(dsn.Username)
+		defer C.free(unsafe.Pointer(puser))
+		ppass := C.CString(dsn.Password)
+		defer C.free(unsafe.Pointer(ppass))
+
+		if rv := C.WrapOCILogon(
+			(*C.OCIEnv)(conn.env),
+			(*C.OCIError)(conn.err),
+			(*C.OraText)(unsafe.Pointer(puser)),
+			C.ub4(len(dsn.Username)),
+			(*C.OraText)(unsafe.Pointer(ppass)),
+			C.ub4(len(dsn.Password)),
+			(*C.OraText)(unsafe.Pointer(phost)),
+			C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && 
+				rv.rv != C.OCI_SUCCESS_WITH_INFO {
+			return nil, ociGetError(rv.rv, conn.err)
 		} else {
-			conn.env = rv.ptr
+			conn.svc = rv.ptr
 		}
-
-		if rv := C.WrapOCIHandleAlloc(
-			conn.env,
-			C.OCI_HTYPE_ERROR,
-			0); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("cant  allocate error handle")
-		} else {
-			conn.err = rv.ptr
-		}
-
-        phost := C.CString(dsn.Connect)
-        defer C.free(unsafe.Pointer(phost))
-        puser := C.CString(dsn.Username)
-        defer C.free(unsafe.Pointer(puser))
-        ppass := C.CString(dsn.Password)
-        defer C.free(unsafe.Pointer(ppass))
-
-        if rv := C.WrapOCILogon(
-        	(*C.OCIEnv)(conn.env),
-        	(*C.OCIError)(conn.err),
-        	(*C.OraText)(unsafe.Pointer(puser)),
-        	C.ub4(len(dsn.Username)),
-        	(*C.OraText)(unsafe.Pointer(ppass)),
-        	C.ub4(len(dsn.Password)),
-        	(*C.OraText)(unsafe.Pointer(phost)),
-        	C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-        	return nil, ociGetError(rv.rv, conn.err)
-        } else {
-        	conn.svc = rv.ptr
-        }
 	}
 	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode

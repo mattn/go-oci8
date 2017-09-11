@@ -216,6 +216,28 @@ WrapOCIEnvCreate(ub4 mode, size_t extra) {
   return vvv;
 }
 
+static ret2ptr
+WrapxaoEnv() {
+  ret2ptr vvv = {NULL, NULL, 0};
+
+#ifdef OCI8_ENABLE_XA
+  vvv.ptr = (dvoid *)xaoEnv(NULL);
+#endif
+
+  return vvv;
+}
+
+static ret2ptr
+WrapxaoSvcCtx() {
+  ret2ptr vvv = {NULL, NULL, 0};
+
+#ifdef OCI8_ENABLE_XA
+  vvv.ptr = (dvoid *)xaoSvcCtx(NULL);
+#endif
+
+  return vvv;
+}
+
 static ret1ptr
 WrapOCILogon(OCIEnv *env, OCIError *err, OraText *u, ub4 ulen, OraText *p, ub4 plen, OraText *h, ub4 hlen) {
   ret1ptr vvv = {NULL, 0};
@@ -358,7 +380,7 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 const blobBufSize = 4000
@@ -380,6 +402,7 @@ type DSN struct {
 	Location             *time.Location
 	transactionMode      C.ub4
 	enableQMPlaceholders bool
+	enable_xa             bool
 }
 
 func init() {
@@ -399,6 +422,7 @@ type OCI8Conn struct {
 	transactionMode      C.ub4
 	inTransaction        bool
 	enableQMPlaceholders bool
+	is_xa                bool
 	closed               bool
 }
 
@@ -418,6 +442,7 @@ type OCI8Tx struct {
 // 3 'prefetch_rows'
 // 4 'prefetch_memory'
 // 5 'questionph' =YES,NO,TRUE,FALSE enable question-mark placeholders, default to false
+// 6 'enable_xa' =YES,NO,TRUE,FALSE enable XA processing, default to false
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn = &DSN{Location: time.Local}
@@ -494,7 +519,15 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			dsn.prefetch_memory = uint32(z)
 			//default:
 			//log.Println("unused parameter", k)
-
+		case "enable_xa":
+			switch v[0] {
+			case "YES", "TRUE":
+				dsn.enable_xa = true
+			case "NO", "FALSE":
+				dsn.enable_xa = false
+			default:
+				return nil, fmt.Errorf("Invalid enable_xa: %v", v[0])
+			}
 		}
 	}
 	return dsn, nil
@@ -661,43 +694,74 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, err
 	}
 
-	if rv := C.WrapOCIEnvCreate(
-		C.OCI_DEFAULT|C.OCI_THREADED,
-		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-		// TODO: error handle not yet allocated, we can't get string error from oracle
-		return nil, errors.New("can't OCIEnvCreate")
-	} else {
-		conn.env = rv.ptr
+	//Firstly try to read env from XA, then fallback to standard connection
+	//It will try to get XA handle, if dsn stated so
+	if dsn.enable_xa {
+		rv := C.WrapxaoEnv(); 
+		if rv.ptr != nil {
+		    conn.env = rv.ptr
+		    conn.is_xa = true
+
+		    if rv := C.WrapxaoSvcCtx(); rv.ptr != nil {
+				conn.svc = rv.ptr
+		        // We need error handle too for later operations thus allocate it here...
+		        if rv := C.WrapOCIHandleAlloc(
+			        conn.env,
+			        C.OCI_HTYPE_ERROR,
+			        0); rv.rv != C.OCI_SUCCESS {
+			        return nil, errors.New("cant allocate error handle")
+		        } else {
+			        conn.err = rv.ptr
+		        }
+
+		    } else {
+			    return nil, errors.New("can't xaoSvcCtx")
+		    }
+		}
 	}
 
-	if rv := C.WrapOCIHandleAlloc(
-		conn.env,
-		C.OCI_HTYPE_ERROR,
-		0); rv.rv != C.OCI_SUCCESS {
-		return nil, errors.New("cant allocate error handle")
-	} else {
-		conn.err = rv.ptr
-	}
+	if !conn.is_xa {
+			if rv := C.WrapOCIEnvCreate(
+				C.OCI_DEFAULT|C.OCI_THREADED,
+				0); rv.rv != C.OCI_SUCCESS && 
+					rv.rv != C.OCI_SUCCESS_WITH_INFO {
+				// TODO: error handle not yet allocated, 
+				// we can't get string error from oracle
+				return nil, errors.New("can't OCIEnvCreate")
+			} else {
+				conn.env = rv.ptr
+			}
 
-	phost := C.CString(dsn.Connect)
-	defer C.free(unsafe.Pointer(phost))
-	puser := C.CString(dsn.Username)
-	defer C.free(unsafe.Pointer(puser))
-	ppass := C.CString(dsn.Password)
-	defer C.free(unsafe.Pointer(ppass))
+			if rv := C.WrapOCIHandleAlloc(
+				conn.env,
+				C.OCI_HTYPE_ERROR,
+				0); rv.rv != C.OCI_SUCCESS {
+				return nil, errors.New("cant  allocate error handle")
+			} else {
+				conn.err = rv.ptr
+			}
 
-	if rv := C.WrapOCILogon(
-		(*C.OCIEnv)(conn.env),
-		(*C.OCIError)(conn.err),
-		(*C.OraText)(unsafe.Pointer(puser)),
-		C.ub4(len(dsn.Username)),
-		(*C.OraText)(unsafe.Pointer(ppass)),
-		C.ub4(len(dsn.Password)),
-		(*C.OraText)(unsafe.Pointer(phost)),
-		C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-		return nil, ociGetError(rv.rv, conn.err)
-	} else {
-		conn.svc = rv.ptr
+		phost := C.CString(dsn.Connect)
+		defer C.free(unsafe.Pointer(phost))
+		puser := C.CString(dsn.Username)
+		defer C.free(unsafe.Pointer(puser))
+		ppass := C.CString(dsn.Password)
+		defer C.free(unsafe.Pointer(ppass))
+
+		if rv := C.WrapOCILogon(
+			(*C.OCIEnv)(conn.env),
+			(*C.OCIError)(conn.err),
+			(*C.OraText)(unsafe.Pointer(puser)),
+			C.ub4(len(dsn.Username)),
+			(*C.OraText)(unsafe.Pointer(ppass)),
+			C.ub4(len(dsn.Password)),
+			(*C.OraText)(unsafe.Pointer(phost)),
+			C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && 
+				rv.rv != C.OCI_SUCCESS_WITH_INFO {
+			return nil, ociGetError(rv.rv, conn.err)
+		} else {
+			conn.svc = rv.ptr
+		}
 	}
 	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode
@@ -1142,7 +1206,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 	}
 
 	mode := C.ub4(C.OCI_DEFAULT)
-	if !s.c.inTransaction {
+	if !s.c.inTransaction && false == s.c.is_xa {
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 	if rv := C.OCIStmtExecute(
@@ -1419,7 +1483,7 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 	defer freeBoundParameters(fbp)
 
 	mode := C.ub4(C.OCI_DEFAULT)
-	if s.c.inTransaction == false {
+	if s.c.inTransaction == false && false == s.c.is_xa {
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 

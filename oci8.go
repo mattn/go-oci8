@@ -232,6 +232,30 @@ WrapOCILogon(OCIEnv *env, OCIError *err, OraText *u, ub4 ulen, OraText *p, ub4 p
   return vvv;
 }
 
+static ret1ptr
+WrapOCIServerAttach(OCIServer *srv, OCIError *err, text *dblink, ub4 dblinklen, ub4 mode) {
+  ret1ptr vvv = {NULL, 0};
+  vvv.rv = OCIServerAttach(
+    srv,
+    err,
+    dblink,
+    dblinklen,
+    mode);
+  return vvv;
+}
+
+static ret1ptr
+WrapOCISessionBegin(OCISvcCtx *srv, OCIError *err, OCISession *usr, ub4 credt, ub4 mode) {
+  ret1ptr vvv = {NULL, 0};
+  vvv.rv = OCISessionBegin(
+    srv,
+    err,
+    usr,
+    credt,
+    mode);
+  return vvv;
+}
+
 typedef struct {
   ub4 ff;
   sb2 y;
@@ -362,6 +386,7 @@ import (
 )
 
 const blobBufSize = 4000
+const useOCISessionBegin = true
 
 /**
 ORA-03114: Not Connected to Oracle
@@ -383,6 +408,7 @@ type DSN struct {
 	Location             *time.Location
 	transactionMode      C.ub4
 	enableQMPlaceholders bool
+	mode                 string
 }
 
 func init() {
@@ -394,12 +420,15 @@ type OCI8Driver struct {
 
 type OCI8Conn struct {
 	svc                  unsafe.Pointer
+	srv                  unsafe.Pointer
 	env                  unsafe.Pointer
 	err                  unsafe.Pointer
+	usr_session          unsafe.Pointer
 	prefetch_rows        uint32
 	prefetch_memory      uint32
 	location             *time.Location
 	transactionMode      C.ub4
+	operationMode        C.ub4
 	inTransaction        bool
 	enableQMPlaceholders bool
 	closed               bool
@@ -407,6 +436,17 @@ type OCI8Conn struct {
 
 type OCI8Tx struct {
 	c *OCI8Conn
+}
+
+func toAuthMode(mode string) C.ub4 {
+	switch {
+	case strings.ToUpper(mode) == "SYSDBA":
+		return C.OCI_SYSDBA
+	case strings.ToUpper(mode) == "SYSOPER":
+		return C.OCI_SYSOPER
+	default:
+		return C.OCI_DEFAULT
+	}
 }
 
 // ParseDSN parses a DSN used to connect to Oracle
@@ -435,6 +475,10 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		dsnString = dsnString[len(prefix):]
 	}
 
+	dsnString, mode := splitRight(dsnString, " as ")
+	// dsn.mode = toAuthMode(mode)
+	dsn.mode = mode
+
 	authority, dsnString := splitRight(dsnString, "@")
 	if authority != "" {
 		dsn.Username, dsn.Password, err = parseAuthority(authority)
@@ -450,6 +494,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	}
 
 	dsn.Connect = host
+
 	// set safe defaults
 	dsn.prefetch_rows = 10
 	dsn.prefetch_memory = 0
@@ -500,6 +545,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 		}
 	}
+	// fmt.Printf("dsn: %v \n", dsn)
 	return dsn, nil
 }
 
@@ -664,6 +710,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, err
 	}
 
+	conn.operationMode = toAuthMode(dsn.mode)
+
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,
 		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
@@ -689,19 +737,111 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	ppass := C.CString(dsn.Password)
 	defer C.free(unsafe.Pointer(ppass))
 
-	if rv := C.WrapOCILogon(
-		(*C.OCIEnv)(conn.env),
-		(*C.OCIError)(conn.err),
-		(*C.OraText)(unsafe.Pointer(puser)),
-		C.ub4(len(dsn.Username)),
-		(*C.OraText)(unsafe.Pointer(ppass)),
-		C.ub4(len(dsn.Password)),
-		(*C.OraText)(unsafe.Pointer(phost)),
-		C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-		return nil, ociGetError(rv.rv, conn.err)
+	if useOCISessionBegin {
+		if rv := C.WrapOCIHandleAlloc(
+			conn.env,
+			C.OCI_HTYPE_SERVER,
+			0); rv.rv != C.OCI_SUCCESS {
+			return nil, errors.New("cant allocate server handle")
+		} else {
+			conn.srv = rv.ptr
+		}
+
+		C.WrapOCIServerAttach(
+			(*C.OCIServer)(conn.srv),
+			(*C.OCIError)(conn.err),
+			(*C.text)(unsafe.Pointer(phost)),
+			C.ub4(len(dsn.Connect)),
+			C.OCI_DEFAULT)
+
+		if rv := C.WrapOCIHandleAlloc(
+			conn.env,
+			C.OCI_HTYPE_SVCCTX,
+			0); rv.rv != C.OCI_SUCCESS {
+			return nil, errors.New("cant allocate service handle")
+		} else {
+			conn.svc = rv.ptr
+		}
+
+		if rv := C.OCIAttrSet(
+			conn.svc,
+			C.OCI_HTYPE_SVCCTX,
+			conn.srv,
+			0,
+			C.OCI_ATTR_SERVER,
+			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+			return nil, ociGetError(rv, conn.err)
+		}
+
+		// allocate a user session handle
+		if rv := C.WrapOCIHandleAlloc(
+			conn.env,
+			C.OCI_HTYPE_SESSION,
+			0); rv.rv != C.OCI_SUCCESS {
+			return nil, errors.New("cant allocate user session handle")
+		} else {
+			conn.usr_session = rv.ptr
+		}
+
+		//  set username attribute in user session handle
+		if rv := C.OCIAttrSet(
+			conn.usr_session,
+			C.OCI_HTYPE_SESSION,
+			(unsafe.Pointer(puser)),
+			C.ub4(len(dsn.Username)),
+			C.OCI_ATTR_USERNAME,
+			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+			return nil, ociGetError(rv, conn.err)
+		}
+
+		// set password attribute in the user session handle
+		if rv := C.OCIAttrSet(
+			conn.usr_session,
+			C.OCI_HTYPE_SESSION,
+			(unsafe.Pointer(ppass)),
+			C.ub4(len(dsn.Password)),
+			C.OCI_ATTR_PASSWORD,
+			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+			return nil, ociGetError(rv, conn.err)
+		}
+
+		// begin the session
+		C.WrapOCISessionBegin(
+			(*C.OCISvcCtx)(conn.svc),
+			(*C.OCIError)(conn.err),
+			(*C.OCISession)(conn.usr_session),
+			C.OCI_CRED_RDBMS,
+			conn.operationMode)
+
+		// set the user session attribute in the service context handle
+		if rv := C.OCIAttrSet(
+			conn.svc,
+			C.OCI_HTYPE_SVCCTX,
+			conn.usr_session,
+			0,
+			C.OCI_ATTR_SESSION,
+			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+			return nil, ociGetError(rv, conn.err)
+		}
+
 	} else {
-		conn.svc = rv.ptr
+		if rv := C.WrapOCILogon(
+			(*C.OCIEnv)(conn.env),
+			(*C.OCIError)(conn.err),
+			(*C.OraText)(unsafe.Pointer(puser)),
+			C.ub4(len(dsn.Username)),
+			(*C.OraText)(unsafe.Pointer(ppass)),
+			C.ub4(len(dsn.Password)),
+			(*C.OraText)(unsafe.Pointer(phost)),
+			C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
+			// fmt.Print(rv.rv)
+			return nil, ociGetError(rv.rv, conn.err)
+		} else {
+			conn.svc = rv.ptr
+		}
+
 	}
+
 	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetch_rows = dsn.prefetch_rows
@@ -717,10 +857,28 @@ func (c *OCI8Conn) Close() error {
 	c.closed = true
 
 	var err error
-	if rv := C.OCILogoff(
-		(*C.OCISvcCtx)(c.svc),
-		(*C.OCIError)(c.err)); rv != C.OCI_SUCCESS {
-		err = ociGetError(rv, c.err)
+	if useOCISessionBegin {
+		// OCISessionEnd() and OCIServerDetach()
+		if rv := C.OCISessionEnd(
+			(*C.OCISvcCtx)(c.svc),
+			(*C.OCIError)(c.err),
+			(*C.OCISession)(c.usr_session),
+			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+			err = ociGetError(rv, c.err)
+		}
+		if rv := C.OCIServerDetach(
+			(*C.OCIServer)(c.srv),
+			(*C.OCIError)(c.err),
+			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+			err = ociGetError(rv, c.err)
+		}
+	} else {
+
+		if rv := C.OCILogoff(
+			(*C.OCISvcCtx)(c.svc),
+			(*C.OCIError)(c.err)); rv != C.OCI_SUCCESS {
+			err = ociGetError(rv, c.err)
+		}
 	}
 
 	C.OCIHandleFree(

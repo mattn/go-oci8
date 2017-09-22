@@ -1596,7 +1596,20 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 				0,
 				C.SQLCS_IMPLICIT)
 			if rv == C.OCI_NEED_DATA {
-				buf = append(buf, b[:int(*bamt)]...)
+				if rc.cols[i].kind == C.SQLT_BLOB {
+					buf = append(buf, b[:int(*bamt)]...)
+				}else{
+					//bamt for clob is amount of chars, not bytes
+					if(*bamt>0){
+						for ii:=range b{
+							if(b[ii]==0) {
+								break
+							}
+							buf = append(buf, b[ii])
+							b[ii]=0
+						}
+					}
+				}
 				goto again
 			}
 			if rv != C.OCI_SUCCESS {
@@ -1605,7 +1618,17 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			if rc.cols[i].kind == C.SQLT_BLOB {
 				dest[i] = append(buf, b[:int(*bamt)]...)
 			} else {
-				dest[i] = string(append(buf, b[:int(*bamt)]...))
+				//dest[i] = string(append(buf, b[:int(*bamt)]...))
+				if(*bamt>0){
+					for ii:=range b{
+						if(b[ii]==0) {
+							break
+						}
+						buf = append(buf, b[ii])
+						b[ii]=0
+					}
+				}
+				dest[i] = string(buf)
 			}
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]

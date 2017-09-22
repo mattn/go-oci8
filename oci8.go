@@ -1628,7 +1628,6 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 						b[ii]=0
 					}
 				}
-				fmt.Println(buf)
 				dest[i] = string(buf)
 			}
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:

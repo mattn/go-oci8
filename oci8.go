@@ -408,7 +408,7 @@ type DSN struct {
 	Location             *time.Location
 	transactionMode      C.ub4
 	enableQMPlaceholders bool
-	mode                 string
+	operationMode        C.ub4
 }
 
 func init() {
@@ -438,17 +438,6 @@ type OCI8Tx struct {
 	c *OCI8Conn
 }
 
-func toAuthMode(mode string) C.ub4 {
-	switch {
-	case strings.ToUpper(mode) == "SYSDBA":
-		return C.OCI_SYSDBA
-	case strings.ToUpper(mode) == "SYSOPER":
-		return C.OCI_SYSOPER
-	default:
-		return C.OCI_DEFAULT
-	}
-}
-
 // ParseDSN parses a DSN used to connect to Oracle
 // It expects to receive a string in the form:
 // user:password@host:port/sid?param1=value1&param2=value2
@@ -475,10 +464,6 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		dsnString = dsnString[len(prefix):]
 	}
 
-	dsnString, mode := splitRight(dsnString, " as ")
-	// dsn.mode = toAuthMode(mode)
-	dsn.mode = mode
-
 	authority, dsnString := splitRight(dsnString, "@")
 	if authority != "" {
 		dsn.Username, dsn.Password, err = parseAuthority(authority)
@@ -498,6 +483,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	// set safe defaults
 	dsn.prefetch_rows = 10
 	dsn.prefetch_memory = 0
+	dsn.operationMode = C.OCI_DEFAULT
 
 	qp, err := ParseQuery(params)
 	for k, v := range qp {
@@ -542,10 +528,18 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			dsn.prefetch_memory = uint32(z)
 			//default:
 			//log.Println("unused parameter", k)
+		case "as":
+			switch v[0] {
+			case "SYSDBA", "sysdba":
+				dsn.operationMode = C.OCI_SYSDBA
+			case "SYSOPER", "sysoper":
+				dsn.operationMode = C.OCI_SYSOPER
+			default:
+				return nil, fmt.Errorf("Invalid as: %v", v[0])
+			}
 
 		}
 	}
-	// fmt.Printf("dsn: %v \n", dsn)
 	return dsn, nil
 }
 
@@ -710,7 +704,7 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		return nil, err
 	}
 
-	conn.operationMode = toAuthMode(dsn.mode)
+	conn.operationMode = dsn.operationMode
 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,

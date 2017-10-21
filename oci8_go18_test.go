@@ -65,7 +65,7 @@ func TestTimeout(t *testing.T) {
 		}
 		defer rows.Close()
 		err = ctx.Err()
-		if err != nil {
+		if err != nil && err != context.DeadlineExceeded {
 			t.Fatal(err)
 		}
 	}

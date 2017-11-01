@@ -1495,12 +1495,17 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 
 	go func() {
 		select {
-		case <-ctx.Done():
-			C.OCIBreak(
-				unsafe.Pointer(s.c.svc),
-				(*C.OCIError)(s.c.err))
-			rows.Close()
 		case <-rows.done:
+		case <-ctx.Done():
+			// select again to avoid race condition if both are done
+			select {
+			case <-rows.done:
+			default:
+				C.OCIBreak(
+					unsafe.Pointer(s.c.svc),
+					(*C.OCIError)(s.c.err))
+				rows.Close()
+			}
 		}
 	}()
 
@@ -1582,11 +1587,16 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 	defer close(done)
 	go func() {
 		select {
-		case <-ctx.Done():
-			C.OCIBreak(
-				unsafe.Pointer(s.c.svc),
-				(*C.OCIError)(s.c.err))
 		case <-done:
+		case <-ctx.Done():
+			// select again to avoid race condition if both are done
+			select {
+			case <-done:
+			default:
+				C.OCIBreak(
+					unsafe.Pointer(s.c.svc),
+					(*C.OCIError)(s.c.err))
+			}
 		}
 	}()
 

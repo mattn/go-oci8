@@ -1376,7 +1376,12 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 			oci8cols[i].pbuf = C.malloc(8)
 
 		case C.SQLT_LNG:
-			oci8cols[i].kind = C.SQLT_BIN
+			tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_CHARSET_FORM, (*C.OCIError)(s.c.err))
+			if tpr.rv == C.OCI_SUCCESS {
+				oci8cols[i].kind = tpr.num
+			} else {
+				oci8cols[i].kind = C.SQLT_BIN
+			}
 			oci8cols[i].size = 2000
 			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
@@ -1391,12 +1396,27 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
-
 				oci8cols[i].kind = tp
 				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
+			}
 
+		case C.SQLT_BFILEE:
+			// allocate +io buffers + ub4
+			size := int(unsafe.Sizeof(unsafe.Pointer(nil)) + unsafe.Sizeof(C.ub4(0)))
+			if oci8cols[i].size < blobBufSize {
+				size += blobBufSize
+			} else {
+				size += oci8cols[i].size
+			}
+			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_FILE, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
+				return nil, ociGetError(ret.rv, s.c.err)
+			} else {
+				oci8cols[i].kind = tp
+				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].pbuf = ret.extra
+				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}
 
 			//      testing
@@ -1769,6 +1789,9 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			} else {
 				dest[i] = string(append(buf, b[:int(*bamt)]...))
 			}
+		case C.SQLT_BFILE:
+			return errors.New("Unknown column type: SQLT_BFILE")
+
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			switch {

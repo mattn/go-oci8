@@ -3,6 +3,7 @@
 package oci8
 
 import (
+	"database/sql"
 	"database/sql/driver"
 
 	"context"
@@ -69,8 +70,6 @@ func (s *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (d
 	return s.exec(ctx, list)
 }
 
-/* FIXME
-This is my fault that I've add code using sql.Out until next release.
 func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 	switch nv.Value.(type) {
 	default:
@@ -79,4 +78,3 @@ func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 		return nil
 	}
 }
-*/

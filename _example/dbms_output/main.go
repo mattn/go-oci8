@@ -31,14 +31,4 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(lines, nlines)
-	/*
-		for rows.Next() {
-			var i int
-			err = rows.Scan(&i)
-			if err != nil {
-				log.Fatal(err)
-			}
-			println(i)
-		}
-	*/
 }

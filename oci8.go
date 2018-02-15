@@ -1167,15 +1167,25 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 
 			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
-		case *string:
-			sbind.kind = C.SQLT_STR
-			sbind.clen = 2048 //4 * C.sb4(len(*v))
-			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
-
 		case string:
 			sbind.kind = C.SQLT_AFC // don't trim strings !!!
-			sbind.pbuf = unsafe.Pointer(C.CString(v))
-			sbind.clen = C.sb4(len(v))
+			if sbind.out != nil {
+				sbind.clen = 2048 //4 * C.sb4(len(*v))
+				sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
+			} else {
+				sbind.pbuf = unsafe.Pointer(C.CString(v))
+				sbind.clen = C.sb4(len(v))
+			}
+
+		case int:
+			sbind.kind = C.SQLT_INT
+			sbind.clen = C.sb4(4)
+			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(4)))
+			buf := (*[1 << 30]byte)(sbind.pbuf)[0:4]
+			buf[0] = byte(v & 0x0ff)
+			buf[1] = byte(v >> 8 & 0x0ff)
+			buf[2] = byte(v >> 16 & 0x0ff)
+			buf[3] = byte(v >> 24 & 0x0ff)
 
 		case int64:
 			sbind.kind = C.SQLT_INT

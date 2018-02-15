@@ -23,12 +23,14 @@ func main() {
 	}
 
 	var lines string
-	var status int64
+	var status int
 	_, err = db.Exec(`BEGIN DBMS_OUTPUT.GET_LINE(:lines, :status); END;`,
 		sql.Named("lines", sql.Out{Dest: &lines}),
 		sql.Named("status", sql.Out{Dest: &status, In: true}))
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(lines, nlines)
+	if status == 0 {
+		fmt.Println(lines)
+	}
 }

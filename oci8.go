@@ -1168,11 +1168,12 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
 		case string:
-			sbind.kind = C.SQLT_AFC // don't trim strings !!!
 			if sbind.out != nil {
+				sbind.kind = C.SQLT_STR
 				sbind.clen = 2048 //4 * C.sb4(len(*v))
 				sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
 			} else {
+				sbind.kind = C.SQLT_AFC // don't trim strings !!!
 				sbind.pbuf = unsafe.Pointer(C.CString(v))
 				sbind.clen = C.sb4(len(v))
 			}

@@ -1043,7 +1043,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		var sbind oci8bind
 
 		vv := uv.Value
-		if out, ok := vv.(outValue); ok {
+		if out, ok := handleOutput(vv); ok {
 			sbind.out = out.Dest
 			vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
 			if err != nil {
@@ -1167,6 +1167,11 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 
 			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
+		case *string:
+			sbind.kind = C.SQLT_STR
+			sbind.clen = 2048 //4 * C.sb4(len(*v))
+			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
+
 		case string:
 			sbind.kind = C.SQLT_AFC // don't trim strings !!!
 			sbind.pbuf = unsafe.Pointer(C.CString(v))
@@ -1226,6 +1231,8 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				0,
 				nil,
 				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+				defer freeBoundParameters(s.pbind)
+				return nil, ociGetError(rv, s.c.err)
 			}
 		} else {
 			if rv := C.OCIBindByPos(

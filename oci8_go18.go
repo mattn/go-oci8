@@ -78,3 +78,13 @@ func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 		return nil
 	}
 }
+
+func handleOutput(v interface{}) (outValue, bool) {
+	if out, ok := v.(sql.Out); ok {
+		return outValue {
+			Dest: out.Dest,
+			In: out.In,
+		}, true
+	}
+	return outValue{}, false
+}

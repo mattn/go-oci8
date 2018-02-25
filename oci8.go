@@ -376,7 +376,7 @@ import (
 	"math"
 	"reflect"
 	"regexp"
-	"runtime"
+	//"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -928,7 +928,7 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 	}
 
 	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
-	runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
+	//runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
 	return ss, nil
 }
 
@@ -938,7 +938,7 @@ func (s *OCI8Stmt) Close() error {
 	}
 	s.closed = true
 
-	runtime.SetFinalizer(s, nil)
+	//runtime.SetFinalizer(s, nil)
 	C.OCIHandleFree(
 		s.s,
 		C.OCI_HTYPE_STMT)

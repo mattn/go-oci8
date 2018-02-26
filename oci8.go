@@ -376,6 +376,7 @@ import (
 	"math"
 	"reflect"
 	"regexp"
+	"sync"
 	//"runtime"
 	"strconv"
 	"strings"
@@ -432,7 +433,8 @@ type OCI8Conn struct {
 	inTransaction        bool
 	enableQMPlaceholders bool
 	closed               bool
-	openOCI8Stmts        []*OCI8Stmt
+	openStmtMu           *sync.Mutex
+	openStmts            map[*OCI8Stmt]struct{} // struct{} takes 0 bytes
 }
 
 type OCI8Tx struct {
@@ -842,6 +844,8 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	conn.prefetch_rows = dsn.prefetch_rows
 	conn.prefetch_memory = dsn.prefetch_memory
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
+	conn.openStmtMu = &sync.Mutex{}
+	conn.openStmts = make(map[*OCI8Stmt]struct{})
 	return &conn, nil
 }
 
@@ -876,8 +880,8 @@ func (c *OCI8Conn) Close() error {
 		}
 	}
 
-	for _, openOCI8Stmt := range c.openOCI8Stmts {
-		err = openOCI8Stmt.Close()
+	for openStmt := range c.openStmts {
+		err = openStmt.Close()
 	}
 
 	C.OCIHandleFree(
@@ -887,7 +891,8 @@ func (c *OCI8Conn) Close() error {
 	c.svc = nil
 	c.env = nil
 	c.err = nil
-	c.openOCI8Stmts = nil
+	c.openStmts = nil
+	c.openStmtMu = nil
 	return err
 }
 
@@ -935,7 +940,10 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 
 	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
 	//runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
-	c.openOCI8Stmts = append(c.openOCI8Stmts, ss)
+	var exists = struct{}{}
+	c.openStmtMu.Lock()
+	c.openStmts[ss] = exists
+	c.openStmtMu.Unlock()
 
 	return ss, nil
 }
@@ -950,6 +958,14 @@ func (s *OCI8Stmt) Close() error {
 	C.OCIHandleFree(
 		s.s,
 		C.OCI_HTYPE_STMT)
+
+	// remove the statement from the connection set of open statements
+	s.c.openStmtMu.Lock()
+	if _, ok := s.c.openStmts[s]; ok {
+		delete(s.c.openStmts, s)
+	}
+	s.c.openStmtMu.Unlock()
+
 	s.s = nil
 	s.pbind = nil
 	return nil

@@ -887,6 +887,7 @@ func (c *OCI8Conn) Close() error {
 	c.svc = nil
 	c.env = nil
 	c.err = nil
+	c.openOCI8Stmts = nil
 	return err
 }
 

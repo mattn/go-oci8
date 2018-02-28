@@ -26,6 +26,7 @@ SQL
 
 echo go get -d github.com/mattn/go-oci8
 go get -d github.com/mattn/go-oci8
+cp -r ${TESTDIR} -T .
 
 echo building
 cd $(go env GOPATH)/src/github.com/mattn/go-oci8

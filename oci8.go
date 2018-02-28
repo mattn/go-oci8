@@ -432,7 +432,6 @@ type OCI8Conn struct {
 	inTransaction        bool
 	enableQMPlaceholders bool
 	closed               bool
-	openOCI8Stmts        []*OCI8Stmt
 }
 
 type OCI8Tx struct {
@@ -876,10 +875,6 @@ func (c *OCI8Conn) Close() error {
 		}
 	}
 
-	for _, openOCI8Stmt := range c.openOCI8Stmts {
-		err = openOCI8Stmt.Close()
-	}
-
 	C.OCIHandleFree(
 		c.env,
 		C.OCI_HTYPE_ENV)
@@ -934,8 +929,6 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 
 	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
 	//runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
-	c.openOCI8Stmts = append(c.openOCI8Stmts, ss)
-
 	return ss, nil
 }
 

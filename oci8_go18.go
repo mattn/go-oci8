@@ -58,7 +58,7 @@ func (s *OCI8Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (
 	for i, nv := range args {
 		list[i] = toNamedValue(nv)
 	}
-	return s.query(ctx, list)
+	return s.query(ctx, list, false)
 }
 
 // ExecContext implement ExecerContext.
@@ -81,9 +81,9 @@ func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 
 func handleOutput(v interface{}) (outValue, bool) {
 	if out, ok := v.(sql.Out); ok {
-		return outValue {
+		return outValue{
 			Dest: out.Dest,
-			In: out.In,
+			In:   out.In,
 		}, true
 	}
 	return outValue{}, false

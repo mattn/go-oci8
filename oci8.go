@@ -1532,7 +1532,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		indrlenptr: indrlenptr,
 		closed:     false,
 		done:       make(chan struct{}),
-		cls:        false,
+		cls:        true,
 	}
 
 	go func() {

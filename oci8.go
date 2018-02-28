@@ -637,7 +637,7 @@ func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.(*OCI8Stmt).query(ctx, args)
+	rows, err := s.(*OCI8Stmt).query(ctx, args, true)
 	if err != nil && err != driver.ErrSkip {
 		s.Close()
 		return nil, err
@@ -1277,10 +1277,10 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			Value:   v,
 		}
 	}
-	return s.query(context.Background(), list)
+	return s.query(context.Background(), list, false)
 }
 
-func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, error) {
+func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool) (driver.Rows, error) {
 	var (
 		fbp []oci8bind
 		err error
@@ -1508,7 +1508,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		indrlenptr: indrlenptr,
 		closed:     false,
 		done:       make(chan struct{}),
-		cls:        false,
+		cls:        closeRows,
 	}
 
 	go func() {

@@ -6,7 +6,7 @@ apt-get -qq -y install git pkg-config gcc 2>&1 > /dev/null
 echo installing go1.10
 wget -q https://dl.google.com/go/go1.10.linux-amd64.tar.gz -O /tmp/go1.10.linux-amd64.tar.gz
 mkdir -p /usr/local
-tar xf /tmp/go1.10.linux-amd64.tar.gz -C /usr/local 2> /dev/null
+tar xf /tmp/go1.10.linux-amd64.tar.gz -C /usr/local
 
 export PATH=/usr/local/go/bin:$PATH
 export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe

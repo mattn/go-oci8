@@ -1,4 +1,7 @@
 // +build go1.9
+
+package oci8
+
 import (
 	"database/sql"
 	"testing"

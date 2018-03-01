@@ -983,12 +983,17 @@ func getInt64(p unsafe.Pointer) int64 {
 	return int64(*(*C.sb8)(p))
 }
 
+func getUint64(p unsafe.Pointer) uint64 {
+	return uint64(*(*C.sb8)(p))
+}
+
 func outputBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {
 		if col.pbuf != nil {
 			switch v := col.out.(type) {
 			case *string:
 				*v = C.GoString((*C.char)(col.pbuf))
+
 			case *int:
 				*v = int(getInt64(col.pbuf))
 			case *int64:
@@ -999,6 +1004,17 @@ func outputBoundParameters(boundParameters []oci8bind) {
 				*v = int16(getInt64(col.pbuf))
 			case *int8:
 				*v = int8(getInt64(col.pbuf))
+
+			case *uint:
+				*v = uint(getUint64(col.pbuf))
+			case *uint64:
+				*v = getUint64(col.pbuf)
+			case *uint32:
+				*v = uint32(getUint64(col.pbuf))
+			case *uint16:
+				*v = uint16(getUint64(col.pbuf))
+			case *uint8:
+				*v = uint8(getUint64(col.pbuf))
 
 			case *float64:
 

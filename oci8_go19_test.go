@@ -22,7 +22,7 @@ func TestOutputBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1want := "ddddd                        "
+	s1want := "ddddd"
 	if s1 != s1want {
 		t.Fatalf("want %q but %q", s1want, s1)
 	}

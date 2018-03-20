@@ -532,6 +532,8 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			switch v[0] {
 			case "SYSDBA", "sysdba":
 				dsn.operationMode = C.OCI_SYSDBA
+			case "SYSASM", "sysasm":
+				dsn.operationMode = C.OCI_SYSASM
 			case "SYSOPER", "sysoper":
 				dsn.operationMode = C.OCI_SYSOPER
 			default:

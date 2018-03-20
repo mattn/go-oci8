@@ -400,15 +400,16 @@ ORA-01034: ORACLE not available
 var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113", "ORA-12528", "ORA-12537", "ORA-01033", "ORA-01034"}
 
 type DSN struct {
-	Connect              string
-	Username             string
-	Password             string
-	prefetch_rows        uint32
-	prefetch_memory      uint32
-	Location             *time.Location
-	transactionMode      C.ub4
-	enableQMPlaceholders bool
-	operationMode        C.ub4
+	Connect                string
+	Username               string
+	Password               string
+	prefetch_rows          uint32
+	prefetch_memory        uint32
+	Location               *time.Location
+	transactionMode        C.ub4
+	enableQMPlaceholders   bool
+	operationMode          C.ub4
+	externalauthentication bool
 }
 
 func init() {
@@ -539,6 +540,10 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			}
 
 		}
+	}
+
+	if len(dsn.Username)+len(dsn.Password)+len(dsn.Connect) == 0 {
+		dsn.externalauthentication = true
 	}
 	return dsn, nil
 }
@@ -741,12 +746,21 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.srv = rv.ptr
 		}
 
-		C.WrapOCIServerAttach(
-			(*C.OCIServer)(conn.srv),
-			(*C.OCIError)(conn.err),
-			(*C.text)(unsafe.Pointer(phost)),
-			C.ub4(len(dsn.Connect)),
-			C.OCI_DEFAULT)
+		if dsn.externalauthentication {
+			C.WrapOCIServerAttach(
+				(*C.OCIServer)(conn.srv),
+				(*C.OCIError)(conn.err),
+				nil,
+				0,
+				C.OCI_DEFAULT)
+		} else {
+			C.WrapOCIServerAttach(
+				(*C.OCIServer)(conn.srv),
+				(*C.OCIError)(conn.err),
+				(*C.text)(unsafe.Pointer(phost)),
+				C.ub4(len(dsn.Connect)),
+				C.OCI_DEFAULT)
+		}
 
 		if rv := C.WrapOCIHandleAlloc(
 			conn.env,
@@ -777,35 +791,45 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.usr_session = rv.ptr
 		}
 
-		//  set username attribute in user session handle
-		if rv := C.OCIAttrSet(
-			conn.usr_session,
-			C.OCI_HTYPE_SESSION,
-			(unsafe.Pointer(puser)),
-			C.ub4(len(dsn.Username)),
-			C.OCI_ATTR_USERNAME,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
-		}
+		if !dsn.externalauthentication {
+			//  set username attribute in user session handle
+			if rv := C.OCIAttrSet(
+				conn.usr_session,
+				C.OCI_HTYPE_SESSION,
+				(unsafe.Pointer(puser)),
+				C.ub4(len(dsn.Username)),
+				C.OCI_ATTR_USERNAME,
+				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv, conn.err)
+			}
 
-		// set password attribute in the user session handle
-		if rv := C.OCIAttrSet(
-			conn.usr_session,
-			C.OCI_HTYPE_SESSION,
-			(unsafe.Pointer(ppass)),
-			C.ub4(len(dsn.Password)),
-			C.OCI_ATTR_PASSWORD,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
-		}
+			// set password attribute in the user session handle
+			if rv := C.OCIAttrSet(
+				conn.usr_session,
+				C.OCI_HTYPE_SESSION,
+				(unsafe.Pointer(ppass)),
+				C.ub4(len(dsn.Password)),
+				C.OCI_ATTR_PASSWORD,
+				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv, conn.err)
+			}
 
-		// begin the session
-		C.WrapOCISessionBegin(
-			(*C.OCISvcCtx)(conn.svc),
-			(*C.OCIError)(conn.err),
-			(*C.OCISession)(conn.usr_session),
-			C.OCI_CRED_RDBMS,
-			conn.operationMode)
+			// begin the session
+			C.WrapOCISessionBegin(
+				(*C.OCISvcCtx)(conn.svc),
+				(*C.OCIError)(conn.err),
+				(*C.OCISession)(conn.usr_session),
+				C.OCI_CRED_RDBMS,
+				conn.operationMode)
+		} else {
+			// external authentication
+			C.WrapOCISessionBegin(
+				(*C.OCISvcCtx)(conn.svc),
+				(*C.OCIError)(conn.err),
+				(*C.OCISession)(conn.usr_session),
+				C.OCI_CRED_EXT,
+				conn.operationMode)
+		}
 
 		// set the user session attribute in the service context handle
 		if rv := C.OCIAttrSet(

@@ -8,14 +8,18 @@ import (
 	_ "github.com/mattn/go-oci8"
 )
 
-func getDSN() string {
-	// same as "sqlplus sys/syspwd@tnsentry as sysdba"
-	return "sys/syspassword@mytnsentry?as=sysdba"
-}
 func main() {
+	if len(os.Args) != 2 {
+		fmt.Printf("ERROR: Please provide a DSN string in ONE argument:\n\n")
+		fmt.Println("Shell-Conversion into DSN string:")
+		fmt.Println("  sqlplus sys/password@tnsentry as sysdba   =>   sys/password@tnsentry?as=sysdba")
+		fmt.Println("  sqlplus / as sysdba                       =>   sys/.@?as=sysdba")
+		fmt.Println("instead of the tnsentry, you can also use the hostname of the IP.")
+		os.Exit(1)
+	}
 	os.Setenv("NLS_LANG", "")
 
-	db, err := sql.Open("oci8", getDSN())
+	db, err := sql.Open("oci8", os.Args[1])
 	if err != nil {
 		fmt.Println(err)
 		return

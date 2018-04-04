@@ -1,6 +1,7 @@
 go-oci8
 =======
 
+[![GoDoc Reference](https://godoc.org/github.com/mattn/go-oci8?status.svg)](http://godoc.org/github.com/mattn/go-oci8)
 [![Build Status](https://travis-ci.org/mattn/go-oci8.svg)](https://travis-ci.org/mattn/go-oci8)
 
 Description
@@ -82,17 +83,10 @@ export LD_LIBRARY_PATH=/Users/<username>/Downloads/instantclient_12_2
 export PKG_CONFIG_PATH=/Users/<username>/Downloads/instantclient_12_2
 ```
 
-Documentation
+Examples
 -------------
 
-API documentation can be found here: http://godoc.org/github.com/mattn/go-oci8
-
 Examples can be found under the `./_example` directory
-
-License
--------
-
-MIT: http://mattn.mit-license.org/2014
 
 ToDo
 ----

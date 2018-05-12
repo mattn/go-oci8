@@ -2156,6 +2156,10 @@ func (rc *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
 	var p unsafe.Pointer
 	var tp C.ub2
 
+	rp := C.WrapOCIParamGet(rc.s.s, C.OCI_HTYPE_STMT, (*C.OCIError)(rc.s.c.err), C.ub4(i+1))
+	if rp.rv == C.OCI_SUCCESS {
+		p = rp.ptr
+	}
 	tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, (*C.OCIError)(rc.s.c.err))
 	if tpr.rv == C.OCI_SUCCESS {
 		tp = tpr.num

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -886,6 +887,42 @@ func getZones() []string {
 		"US/Arizona", "US/Central", "US/Eastern", "US/East-Indiana", "US/Hawaii",
 		"US/Indiana-Starke", "US/Michigan", "US/Mountain", "US/Pacific",
 		"US/Pacific-New", "US/Samoa", "UTC", "WET", "W-SU", "Zulu",
+	}
+}
+
+func TestColumnTypeScanType(t *testing.T) {
+	cn, _, _, _ := runtime.Caller(0)
+	fmt.Println(runtime.FuncForPC(cn).Name())
+	timeVar := time.Date(2015, 12, 31, 23, 59, 59, 123456789, time.UTC)
+	intVar := int64(0)
+	floatVar := float64(0)
+	db := DB()
+
+	rows, err := db.Query("select :0 as int64 ,:1 as float64 , :2 as time from dual",
+		&intVar, &floatVar, &timeVar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	ct, err := rows.ColumnTypes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range ct {
+		switch c.Name() {
+		case "INT64":
+			if c.ScanType() != reflect.TypeOf(intVar) {
+				t.Fatalf("scan type error, expect %v, get %v", reflect.TypeOf(intVar), c.ScanType())
+			}
+		case "TIME":
+			if c.ScanType() != reflect.TypeOf(timeVar) {
+				t.Fatalf("scan type error, expect %v, get %v", reflect.TypeOf(timeVar), c.ScanType())
+			}
+		case "FLOAT64":
+			if c.ScanType() != reflect.TypeOf(floatVar) {
+				t.Fatalf("scan type error, expect %v, get %v", reflect.TypeOf(floatVar), c.ScanType())
+			}
+		}
 	}
 }
 

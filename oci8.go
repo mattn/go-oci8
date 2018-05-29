@@ -660,7 +660,7 @@ func (c *OCI8Conn) ping(ctx context.Context) error {
 	if rv != C.OCI_SUCCESS {
 		if strings.HasPrefix(ociGetError(rv, c.err).Error(), "ORA-01010") {
 			// Older versions of Oracle do not support ping,
-			// but a reponse of "ORA-01010: invalid OCI operation" confirms conectivity.
+			// but a reponse of "ORA-01010: invalid OCI operation" confirms connectivity.
 			// See https://github.com/rana/ora/issues/224
 			return nil
 		}

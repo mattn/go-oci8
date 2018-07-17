@@ -1348,7 +1348,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 	}
 
 	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
-	if s.c.prefetch_rows > 0 {
+	if s.c.prefetch_rows >= 0 {
 		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, C.ub4(s.c.prefetch_rows), C.OCI_ATTR_PREFETCH_ROWS, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, s.c.err)
 		}
@@ -1356,7 +1356,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 
 	// if non-zero, oci will fetch rows until the memory limit or row prefetch limit is hit.
 	// useful for memory constrained systems
-	if s.c.prefetch_memory > 0 {
+	if s.c.prefetch_memory >= 0 {
 		if rv := C.WrapOCIAttrSetUb4(s.s, C.OCI_HTYPE_STMT, C.ub4(s.c.prefetch_memory), C.OCI_ATTR_PREFETCH_MEMORY, (*C.OCIError)(s.c.err)); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, s.c.err)
 		}

@@ -6,7 +6,7 @@ package oci8
 #include <string.h>
 #include <stdint.h>
 
-#cgo pkg-config: oci8
+#cgo !noPkgConfig pkg-config: oci8
 
 typedef struct {
   char err[1024];

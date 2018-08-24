@@ -1005,7 +1005,18 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 	if !s.c.inTransaction {
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
-	if rv := C.OCIStmtExecute(
+
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			C.OCIBreak(
+				unsafe.Pointer(s.c.svc),
+				(*C.OCIError)(s.c.err))
+		}
+	}()
+	rv := C.OCIStmtExecute(
 		(*C.OCISvcCtx)(s.c.svc),
 		(*C.OCIStmt)(s.s),
 		(*C.OCIError)(s.c.err),
@@ -1013,7 +1024,9 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 		0,
 		nil,
 		nil,
-		mode); rv != C.OCI_SUCCESS {
+		mode)
+	close(done)
+	if rv != C.OCI_SUCCESS {
 		return nil, ociGetError(rv, s.c.err)
 	}
 

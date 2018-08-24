@@ -1438,7 +1438,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			dest[i] = nil
 			continue
 		} else if *rc.cols[i].ind != 0 {
-			return errors.New(fmt.Sprintf("Unknown column indicator: %d, col %s", rc.cols[i].ind, rc.cols[i].name))
+			return fmt.Errorf("Unknown column indicator: %d, col %s", rc.cols[i].ind, rc.cols[i].name)
 		}
 
 		switch rc.cols[i].kind {
@@ -1496,7 +1496,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 				*rc.cols[i].ind > 0: // Field longer than type (truncated). Value is original length.
 				dest[i] = string(buf)
 			default:
-				return errors.New(fmt.Sprintf("Unknown column indicator: %d", rc.cols[i].ind))
+				return fmt.Errorf("Unknown column indicator: %d", rc.cols[i].ind)
 			}
 		case C.SQLT_BIN: // RAW
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
@@ -1548,7 +1548,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 
 				dest[i] = math.Float64frombits(v)
 			} else {
-				return errors.New(fmt.Sprintf("Unhandled binary float size: %d", colsize))
+				return fmt.Errorf("Unhandled binary float size: %d", colsize)
 			}
 		case C.SQLT_TIMESTAMP:
 			if rv := C.WrapOCIDateTimeGetDateTime(
@@ -1620,7 +1620,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			}
 			dest[i] = int64(rv.y)*12 + int64(rv.m)
 		default:
-			return errors.New(fmt.Sprintf("Unhandled column type: %d", rc.cols[i].kind))
+			return fmt.Errorf("Unhandled column type: %d", rc.cols[i].kind)
 		}
 	}
 

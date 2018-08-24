@@ -66,7 +66,7 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-var sql1 string = `create table foo(
+var sql1 = `create table foo(
 	c1 varchar2(256),
 	c2 nvarchar2(256),
 	c3 number,
@@ -88,7 +88,7 @@ var sql1 string = `create table foo(
 	cend varchar2(12)
 	)`
 
-var sql12 string = `insert( c1,c2,c3,c4,c6,c7,c8,c9,c10,c11,c12,c13,c14,c17,c18,c19,c20,c21,cend) into foo values( 
+var sql12 = `insert( c1,c2,c3,c4,c6,c7,c8,c9,c10,c11,c12,c13,c14,c17,c18,c19,c20,c21,cend) into foo values( 
 :1,
 :2,
 :3,

@@ -1664,15 +1664,18 @@ func isBadConnection(error string) bool {
 	switch error[4:9] {
 	/*
 		bad connection errors:
+		ORA-00028: your session has been killed
 		ORA-01012: Not logged on
 		ORA-01033: ORACLE initialization or shutdown in progress
 		ORA-01034: ORACLE not available
+		ORA-01089: immediate shutdown in progress - no operations are permitted
 		ORA-03113: end-of-file on communication channel
 		ORA-03114: Not Connected to Oracle
+		ORA-03135: connection lost contact
 		ORA-12528: TNS:listener: all appropriate instances are blocking new connections
 		ORA-12537: TNS:connection closed
 	*/
-	case "01012", "01033", "01034", "03113", "03114", "12528", "12537":
+	case "00028", "01012", "01033", "01034", "01089", "03113", "03114", "03135", "12528", "12537":
 		// bad connection
 		return true
 	}

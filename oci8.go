@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"regexp"
 	//"runtime"
+	"encoding/binary"
 	"strconv"
 	"strings"
 	"time"
@@ -166,8 +167,6 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				return nil, fmt.Errorf("invalid prefetch_memory: %v", v[0])
 			}
 			dsn.prefetch_memory = uint32(z)
-			//default:
-			//log.Println("unused parameter", k)
 		case "as":
 			switch v[0] {
 			case "SYSDBA", "sysdba":
@@ -499,7 +498,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			C.ub4(len(dsn.Password)),
 			(*C.OraText)(unsafe.Pointer(phost)),
 			C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-			// fmt.Print(rv.rv)
 			return nil, ociGetError(rv.rv, conn.err)
 		} else {
 			conn.svc = rv.ptr
@@ -1048,24 +1046,28 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 		if rp := C.WrapOCIParamGet(s.s, C.OCI_HTYPE_STMT, (*C.OCIError)(s.c.err), C.ub4(i+1)); rp.rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rp.rv, s.c.err)
 		} else {
+			// A descriptor of the parameter at the position given in the pos parameter, of handle type OCI_DTYPE_PARAM.
 			p = rp.ptr
 		}
 
 		if tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, (*C.OCIError)(s.c.err)); tpr.rv != C.OCI_SUCCESS {
 			return nil, ociGetError(tpr.rv, s.c.err)
 		} else {
+			// external datatype of the column. Valid datatypes are: SQLT_CHR, SQLT_DATE, etc...
 			tp = tpr.num
 		}
 
 		if nsr := C.WrapOCIAttrGetString(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_NAME, (*C.OCIError)(s.c.err)); nsr.rv != C.OCI_SUCCESS {
 			return nil, ociGetError(nsr.rv, s.c.err)
 		} else {
+			// the name of the column that is being loaded.
 			oci8cols[i].name = string((*[1 << 30]byte)(unsafe.Pointer(nsr.ptr))[0:int(nsr.size)])
 		}
 
 		if lpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_SIZE, (*C.OCIError)(s.c.err)); lpr.rv != C.OCI_SUCCESS {
 			return nil, ociGetError(lpr.rv, s.c.err)
 		} else {
+			// Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
 			lp = lpr.num
 		}
 		*s.defp = nil
@@ -1084,9 +1086,33 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_NUM:
-			oci8cols[i].kind = C.SQLT_CHR
-			oci8cols[i].size = int(lp * 4)
-			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size) + 1)
+			var precision int
+			var scale int
+			if rv := C.WrapOCIAttrGetInt(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_PRECISION, (*C.OCIError)(s.c.err)); rv.rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv.rv, s.c.err)
+			} else {
+				// The precision of numeric type attributes.
+				precision = int(rv.num)
+			}
+			if rv := C.WrapOCIAttrGetInt(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_SCALE, (*C.OCIError)(s.c.err)); rv.rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv.rv, s.c.err)
+			} else {
+				// The scale of numeric type attributes.
+				scale = int(rv.num)
+			}
+			// If the precision is nonzero and scale is -127, then it is a FLOAT, else it is a NUMBER(precision, scale).
+			// For the case when precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
+			// https://www.codeproject.com/Articles/776119/An-Oracle-OCI-Data-Source-Class-for-Ultimate-Gri
+
+			if (precision != 0 && scale != -127) && scale == 0 {
+				oci8cols[i].kind = C.SQLT_INT
+				oci8cols[i].size = 4
+				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
+			} else {
+				oci8cols[i].kind = C.SQLT_BDOUBLE
+				oci8cols[i].size = 8
+				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
+			}
 
 		case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
 			oci8cols[i].kind = C.SQLT_IBDOUBLE
@@ -1508,8 +1534,11 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			buf := (*[22]byte)(unsafe.Pointer(rc.cols[i].pbuf))
 			dest[i] = buf
 		case C.SQLT_INT: // INT
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
-			dest[i] = buf
+			buf := (*[4]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:4]
+			dest[i] = int64(binary.LittleEndian.Uint32(buf))
+		case C.SQLT_BDOUBLE: // native double
+			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:8]
+			dest[i] = math.Float64frombits(binary.LittleEndian.Uint64(buf))
 		case C.SQLT_LNG: // LONG
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			dest[i] = buf

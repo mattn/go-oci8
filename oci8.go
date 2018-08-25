@@ -28,17 +28,6 @@ import (
 const blobBufSize = 4000
 const useOCISessionBegin = true
 
-/**
-ORA-03114: Not Connected to Oracle
-ORA-01012: Not logged on
-ORA-03113: end-of-file on communication channel
-ORA-12528: TNS:listener: all appropriate instances are blocking new connections
-ORA-12537: TNS:connection closed
-ORA-01033: ORACLE initialization or shutdown in progress
-ORA-01034: ORACLE not available
-*/
-var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113", "ORA-12528", "ORA-12537", "ORA-01033", "ORA-01034"}
-
 type DSN struct {
 	Connect                string
 	Username               string
@@ -1665,15 +1654,27 @@ func ociGetErrorS(err unsafe.Pointer) error {
 	return errors.New(s)
 }
 
+// isBadConnection checks the error string for ORA errors that would mean the connection is bad
 func isBadConnection(error string) bool {
-	if len(error) <= 8 {
+	if len(error) < 9 || error[0:4] != "ORA-" {
+		// if error is less than 9 and is not an ORA error
 		return false
 	}
-	errorCode := error[0:9]
-	for _, badConnCode := range badConnCodes {
-		if badConnCode == errorCode {
-			return true
-		}
+	// only check number part, ORA is already checked
+	switch error[4:9] {
+	/*
+		bad connection errors:
+		ORA-01012: Not logged on
+		ORA-01033: ORACLE initialization or shutdown in progress
+		ORA-01034: ORACLE not available
+		ORA-03113: end-of-file on communication channel
+		ORA-03114: Not Connected to Oracle
+		ORA-12528: TNS:listener: all appropriate instances are blocking new connections
+		ORA-12537: TNS:connection closed
+	*/
+	case "01012", "01033", "01034", "03113", "03114", "12528", "12537":
+		// bad connection
+		return true
 	}
 	return false
 }

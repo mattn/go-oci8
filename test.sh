@@ -12,6 +12,7 @@ tar xf /tmp/go1.10.4.linux-amd64.tar.gz -C /usr/local
 export PATH=/usr/local/go/bin:$PATH
 export GOROOT=/usr/local/go
 export GOPATH=${TESTDIR}
+go env
 
 
 echo "setting up Oracle"
@@ -47,4 +48,5 @@ go get -d github.com/mattn/go-oci8
 set +e
 
 echo "testing go-oci8"
+go clean -i -r -cache -testcache github.com/mattn/go-oci8
 go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid ${DOCKER_IP} -username scott -password tiger

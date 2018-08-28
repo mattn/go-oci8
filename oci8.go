@@ -736,17 +736,6 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			sbind.pbuf = unsafe.Pointer(CByte(v))
 			sbind.clen = C.sb4(len(v))
 
-		case float64:
-			fb := math.Float64bits(v)
-			if fb&0x8000000000000000 != 0 {
-				fb ^= 0xffffffffffffffff
-			} else {
-				fb |= 0x8000000000000000
-			}
-			sbind.kind = C.SQLT_IBDOUBLE
-			sbind.pbuf = unsafe.Pointer(CByte([]byte{byte(fb >> 56), byte(fb >> 48), byte(fb >> 40), byte(fb >> 32), byte(fb >> 24), byte(fb >> 16), byte(fb >> 8), byte(fb)}))
-			sbind.clen = 8
-
 		case time.Time:
 
 			var pt unsafe.Pointer
@@ -852,38 +841,33 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				sbind.clen = C.sb4(len(v))
 			}
 
-		case int:
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
+			buffer := bytes.Buffer{}
+			err = binary.Write(&buffer, binary.LittleEndian, v)
+			if err != nil {
+				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
+			}
 			sbind.kind = C.SQLT_INT
-			sbind.clen = C.sb4(4)
-			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(4)))
-			buf := (*[1 << 30]byte)(sbind.pbuf)[0:4]
-			buf[0] = byte(v & 0x0ff)
-			buf[1] = byte(v >> 8 & 0x0ff)
-			buf[2] = byte(v >> 16 & 0x0ff)
-			buf[3] = byte(v >> 24 & 0x0ff)
+			sbind.clen = C.sb4(buffer.Len())
+			sbind.pbuf = unsafe.Pointer(CByte(buffer.Bytes()))
 
-		case int64:
-			sbind.kind = C.SQLT_INT
-			sbind.clen = C.sb4(8) // not tested on i386. may only work on amd64
-			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(8)))
-			buf := (*[1 << 30]byte)(sbind.pbuf)[0:8]
-			buf[0] = byte(v & 0x0ff)
-			buf[1] = byte(v >> 8 & 0x0ff)
-			buf[2] = byte(v >> 16 & 0x0ff)
-			buf[3] = byte(v >> 24 & 0x0ff)
-			buf[4] = byte(v >> 32 & 0x0ff)
-			buf[5] = byte(v >> 40 & 0x0ff)
-			buf[6] = byte(v >> 48 & 0x0ff)
-			buf[7] = byte(v >> 56 & 0x0ff)
+		case float32, float64:
+			buffer := bytes.Buffer{}
+			err = binary.Write(&buffer, binary.LittleEndian, v)
+			if err != nil {
+				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
+			}
+			sbind.kind = C.SQLT_BDOUBLE
+			sbind.clen = C.sb4(buffer.Len())
+			sbind.pbuf = unsafe.Pointer(CByte(buffer.Bytes()))
 
-		case bool: // oracle dont have bool, handle as 0/1
+		case bool: // oracle does not have bool, handle as 0/1 int
 			sbind.kind = C.SQLT_INT
 			sbind.clen = C.sb4(1)
-			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(8)))
 			if v {
-				(*[1]byte)(sbind.pbuf)[0] = 1
+				sbind.pbuf = unsafe.Pointer(CByte([]byte{1}))
 			} else {
-				(*[1]byte)(sbind.pbuf)[0] = 0
+				sbind.pbuf = unsafe.Pointer(CByte([]byte{0}))
 			}
 
 		default:
@@ -1099,7 +1083,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 			// For the case when precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
 			// https://www.codeproject.com/Articles/776119/An-Oracle-OCI-Data-Source-Class-for-Ultimate-Gri
 
-			if (precision != 0 && scale != -127) && scale == 0 {
+			if !(precision != 0 && scale == -127) && scale == 0 {
 				oci8cols[i].kind = C.SQLT_INT
 				oci8cols[i].size = 8
 				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))

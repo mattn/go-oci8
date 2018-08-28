@@ -31,8 +31,8 @@ SQL
 
 
 echo "creating oci8.pc"
-cd GOPATH
-export PKG_CONFIG_PATH=GOPATH
+cd ${GOPATH}
+export PKG_CONFIG_PATH=${GOPATH}
 cat > oci8.pc <<PKGCONFIG
 Name: oci8
 Description: Oracle Call Interface

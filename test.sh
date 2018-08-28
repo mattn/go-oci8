@@ -11,9 +11,8 @@ mkdir -p /usr/local
 tar xf /tmp/go1.10.4.linux-amd64.tar.gz -C /usr/local
 export PATH=/usr/local/go/bin:$PATH
 export GOROOT=/usr/local/go
-export GOPATH=${TESTDIR}
-go env
-
+mkdir -p /usr/local/goFiles
+export GOPATH=/usr/local/goFiles
 
 echo "setting up Oracle"
 export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
@@ -30,6 +29,11 @@ GRANT connect, resource, create view, create synonym TO scott;
 SQL
 
 
+echo "copy go-oci8"
+mkdir -p ${GOPATH}/src/mattn/go-oci8
+cp -r ${TESTDIR}/* ${GOPATH}/src/mattn/go-oci8/
+
+
 echo "creating oci8.pc"
 cd ${GOPATH}
 export PKG_CONFIG_PATH=${GOPATH}
@@ -40,6 +44,7 @@ Version: 11.1
 Cflags: -I${ORACLE_HOME}/rdbms/public
 Libs: -L${ORACLE_HOME}/lib -Wl,-rpath,${ORACLE_HOME}/lib -lclntsh
 PKGCONFIG
+
 
 echo "testing go-oci8"
 go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid ${DOCKER_IP} -username scott -password tiger

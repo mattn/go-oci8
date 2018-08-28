@@ -65,6 +65,10 @@ export GOPATH=/usr/local/goFiles1.11.x
 mkdir -p ${GOPATH}/src/github.com/mattn/go-oci8
 cp -r ${TESTDIR}/* ${GOPATH}/src/github.com/mattn/go-oci8/
 
+env
+
+/usr/local/go1.11.x/bin/go env
+
 go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid ${DOCKER_IP} -username scott -password tiger
 
 

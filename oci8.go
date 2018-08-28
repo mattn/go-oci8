@@ -17,13 +17,12 @@ import (
 	"reflect"
 	"regexp"
 	//"runtime"
+	"context"
 	"encoding/binary"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
-
-	"golang.org/x/net/context"
 )
 
 const blobBufSize = 4000

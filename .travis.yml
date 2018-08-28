@@ -1,8 +1,9 @@
-language: bash
 sudo: required
 
 services:
   - docker
+
+language: bash
 
 before_install:
   - docker pull alexeiled/docker-oracle-xe-11g 2>&1 > /dev/null

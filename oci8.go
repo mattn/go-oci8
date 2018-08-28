@@ -7,6 +7,7 @@ package oci8
 import "C"
 
 import (
+	"bytes"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -70,7 +71,7 @@ type OCI8Tx struct {
 
 // ParseDSN parses a DSN used to connect to Oracle
 // It expects to receive a string in the form:
-// user:password@host:port/sid?param1=value1&param2=value2
+// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
 //
 // Currently the parameters supported is:
 // 1 'loc' which
@@ -998,9 +999,15 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 		select {
 		case <-done:
 		case <-ctx.Done():
-			C.OCIBreak(
-				unsafe.Pointer(s.c.svc),
-				(*C.OCIError)(s.c.err))
+			// select again to avoid race condition if both are done
+			select {
+			case <-done:
+			default:
+				C.OCIBreak(
+					unsafe.Pointer(s.c.svc),
+					(*C.OCIError)(s.c.err))
+			}
+
 		}
 	}()
 	rv := C.OCIStmtExecute(
@@ -1095,7 +1102,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 
 			if (precision != 0 && scale != -127) && scale == 0 {
 				oci8cols[i].kind = C.SQLT_INT
-				oci8cols[i].size = 4
+				oci8cols[i].size = 8
 				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 			} else {
 				oci8cols[i].kind = C.SQLT_BDOUBLE
@@ -1103,10 +1110,10 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 			}
 
-		case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
-			oci8cols[i].kind = C.SQLT_IBDOUBLE
-			oci8cols[i].size = int(8)
-			oci8cols[i].pbuf = C.malloc(8)
+		case C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE:
+			oci8cols[i].kind = C.SQLT_BDOUBLE
+			oci8cols[i].size = 8
+			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_LNG:
 			oci8cols[i].kind = C.SQLT_BIN
@@ -1428,7 +1435,7 @@ func (rc *OCI8Rows) Columns() []string {
 	return cols
 }
 
-func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
+func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	if rc.closed {
 		return nil
 	}
@@ -1523,51 +1530,24 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 			buf := (*[22]byte)(unsafe.Pointer(rc.cols[i].pbuf))
 			dest[i] = buf
 		case C.SQLT_INT: // INT
-			buf := (*[4]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:4]
-			dest[i] = int64(binary.LittleEndian.Uint32(buf))
+			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
+			var data int64
+			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+			if err != nil {
+				return fmt.Errorf("binary read for column %v - error: %v", i, err)
+			}
+			dest[i] = data
 		case C.SQLT_BDOUBLE: // native double
-			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:8]
-			dest[i] = math.Float64frombits(binary.LittleEndian.Uint64(buf))
+			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
+			var data float64
+			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+			if err != nil {
+				return fmt.Errorf("binary read for column %v - error: %v", i, err)
+			}
+			dest[i] = data
 		case C.SQLT_LNG: // LONG
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			dest[i] = buf
-		case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
-			colsize := rc.cols[i].size
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:colsize]
-			if colsize == 4 {
-				v := uint32(buf[3])
-				v |= uint32(buf[2]) << 8
-				v |= uint32(buf[1]) << 16
-				v |= uint32(buf[0]) << 24
-
-				// Don't know why bits are inverted that way, but it works
-				if buf[0]&0x80 == 0 {
-					v ^= 0xffffffff
-				} else {
-					v &= 0x7fffffff
-				}
-				dest[i] = math.Float32frombits(v)
-			} else if colsize == 8 {
-				v := uint64(buf[7])
-				v |= uint64(buf[6]) << 8
-				v |= uint64(buf[5]) << 16
-				v |= uint64(buf[4]) << 24
-				v |= uint64(buf[3]) << 32
-				v |= uint64(buf[2]) << 40
-				v |= uint64(buf[1]) << 48
-				v |= uint64(buf[0]) << 56
-
-				// Don't know why bits are inverted that way, but it works
-				if buf[0]&0x80 == 0 {
-					v ^= 0xffffffffffffffff
-				} else {
-					v &= 0x7fffffffffffffff
-				}
-
-				dest[i] = math.Float64frombits(v)
-			} else {
-				return fmt.Errorf("Unhandled binary float size: %d", colsize)
-			}
 		case C.SQLT_TIMESTAMP:
 			if rv := C.WrapOCIDateTimeGetDateTime(
 				(*C.OCIEnv)(rc.s.c.env),

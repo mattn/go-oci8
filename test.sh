@@ -30,8 +30,8 @@ SQL
 
 
 echo "copy go-oci8"
-mkdir -p ${GOPATH}/src/mattn/go-oci8
-cp -r ${TESTDIR}/* ${GOPATH}/src/mattn/go-oci8/
+mkdir -p ${GOPATH}/src/github.com/mattn/go-oci8
+cp -r ${TESTDIR}/* ${GOPATH}/src/github.com/mattn/go-oci8/
 
 
 echo "creating oci8.pc"

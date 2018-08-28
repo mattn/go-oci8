@@ -21,6 +21,9 @@ type dbc interface {
 }
 
 func TestTruncate(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	_, err := TestDB.Exec("truncate table foo")
 	if err != nil {
 		panic(err)
@@ -28,7 +31,6 @@ func TestTruncate(t *testing.T) {
 }
 
 func sqlstest(d dbc, t *testing.T, sql string, p ...interface{}) map[string]interface{} {
-
 	rows, err := NewS(d.Query(sql, p...))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +55,6 @@ func sqlstest(d dbc, t *testing.T, sql string, p ...interface{}) map[string]inte
 }
 
 func sqlstestv(d dbc, t *testing.T, sql string, p ...interface{}) []interface{} {
-
 	rows, err := NewS(d.Query(sql, p...))
 	if err != nil {
 		t.Fatal(err)
@@ -78,12 +79,18 @@ func sqlstestv(d dbc, t *testing.T, sql string, p ...interface{}) []interface{} 
 }
 
 func TestSelect1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	sqlstest(TestDB, t,
 		"select :0 as nil, :1 as true, :2 as false, :3 as int64, :4 as time, :5 as string, :6 as bytes, :7 as float64 from dual",
 		nil, true, false, int64(1234567890123456789), time.Now(), "bee     ", []byte{61, 62, 63, 64, 65, 66, 67, 68}, 3.14)
 }
 
 func TestInterval1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := time.Duration(1234567898123456789)
 	r := sqlstest(TestDB, t, "select NUMTODSINTERVAL( :0 / 1000000000, 'SECOND') as intervalds from dual", int64(n))
 	if n != time.Duration(r["INTERVALDS"].(int64)) {
@@ -92,6 +99,9 @@ func TestInterval1(t *testing.T) {
 }
 
 func TestInterval2(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := time.Duration(-1234567898123456789)
 	r := sqlstest(TestDB, t, "select NUMTODSINTERVAL( :0 / 1000000000, 'SECOND') as intervalds from dual", int64(n))
 	if n != time.Duration(r["INTERVALDS"].(int64)) {
@@ -100,6 +110,9 @@ func TestInterval2(t *testing.T) {
 }
 
 func TestInterval3(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := int64(1234567890)
 	r := sqlstest(TestDB, t, "select NUMTOYMINTERVAL( :0, 'MONTH') as intervalym from dual", n)
 	if n != r["INTERVALYM"].(int64) {
@@ -108,6 +121,9 @@ func TestInterval3(t *testing.T) {
 }
 
 func TestInterval4(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := int64(-1234567890)
 	r := sqlstest(TestDB, t, "select NUMTOYMINTERVAL( :0, 'MONTH') as intervalym from dual", n)
 	if n != r["INTERVALYM"].(int64) {
@@ -116,6 +132,9 @@ func TestInterval4(t *testing.T) {
 }
 
 func TestIntervals5(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n1 := time.Duration(987)
 	n2 := time.Duration(-65)
 	n3 := int64(4332)
@@ -136,6 +155,9 @@ func TestIntervals5(t *testing.T) {
 }
 
 func TestTime1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := time.Now()
 	r := sqlstest(TestDB, t, "select :0 as time from dual", n)
 	if !n.Equal(r["TIME"].(time.Time)) {
@@ -144,6 +166,9 @@ func TestTime1(t *testing.T) {
 }
 
 func TestTime2(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	const f = "2006-01-02 15:04:05.999999999 -07:00"
 	in := []time.Time{}
 
@@ -175,10 +200,16 @@ func TestTime2(t *testing.T) {
 }
 
 func TestTime3(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	sqlstest(TestDB, t, "select sysdate - 365*6500 from dual")
 }
 
 func TestBytes1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := bytes.Repeat([]byte{'A'}, 4000)
 	r := sqlstest(TestDB, t, "select :0 as bytes from dual", n)
 	if !bytes.Equal(n, r["BYTES"].([]byte)) {
@@ -187,6 +218,9 @@ func TestBytes1(t *testing.T) {
 }
 
 func TestBytes2(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := []byte{7}
 	r := sqlstest(TestDB, t, "select :0 as bytes from dual", n)
 	if !bytes.Equal(n, r["BYTES"].([]byte)) {
@@ -212,6 +246,9 @@ func TestQuestionMark(t *testing.T) {
 }
 
 func TestString1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := strings.Repeat("1234567890", 400)
 	r := sqlstest(TestDB, t, "select :0 as str from dual", n)
 	if n != r["STR"].(string) {
@@ -220,6 +257,9 @@ func TestString1(t *testing.T) {
 }
 
 func TestString2(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := "6"
 	r := sqlstest(TestDB, t, "select :0 as str from dual", n)
 	if n != r["STR"].(string) {
@@ -228,6 +268,9 @@ func TestString2(t *testing.T) {
 }
 
 func TestString3(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	//n := "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"
 	//this test depends of database charset !!!!
 	n := "здравейсвят"
@@ -238,6 +281,9 @@ func TestString3(t *testing.T) {
 }
 
 func TestFooLargeBlob(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := make([]byte, 600000)
 	for i := 0; i < len(n); i++ {
 		n[i] = byte(rand.Int31n(256))
@@ -253,6 +299,9 @@ func TestFooLargeBlob(t *testing.T) {
 }
 
 func TestSmallBlob(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := make([]byte, 6)
 	for i := 0; i < len(n); i++ {
 		n[i] = byte(rand.Int31n(256))
@@ -268,6 +317,9 @@ func TestSmallBlob(t *testing.T) {
 }
 
 func TestFooRowid(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := "Z"
 	id := "idSmallClob"
 	_, e := TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
@@ -280,6 +332,9 @@ func TestFooRowid(t *testing.T) {
 
 //this test fail if transactions are readonly
 func TestTransaction1(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	tx, e := TestDB.Begin()
 	if e != nil {
 		t.Fatal(e)
@@ -302,6 +357,9 @@ func TestTransaction1(t *testing.T) {
 }
 
 func TestBigClob(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := "Abc" + strings.Repeat("1234567890", 2000) + "xyZ"
 
 	id := "idBigClob"
@@ -315,6 +373,9 @@ func TestBigClob(t *testing.T) {
 }
 
 func TestSmallClob(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := "Z"
 	id := "idSmallClob"
 	TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
@@ -326,6 +387,9 @@ func TestSmallClob(t *testing.T) {
 }
 
 func TestNvarchar(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	n := "Zкирddd"
 	id := "idNvarchar"
 	TestDB.Exec("insert into foo( c2, cend) values( :1, :2)", n, id)
@@ -337,6 +401,9 @@ func TestNvarchar(t *testing.T) {
 }
 
 func TestNchar(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C18"
 	n := "XXкирda"
 	id := "idbdNC18"
@@ -349,6 +416,9 @@ func TestNchar(t *testing.T) {
 }
 
 func TestChar(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C17"
 	n := "XXкирda"
 	id := "idbdC17"
@@ -361,6 +431,9 @@ func TestChar(t *testing.T) {
 }
 
 func TestDate(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C6"
 
 	const fm = "2006-01-02 15:04:05.999999999 -07:00"
@@ -377,6 +450,9 @@ func TestDate(t *testing.T) {
 }
 
 func TestTimestamp(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C9"
 
 	const fm = "2006-01-02 15:04:05.999999999 -07:00"
@@ -393,6 +469,9 @@ func TestTimestamp(t *testing.T) {
 }
 
 func TestTimestampTz(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C10"
 
 	const fm = "2006-01-02 15:04:05.999999999 -07:00"
@@ -409,6 +488,9 @@ func TestTimestampTz(t *testing.T) {
 }
 
 func TestTimestampLtz(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	f := "C11"
 
 	const fm = "2006-01-02 15:04:05.999999999 -07:00"
@@ -425,6 +507,9 @@ func TestTimestampLtz(t *testing.T) {
 }
 
 func TestQueryRowPrepared(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	sel, err := TestDB.Prepare("select :1 from dual")
 	if err != nil {
 		t.Fatal(err)
@@ -449,6 +534,9 @@ func TestQueryRowPrepared(t *testing.T) {
 }
 
 func TestTimeZones(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	zones := getZones()
 	db := TestDB
 	seen := make(map[string]bool, len(zones)*2)
@@ -478,6 +566,9 @@ func TestTimeZones(t *testing.T) {
 }
 
 func handleZone(zone string, tt *time.Time, db *sql.DB, t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	r := sqlstest(TestDB, t, "select :0 as time from dual", *tt)
 	if !tt.Equal(r["TIME"].(time.Time)) {
 		t.Fatal(r, "!=", tt)
@@ -643,6 +734,9 @@ func getZones() []string {
 }
 
 func TestColumnTypeScanType(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
 	timeVar := time.Date(2015, 12, 31, 23, 59, 59, 123456789, time.UTC)
 	intVar := int64(0)
 	floatVar := float64(0)

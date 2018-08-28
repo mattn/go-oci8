@@ -15,8 +15,6 @@ export ORACLE_SID=XE
 
 DOCKER_IP=$(ip route | awk 'NR==1 {print $3}')
 
-echo DSN: system/oracle@${DOCKER_IP}:1521/xe
-
 ${ORACLE_HOME}/bin/tnsping ${DOCKER_IP}
 
 ${ORACLE_HOME}/bin/sqlplus -L -S system/oracle@${DOCKER_IP}:1521/xe <<SQL
@@ -40,5 +38,4 @@ Libs: -L${ORACLE_HOME}/lib -Wl,-rpath,${ORACLE_HOME}/lib -lclntsh
 PKGCONFIG
 
 export PKG_CONFIG_PATH=.
-export DSN="scott/tiger@${DOCKER_IP}:1521/xe"
-go test -x
+go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid ${DOCKER_IP} -username scott -password tiger

@@ -1,10 +1,78 @@
 package oci8
 
 import (
+	"context"
+	"database/sql"
+	"flag"
+	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 )
+
+// to run database tests
+// go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid type_hostname_here -username type_username_here -password "type_password_here"
+
+var (
+	TestDisableDatabase    bool
+	TestHostValid          string
+	TestHostInvalid        string
+	TestUsername           string
+	TestPassword           string
+	TestDatabase           string
+	TestDisableDestructive bool
+
+	TestTimeString string
+
+	TestDB *sql.DB
+)
+
+type testQueryResults struct {
+	query   string
+	args    [][]interface{}
+	results [][][]interface{}
+}
+
+func TestMain(m *testing.M) {
+	code := setupForTesting()
+	if code != 0 {
+		os.Exit(code)
+	}
+	code = m.Run()
+
+	if !TestDisableDatabase {
+		err := TestDB.Close()
+		if err != nil {
+			fmt.Println("close error:", err)
+			os.Exit(2)
+		}
+	}
+
+	os.Exit(code)
+}
+
+func setupForTesting() int {
+	flag.BoolVar(&TestDisableDatabase, "disableDatabase", true, "set to true to disable the Oracle tests")
+	flag.StringVar(&TestHostValid, "hostValid", "127.0.0.1", "a host where a Oracle database is running")
+	flag.StringVar(&TestHostInvalid, "hostInvalid", "169.254.200.200", "a host where a Oracle database is not running")
+	flag.StringVar(&TestUsername, "username", "", "the username for the Oracle database")
+	flag.StringVar(&TestPassword, "password", "", "the password for the Oracle database")
+	flag.BoolVar(&TestDisableDestructive, "disableDestructive", false, "set to true to disable the destructive Oracle tests")
+
+	flag.Parse()
+
+	TestTimeString = time.Now().UTC().Format("20060102150405")
+
+	if !TestDisableDatabase {
+		TestDB = testGetDB()
+		if TestDB == nil {
+			return 4
+		}
+	}
+
+	return 0
+}
 
 func TestParseDSN(t *testing.T) {
 	var (
@@ -45,3 +113,220 @@ func TestIsBadConn(t *testing.T) {
 		t.Errorf("TestIsBadConn: expected %+v, actual %+v", true, isBadConnection(errorCode))
 	}
 }
+
+func testGetDB() *sql.DB {
+	// is this really needed?
+	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
+
+	var openString string
+	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	if len(TestUsername) > 0 {
+		if len(TestPassword) > 0 {
+			openString = TestUsername + "/" + TestPassword + "@"
+		} else {
+			openString = TestUsername + "@"
+		}
+	}
+	openString += TestHostValid
+
+	db, err := sql.Open("oci8", openString)
+	if err != nil {
+		fmt.Println("open error:", err)
+		return nil
+	}
+	if db == nil {
+		fmt.Println("db is nil")
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	err = db.PingContext(ctx)
+	cancel()
+	if err != nil {
+		fmt.Println("ping error:", err)
+		return nil
+	}
+
+	db.Exec("drop table foo")
+
+	_, err = db.Exec(sql1)
+	if err != nil {
+		fmt.Println("sql1 error:", err)
+		return nil
+	}
+
+	_, err = db.Exec("truncate table foo")
+	if err != nil {
+		fmt.Println("truncate error:", err)
+		return nil
+	}
+
+	return db
+}
+
+func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
+	// get rows
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	var rows *sql.Rows
+	rows, err := stmt.QueryContext(ctx, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %v", err)
+	}
+
+	// get column infomration
+	var columns []string
+	columns, err = rows.Columns()
+	if err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("columns error: %v", err)
+	}
+
+	// create values
+	values := make([][]interface{}, 0, 1)
+
+	// get values
+	pRowInterface := make([]interface{}, len(columns))
+
+	for rows.Next() {
+		rowInterface := make([]interface{}, len(columns))
+		for i := 0; i < len(rowInterface); i++ {
+			pRowInterface[i] = &rowInterface[i]
+		}
+
+		err = rows.Err()
+		if err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("rows error: %v", err)
+		}
+
+		err = rows.Scan(pRowInterface...)
+		if err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan error: %v", err)
+		}
+
+		values = append(values, rowInterface)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("rows error: %v", err)
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("close error: %v", err)
+	}
+
+	cancel()
+
+	// return values
+	return values, nil
+}
+
+func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
+	for _, queryResult := range queryResults {
+
+		if len(queryResult.args) != len(queryResult.results) {
+			t.Errorf("args len %v and results len %v do not match - query: %v",
+				len(queryResult.args), len(queryResult.results), queryResult.query)
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		stmt, err := TestDB.PrepareContext(ctx, queryResult.query)
+		if err != nil {
+			t.Errorf("prepare error: %v - query: %v", err, queryResult.query)
+			cancel()
+			continue
+		}
+		cancel()
+
+		testRunQueryResult(t, queryResult, stmt)
+
+		err = stmt.Close()
+		if err != nil {
+			t.Errorf("close error: %v - query: %v", err, queryResult.query)
+		}
+
+	}
+}
+
+func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.Stmt) {
+	for i := 0; i < len(queryResult.args); i++ {
+		result, err := testGetRows(t, stmt, queryResult.args[i])
+		if err != nil {
+			t.Errorf("get rows error: %v - query: %v", err, queryResult.query)
+			continue
+		}
+		if result == nil && queryResult.results[i] != nil {
+			t.Errorf("result is nil - query: %v", queryResult.query)
+			continue
+		}
+		if len(result) < 1 && queryResult.results[i] != nil {
+			t.Errorf("result len less than 1 - query: %v", queryResult.query)
+			continue
+		}
+
+		for j := 0; j < len(result); j++ {
+			if len(result[j]) != len(queryResult.results[i][j]) {
+				t.Errorf("result len %v not equal to expected len %v - query: %v",
+					len(result), len(queryResult.results[i][j]), queryResult.query)
+				continue
+			}
+
+			for k := 0; k < len(result[j]); k++ {
+				if result[j][k] != queryResult.results[i][j][k] {
+					t.Errorf("result - row %v, %v - received: %T, %v  - expected: %T, %v - query: %v", j, k,
+						result[j][k], result[j][k], queryResult.results[i][j][k], queryResult.results[i][j][k], queryResult.query)
+					continue
+				}
+			}
+		}
+
+	}
+}
+
+var sql1 = `create table foo(
+	c1 varchar2(256),
+	c2 nvarchar2(256),
+	c3 number,
+	c4 float,
+	c6 date,
+	c7 BINARY_FLOAT,
+	c8 BINARY_DOUBLE,
+	c9 TIMESTAMP,
+	c10 TIMESTAMP WITH TIME ZONE,
+	c11 TIMESTAMP WITH LOCAL TIME ZONE,
+	c12 INTERVAL YEAR TO MONTH,
+	c13 INTERVAL DAY TO SECOND,
+	c14 RAW(80),
+	c15 ROWID,
+	c17 CHAR(15),
+	c18 NCHAR(20),
+	c19 CLOB,
+	c21 BLOB,
+	cend varchar2(12)
+	)`
+
+var sql12 = `insert( c1,c2,c3,c4,c6,c7,c8,c9,c10,c11,c12,c13,c14,c17,c18,c19,c20,c21,cend) into foo values(
+:1,
+:2,
+:3,
+:4,
+:6,
+:7,
+:8,
+:9,
+:10,
+:11,
+NUMTOYMINTERVAL( :12, 'MONTH'),
+NUMTODSINTERVAL( :13 / 1000000000, 'SECOND'),
+:14,
+:17,
+:18,
+:19,
+:21,
+'END'
+)`

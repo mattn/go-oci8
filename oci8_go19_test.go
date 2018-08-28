@@ -8,13 +8,11 @@ import (
 )
 
 func TestOutputBind(t *testing.T) {
-	db := DB()
-
 	s1 := "-----------------------------"
 	s2 := 11
 	s3 := false
 	s4 := uint64(12)
-	_, err := db.Exec(`begin  :a := 42; :b := 'ddddd' ; :c := 2; :d := 4294967295; end;`,
+	_, err := TestDB.Exec(`begin  :a := 42; :b := 'ddddd' ; :c := 2; :d := 4294967295; end;`,
 		sql.Named("a", sql.Out{Dest: &s2}),
 		sql.Named("b", sql.Out{Dest: &s1}),
 		sql.Named("c", sql.Out{Dest: &s3}),

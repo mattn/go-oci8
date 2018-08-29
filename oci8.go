@@ -6,6 +6,8 @@ package oci8
 */
 import "C"
 
+// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
+
 import (
 	"bytes"
 	"database/sql"

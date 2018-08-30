@@ -9,60 +9,15 @@ import "C"
 // noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
 )
-
-const blobBufSize = 4000
-const useOCISessionBegin = true
-
-type DSN struct {
-	Connect                string
-	Username               string
-	Password               string
-	prefetch_rows          uint32
-	prefetch_memory        uint32
-	Location               *time.Location
-	transactionMode        C.ub4
-	enableQMPlaceholders   bool
-	operationMode          C.ub4
-	externalauthentication bool
-}
-
-func init() {
-	sql.Register("oci8", &OCI8Driver{})
-}
-
-type OCI8Driver struct {
-}
-
-type OCI8Conn struct {
-	svc                  unsafe.Pointer
-	srv                  unsafe.Pointer
-	env                  unsafe.Pointer
-	err                  unsafe.Pointer
-	usr_session          unsafe.Pointer
-	prefetch_rows        uint32
-	prefetch_memory      uint32
-	location             *time.Location
-	transactionMode      C.ub4
-	operationMode        C.ub4
-	inTransaction        bool
-	enableQMPlaceholders bool
-	closed               bool
-}
-
-type OCI8Tx struct {
-	c *OCI8Conn
-}
 
 // ParseDSN parses a DSN used to connect to Oracle
 // It expects to receive a string in the form:
@@ -193,17 +148,6 @@ func (tx *OCI8Tx) Rollback() error {
 		return ociGetError(rv, tx.c.err)
 	}
 	return nil
-}
-
-type namedValue struct {
-	Name    string
-	Ordinal int
-	Value   driver.Value
-}
-
-type outValue struct {
-	Dest interface{}
-	In   bool
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
@@ -374,15 +318,6 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	return &conn, nil
 }
 
-type OCI8Stmt struct {
-	c      *OCI8Conn
-	s      unsafe.Pointer
-	closed bool
-	bp     **C.OCIBind
-	defp   **C.OCIDefine
-	pbind  []oci8bind //bind params
-}
-
 func freeBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {
 		if col.pbuf != nil {
@@ -477,46 +412,12 @@ func GetLastInsertId(id int64) string {
 	return *(*string)(unsafe.Pointer(uintptr(id)))
 }
 
-type OCI8Result struct {
-	n     int64
-	errn  error
-	id    int64
-	errid error
-	s     *OCI8Stmt
-}
-
 func (r *OCI8Result) LastInsertId() (int64, error) {
 	return r.id, r.errid
 }
 
 func (r *OCI8Result) RowsAffected() (int64, error) {
 	return r.n, r.errn
-}
-
-type oci8col struct {
-	name string
-	kind C.ub2
-	size int
-	ind  *C.sb2
-	rlen *C.ub2
-	pbuf unsafe.Pointer
-}
-
-type oci8bind struct {
-	kind C.ub2
-	pbuf unsafe.Pointer
-	clen C.sb4
-	out  interface{} // original binded data type
-}
-
-type OCI8Rows struct {
-	s          *OCI8Stmt
-	cols       []oci8col
-	e          bool
-	indrlenptr unsafe.Pointer
-	closed     bool
-	done       chan struct{}
-	cls        bool
 }
 
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
@@ -589,8 +490,6 @@ func CByte(b []byte) *C.char {
 	copy(pp[:], b)
 	return (*C.char)(p)
 }
-
-var phre = regexp.MustCompile(`\?`)
 
 // converts "?" characters to  :1, :2, ... :n
 func placeholders(sql string) string {

@@ -11,6 +11,10 @@ import (
 )
 
 func TestNamedParam(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
 	r := sqlstest(TestDB, t, "select :foo||:bar as message from dual", sql.Named("foo", "hello"), sql.Named("bar", "world"))
 	if "helloworld" != r["MESSAGE"].(string) {
 		t.Fatal("message should be: helloworld", r)
@@ -18,6 +22,10 @@ func TestNamedParam(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
 	for i := 0; i < 2000; i++ {
 		TestDB.Exec("insert into foo(c3) values(:1)", i)
 	}

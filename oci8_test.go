@@ -278,7 +278,7 @@ func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.St
 
 			for k := 0; k < len(result[j]); k++ {
 				if result[j][k] != queryResult.results[i][j][k] {
-					t.Errorf("result - row %v, %v - received: %T, %v  - expected: %T, %v - query: %v", j, k,
+					t.Errorf("result - %v row %v, %v - received: %T, %v  - expected: %T, %v - query: %v", i, j, k,
 						result[j][k], result[j][k], queryResult.results[i][j][k], queryResult.results[i][j][k], queryResult.query)
 					continue
 				}

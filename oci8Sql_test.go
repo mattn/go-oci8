@@ -96,13 +96,11 @@ func TestContextTimeout(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(120); end;")
+	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(1); end;")
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
 	cancel()
-
-	timeStart := time.Now()
 
 	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
 	_, err = stmt.ExecContext(ctx)
@@ -111,10 +109,6 @@ func TestContextTimeout(t *testing.T) {
 		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
 	}
 	cancel()
-
-	if time.Since(timeStart) > 60*time.Second {
-		t.Fatal("exec time took more than 60 seconds")
-	}
 
 	err = stmt.Close()
 	if err != nil {

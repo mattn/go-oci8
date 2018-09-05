@@ -624,7 +624,6 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 	}
 
 	done := make(chan struct{})
-	defer close(done)
 	go func() {
 		select {
 		case <-done:
@@ -649,6 +648,7 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 		nil,
 		nil,
 		mode)
+	close(done)
 	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
 		return nil, ociGetError(rv, s.c.err)
 	}

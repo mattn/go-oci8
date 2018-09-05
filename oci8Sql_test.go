@@ -96,7 +96,7 @@ func TestContextTimeout(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	stmt, err := TestDB.PrepareContext(ctx, "begin DBMS_LOCK.SLEEP(20); end;")
+	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(20); end;")
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
@@ -112,8 +112,8 @@ func TestContextTimeout(t *testing.T) {
 	}
 	cancel()
 
-	if time.Since(timeStart) > 7*time.Second {
-		t.Fatal("exec time took more than 7 seconds")
+	if time.Since(timeStart) > 8*time.Second {
+		t.Fatal("exec time took more than 8 seconds")
 	}
 
 	err = stmt.Close()
@@ -674,6 +674,7 @@ func TestSelectCast(t *testing.T) {
 				[]interface{}{[]byte{10}},
 				[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
 				[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
 				[]interface{}{testByteSlice1},
 			},
 			results: [][][]interface{}{
@@ -681,6 +682,7 @@ func TestSelectCast(t *testing.T) {
 				[][]interface{}{[]interface{}{[]byte{10}}},
 				[][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
 				[][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+				[][]interface{}{[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}}},
 				[][]interface{}{[]interface{}{testByteSlice1}},
 			},
 		},
@@ -1082,13 +1084,17 @@ func TestSelectGoTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{[]byte{}},
 				[]interface{}{[]byte{10}},
+				[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
 				[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
 				[]interface{}{testByteSlice1},
 			},
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{[]byte{10}}},
+				[][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
 				[][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+				[][]interface{}{[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}}},
 				[][]interface{}{[]interface{}{testByteSlice1}},
 			},
 		},

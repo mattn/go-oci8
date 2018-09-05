@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// TestConnect checks basic invalid connection
 func TestConnect(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
@@ -37,6 +38,7 @@ func TestConnect(t *testing.T) {
 	}
 }
 
+// TestSelectParallel checks parallel select from dual
 func TestSelectParallel(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
@@ -87,7 +89,41 @@ func TestSelectParallel(t *testing.T) {
 	}
 }
 
-func TestSelectTypes(t *testing.T) {
+// TestContextTimeout checks that ExecContext timeout works
+func TestContextTimeout(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	stmt, err := TestDB.PrepareContext(ctx, "begin DBMS_LOCK.SLEEP(20); end;")
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+	cancel()
+
+	timeStart := time.Now()
+
+	ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+	_, err = stmt.ExecContext(ctx)
+	expected := "ORA-01013"
+	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
+	}
+	cancel()
+
+	if time.Since(timeStart) > 7*time.Second {
+		t.Fatal("exec time took more than 7 seconds")
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+}
+
+// TestSelectCast checks cast x from dual works for each SQL types
+func TestSelectCast(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
@@ -115,6 +151,7 @@ func TestSelectTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{""},
 				[]interface{}{"a"},
+				[]interface{}{"abc    "},
 				[]interface{}{strings.Repeat("a", 10)},
 				[]interface{}{strings.Repeat("a", 100)},
 				[]interface{}{strings.Repeat("a", 500)},
@@ -123,10 +160,12 @@ func TestSelectTypes(t *testing.T) {
 				[]interface{}{strings.Repeat("a", 2000)},
 				[]interface{}{strings.Repeat("a", 3000)},
 				[]interface{}{strings.Repeat("a", 4000)},
+				[]interface{}{testString1},
 			},
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{"a"}},
+				[][]interface{}{[]interface{}{"abc    "}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 10)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 100)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 500)}},
@@ -135,6 +174,7 @@ func TestSelectTypes(t *testing.T) {
 				[][]interface{}{[]interface{}{strings.Repeat("a", 2000)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 3000)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 4000)}},
+				[][]interface{}{[]interface{}{testString1}},
 			},
 		},
 
@@ -157,6 +197,7 @@ func TestSelectTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{""},
 				[]interface{}{"a"},
+				[]interface{}{"abc    "},
 				[]interface{}{strings.Repeat("a", 10)},
 				[]interface{}{strings.Repeat("a", 100)},
 				[]interface{}{strings.Repeat("a", 500)},
@@ -167,6 +208,7 @@ func TestSelectTypes(t *testing.T) {
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{"a"}},
+				[][]interface{}{[]interface{}{"abc    "}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 10)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 100)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 500)}},
@@ -195,6 +237,7 @@ func TestSelectTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{""},
 				[]interface{}{"a"},
+				[]interface{}{"abc    "},
 				[]interface{}{strings.Repeat("a", 10)},
 				[]interface{}{strings.Repeat("a", 100)},
 				[]interface{}{strings.Repeat("a", 500)},
@@ -205,6 +248,7 @@ func TestSelectTypes(t *testing.T) {
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{"a" + strings.Repeat(" ", 1999)}},
+				[][]interface{}{[]interface{}{"abc" + strings.Repeat(" ", 1997)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 1990)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 100) + strings.Repeat(" ", 1900)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 500) + strings.Repeat(" ", 1500)}},
@@ -233,6 +277,7 @@ func TestSelectTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{""},
 				[]interface{}{"a"},
+				[]interface{}{"abc    "},
 				[]interface{}{strings.Repeat("a", 10)},
 				[]interface{}{strings.Repeat("a", 100)},
 				[]interface{}{strings.Repeat("a", 500)},
@@ -241,6 +286,7 @@ func TestSelectTypes(t *testing.T) {
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{"a" + strings.Repeat(" ", 999)}},
+				[][]interface{}{[]interface{}{"abc" + strings.Repeat(" ", 997)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 990)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 100) + strings.Repeat(" ", 900)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 500) + strings.Repeat(" ", 500)}},
@@ -585,9 +631,73 @@ func TestSelectTypes(t *testing.T) {
 			},
 		},
 
-		// Go Types
-		// https://tour.golang.org/basics/11
+		// TIMESTAMP(9) WITH TIME ZONE
+		testQueryResults{
+			query: "select cast (:1 as TIMESTAMP(9) WITH TIME ZONE) from dual",
+			args: [][]interface{}{
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)}},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)}},
+			},
+		},
 
+		// RAW(2000)
+		testQueryResults{
+			query: "select cast (:1 as RAW(2000)) from dual",
+			args: [][]interface{}{
+				[]interface{}{[]byte{}},
+				[]interface{}{[]byte{10}},
+				[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+				[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				[]interface{}{testByteSlice1},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{nil}},
+				[][]interface{}{[]interface{}{[]byte{10}}},
+				[][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
+				[][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+				[][]interface{}{[]interface{}{testByteSlice1}},
+			},
+		},
+	}
+
+	testRunQueryResults(t, queryResults)
+}
+
+// TestSelectGoTypes is select :1 from dual for each Go Type
+func TestSelectGoTypes(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	// https://tour.golang.org/basics/11
+
+	queryResults := []testQueryResults{
 		// bool
 		testQueryResults{
 			query: "select :1 from dual",
@@ -607,16 +717,24 @@ func TestSelectTypes(t *testing.T) {
 			args: [][]interface{}{
 				[]interface{}{""},
 				[]interface{}{"a"},
+				[]interface{}{"123"},
+				[]interface{}{"1234.567"},
+				[]interface{}{"abc      "},
 				[]interface{}{"abcdefghijklmnopqrstuvwxyz"},
-				[]interface{}{"a b c d e f g h i j k l m n o p q r s t u v w x y z"},
+				[]interface{}{"a b c d e f g h i j k l m n o p q r s t u v w x y z "},
 				[]interface{}{"a\nb\nc"},
+				[]interface{}{testString1},
 			},
 			results: [][][]interface{}{
 				[][]interface{}{[]interface{}{nil}},
 				[][]interface{}{[]interface{}{"a"}},
+				[][]interface{}{[]interface{}{"123"}},
+				[][]interface{}{[]interface{}{"1234.567"}},
+				[][]interface{}{[]interface{}{"abc      "}},
 				[][]interface{}{[]interface{}{"abcdefghijklmnopqrstuvwxyz"}},
-				[][]interface{}{[]interface{}{"a b c d e f g h i j k l m n o p q r s t u v w x y z"}},
+				[][]interface{}{[]interface{}{"a b c d e f g h i j k l m n o p q r s t u v w x y z "}},
 				[][]interface{}{[]interface{}{"a\nb\nc"}},
+				[][]interface{}{[]interface{}{testString1}},
 			},
 		},
 
@@ -908,6 +1026,70 @@ func TestSelectTypes(t *testing.T) {
 				[][]interface{}{[]interface{}{float64(32767.123046875)}},
 				[][]interface{}{[]interface{}{float64(2147483648)}},
 				[][]interface{}{[]interface{}{float64(9223372036854775808)}},
+			},
+		},
+
+		// time
+		testQueryResults{
+			query: "select :1 from dual",
+			args: [][]interface{}{
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, time.UTC)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocUTC)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocGMT)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocEST)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocMST)},
+				[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocNZ)},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)}},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocMST)}},
+				[][]interface{}{[]interface{}{time.Date(9998, 12, 31, 3, 4, 5, 123456789, testTimeLocNZ)}},
+			},
+		},
+
+		// []byte
+		testQueryResults{
+			query: "select :1 from dual",
+			args: [][]interface{}{
+				[]interface{}{[]byte{}},
+				[]interface{}{[]byte{10}},
+				[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				[]interface{}{testByteSlice1},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{nil}},
+				[][]interface{}{[]interface{}{[]byte{10}}},
+				[][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+				[][]interface{}{[]interface{}{testByteSlice1}},
 			},
 		},
 	}

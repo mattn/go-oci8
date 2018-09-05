@@ -43,6 +43,7 @@ ${ORACLE_HOME}/bin/tnsping ${DOCKER_IP}
 ${ORACLE_HOME}/bin/sqlplus -L -S system/oracle@${DOCKER_IP}:1521/xe <<SQL
 CREATE USER scott IDENTIFIED BY tiger DEFAULT TABLESPACE users TEMPORARY TABLESPACE temp;
 GRANT connect, resource, create view, create synonym TO scott;
+GRANT execute ON SYS.DBMS_LOCK TO scott;
 SQL
 
 echo "creating oci8.pc"

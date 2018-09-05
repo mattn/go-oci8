@@ -96,7 +96,7 @@ func TestContextTimeout(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(20); end;")
+	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(120); end;")
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
@@ -104,7 +104,7 @@ func TestContextTimeout(t *testing.T) {
 
 	timeStart := time.Now()
 
-	ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
 	_, err = stmt.ExecContext(ctx)
 	expected := "ORA-01013"
 	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
@@ -112,8 +112,8 @@ func TestContextTimeout(t *testing.T) {
 	}
 	cancel()
 
-	if time.Since(timeStart) > 8*time.Second {
-		t.Fatal("exec time took more than 8 seconds")
+	if time.Since(timeStart) > 60*time.Second {
+		t.Fatal("exec time took more than 60 seconds")
 	}
 
 	err = stmt.Close()

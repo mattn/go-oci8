@@ -78,15 +78,6 @@ func sqlstestv(d dbc, t *testing.T, sql string, p ...interface{}) []interface{} 
 	return res
 }
 
-func TestSelect1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	sqlstest(TestDB, t,
-		"select :0 as nil, :1 as true, :2 as false, :3 as int64, :4 as time, :5 as string, :6 as bytes, :7 as float64 from dual",
-		nil, true, false, int64(1234567890123456789), time.Now(), "bee     ", []byte{61, 62, 63, 64, 65, 66, 67, 68}, 3.14)
-}
-
 func TestInterval1(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
@@ -154,80 +145,6 @@ func TestIntervals5(t *testing.T) {
 	}
 }
 
-func TestTime1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := time.Now()
-	r := sqlstest(TestDB, t, "select :0 as time from dual", n)
-	if !n.Equal(r["TIME"].(time.Time)) {
-		t.Fatal(r, "!=", n)
-	}
-}
-
-func TestTime2(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	const f = "2006-01-02 15:04:05.999999999 -07:00"
-	in := []time.Time{}
-
-	tm, err := time.Parse(f, "2015-01-23 12:34:56.123456789 +09:05")
-	if err != nil {
-		t.Fatal(err)
-	}
-	in = append(in, tm)
-
-	tm, err = time.Parse(f, "1014-10-14 21:43:50.987654321 -08:50")
-	if err != nil {
-		t.Fatal(err)
-	}
-	in = append(in, tm)
-
-	tm = time.Date(-4123, time.Month(12), 1, 2, 3, 4, 0, time.UTC)
-	in = append(in, tm)
-
-	tm = time.Date(9321, time.Month(11), 2, 3, 4, 5, 0, time.UTC)
-	in = append(in, tm)
-
-	r := sqlstestv(TestDB, t, "select :0, :1, :2, :3  from dual", in[0], in[1], in[2], in[3])
-	for i, v := range r {
-		vt := v.(time.Time)
-		if !vt.Equal(in[i]) {
-			t.Fatal(vt, "!=", in[i])
-		}
-	}
-}
-
-func TestTime3(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	sqlstest(TestDB, t, "select sysdate - 365*6500 from dual")
-}
-
-func TestBytes1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := bytes.Repeat([]byte{'A'}, 4000)
-	r := sqlstest(TestDB, t, "select :0 as bytes from dual", n)
-	if !bytes.Equal(n, r["BYTES"].([]byte)) {
-		t.Fatal(r["BYTES"], "!=", n)
-	}
-}
-
-func TestBytes2(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := []byte{7}
-	r := sqlstest(TestDB, t, "select :0 as bytes from dual", n)
-	if !bytes.Equal(n, r["BYTES"].([]byte)) {
-		t.Fatal(r["BYTES"], "!=", n)
-	}
-}
-
 func TestQuestionMark(t *testing.T) {
 	// skip for now
 	t.SkipNow()
@@ -242,28 +159,6 @@ func TestQuestionMark(t *testing.T) {
 	}
 	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
 		t.Fatal(r["V3"], "!=", c)
-	}
-}
-
-func TestString1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := strings.Repeat("1234567890", 400)
-	r := sqlstest(TestDB, t, "select :0 as str from dual", n)
-	if n != r["STR"].(string) {
-		t.Fatal(r["STR"], "!=", n)
-	}
-}
-
-func TestString2(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := "6"
-	r := sqlstest(TestDB, t, "select :0 as str from dual", n)
-	if n != r["STR"].(string) {
-		t.Fatal(r["STR"], "!=", n)
 	}
 }
 
@@ -506,33 +401,6 @@ func TestTimestampLtz(t *testing.T) {
 	sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
 }
 
-func TestQueryRowPrepared(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	sel, err := TestDB.Prepare("select :1 from dual")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	const val = 143
-	ccc := val
-
-	err = sel.QueryRow(ccc).Scan(&ccc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ccc != val {
-		t.Fatal(err)
-	}
-
-	err = sel.QueryRow(ccc).Scan(&ccc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sel.Close()
-}
-
 func TestTimeZones(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
@@ -766,44 +634,5 @@ func TestColumnTypeScanType(t *testing.T) {
 				t.Fatalf("scan type error, expect %v, get %v", reflect.TypeOf(floatVar), c.ScanType())
 			}
 		}
-	}
-}
-
-//watch mem in top :)    I wish valgrind can run go progs...
-//warn 5 min test !!!!
-func zzTestMem(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-
-	for now := time.Now().Add(time.Minute * 5); now.After(time.Now()); {
-		TestTruncate(t)
-		TestSelect1(t)
-		TestInterval1(t)
-		TestInterval2(t)
-		TestInterval3(t)
-		TestInterval4(t)
-		TestIntervals5(t)
-		TestTime1(t)
-		TestTime2(t)
-		TestTime3(t)
-		TestBytes1(t)
-		TestBytes2(t)
-		TestString1(t)
-		TestString2(t)
-		TestString3(t)
-		TestFooLargeBlob(t)
-		TestSmallBlob(t)
-		TestFooRowid(t)
-		TestTransaction1(t)
-		TestBigClob(t)
-		TestSmallClob(t)
-		TestNvarchar(t)
-		TestNchar(t)
-		TestChar(t)
-		TestDate(t)
-		TestTimestamp(t)
-		TestTimestampTz(t)
-		TestTimestampLtz(t)
 	}
 }

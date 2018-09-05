@@ -46,10 +46,10 @@ func TestSelectParallel(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	stmt, err := TestDB.PrepareContext(ctx, "select :1 from dual")
+	cancel()
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
-	cancel()
 
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(100)
@@ -95,20 +95,41 @@ func TestContextTimeout(t *testing.T) {
 		t.SkipNow()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	// exec
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(1); end;")
+	cancel()
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
-	cancel()
 
 	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
 	_, err = stmt.ExecContext(ctx)
+	cancel()
 	expected := "ORA-01013"
 	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
 		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
 	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	// query
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	stmt, err = TestDB.PrepareContext(ctx, "select SLEEP_SECONDS(1) from dual")
 	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
+	_, err = stmt.QueryContext(ctx)
+	cancel()
+	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+		t.Fatalf("stmt query - expected: %v - received: %v", expected, err)
+	}
 
 	err = stmt.Close()
 	if err != nil {

@@ -205,6 +205,7 @@ func testGetDB() *sql.DB {
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	var rows *sql.Rows
 	rows, err := stmt.QueryContext(ctx, args...)
 	if err != nil {
@@ -257,8 +258,6 @@ func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interfac
 		return nil, fmt.Errorf("close error: %v", err)
 	}
 
-	cancel()
-
 	// return values
 	return values, nil
 }
@@ -275,12 +274,11 @@ func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		stmt, err := TestDB.PrepareContext(ctx, queryResult.query)
+		cancel()
 		if err != nil {
 			t.Errorf("prepare error: %v - query: %v", err, queryResult.query)
-			cancel()
 			continue
 		}
-		cancel()
 
 		testRunQueryResult(t, queryResult, stmt)
 

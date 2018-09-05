@@ -44,6 +44,13 @@ ${ORACLE_HOME}/bin/sqlplus -L -S "sys/oracle@${DOCKER_IP}:1521 as sysdba" <<SQL
 CREATE USER scott IDENTIFIED BY tiger DEFAULT TABLESPACE users TEMPORARY TABLESPACE temp;
 GRANT connect, resource, create view, create synonym TO scott;
 GRANT execute ON SYS.DBMS_LOCK TO scott;
+create or replace function SCOTT.SLEEP_SECONDS (p_seconds number) return integer is
+begin
+  dbms_lock.sleep(p_seconds);
+  return 1;
+end SLEEP_SECONDS;
+/
+
 SQL
 
 echo "creating oci8.pc"

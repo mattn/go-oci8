@@ -1,6 +1,7 @@
 package oci8
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"flag"
@@ -13,6 +14,7 @@ import (
 
 // to run database tests
 // go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid type_hostname_here -username type_username_here -password "type_password_here"
+// note minimum Go version for testing is 1.8
 
 var (
 	TestDisableDatabase    bool
@@ -26,14 +28,28 @@ var (
 	TestTimeString string
 
 	TestDB *sql.DB
+
+	TestTypeTime      = reflect.TypeOf(time.Time{})
+	TestTypeByteSlice = reflect.TypeOf([]byte{})
+
+	testString1    string
+	testByteSlice1 []byte
+
+	testTimeLocUTC *time.Location
+	testTimeLocGMT *time.Location
+	testTimeLocEST *time.Location
+	testTimeLocMST *time.Location
+	testTimeLocNZ  *time.Location
 )
 
+// testQueryResults is for testing a query
 type testQueryResults struct {
 	query   string
 	args    [][]interface{}
 	results [][][]interface{}
 }
 
+// TestMain sets up testing
 func TestMain(m *testing.M) {
 	code := setupForTesting()
 	if code != 0 {
@@ -52,6 +68,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// setupForTesting sets up flags and connects to test database
 func setupForTesting() int {
 	flag.BoolVar(&TestDisableDatabase, "disableDatabase", true, "set to true to disable the Oracle tests")
 	flag.StringVar(&TestHostValid, "hostValid", "127.0.0.1", "a host where a Oracle database is running")
@@ -62,8 +79,6 @@ func setupForTesting() int {
 
 	flag.Parse()
 
-	TestTimeString = time.Now().UTC().Format("20060102150405")
-
 	if !TestDisableDatabase {
 		TestDB = testGetDB()
 		if TestDB == nil {
@@ -71,9 +86,30 @@ func setupForTesting() int {
 		}
 	}
 
+	TestTimeString = time.Now().UTC().Format("20060102150405")
+
+	var i int
+	var buffer bytes.Buffer
+	for i = 0; i < 1000; i++ {
+		buffer.WriteRune(rune(i))
+	}
+	testString1 = buffer.String()
+
+	testByteSlice1 = make([]byte, 2000)
+	for i = 0; i < 2000; i++ {
+		testByteSlice1[i] = byte(i)
+	}
+
+	testTimeLocUTC, _ = time.LoadLocation("UTC")
+	testTimeLocGMT, _ = time.LoadLocation("GMT")
+	testTimeLocEST, _ = time.LoadLocation("EST")
+	testTimeLocMST, _ = time.LoadLocation("MST")
+	testTimeLocNZ, _ = time.LoadLocation("NZ")
+
 	return 0
 }
 
+// TestParseDSN tests parsing the DSN
 func TestParseDSN(t *testing.T) {
 	var (
 		pacific *time.Location
@@ -107,6 +143,7 @@ func TestParseDSN(t *testing.T) {
 	}
 }
 
+// TestIsBadConn tests bad connection error codes
 func TestIsBadConn(t *testing.T) {
 	var errorCode = "ORA-03114"
 	if !isBadConnection(errorCode) {
@@ -114,8 +151,8 @@ func TestIsBadConn(t *testing.T) {
 	}
 }
 
+// testGetDB connects to the test database and returns the database connection
 func testGetDB() *sql.DB {
-	// is this really needed?
 	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
 
 	var openString string
@@ -164,9 +201,11 @@ func testGetDB() *sql.DB {
 	return db
 }
 
+// testGetRows runs a statment and returns the rows as [][]interface{}
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	var rows *sql.Rows
 	rows, err := stmt.QueryContext(ctx, args...)
 	if err != nil {
@@ -219,12 +258,11 @@ func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interfac
 		return nil, fmt.Errorf("close error: %v", err)
 	}
 
-	cancel()
-
 	// return values
 	return values, nil
 }
 
+// testRunQueryResults runs a slice of testQueryResults tests
 func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 	for _, queryResult := range queryResults {
 
@@ -236,12 +274,11 @@ func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		stmt, err := TestDB.PrepareContext(ctx, queryResult.query)
+		cancel()
 		if err != nil {
 			t.Errorf("prepare error: %v - query: %v", err, queryResult.query)
-			cancel()
 			continue
 		}
-		cancel()
 
 		testRunQueryResult(t, queryResult, stmt)
 
@@ -253,6 +290,7 @@ func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 	}
 }
 
+// testRunQueryResult runs a single testQueryResults test
 func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.Stmt) {
 	for i := 0; i < len(queryResult.args); i++ {
 		result, err := testGetRows(t, stmt, queryResult.args[i])
@@ -277,12 +315,39 @@ func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.St
 			}
 
 			for k := 0; k < len(result[j]); k++ {
-				if result[j][k] != queryResult.results[i][j][k] {
+				bad := false
+				type1 := reflect.TypeOf(result[j][k])
+				type2 := reflect.TypeOf(queryResult.results[i][j][k])
+				switch {
+				case type1 == nil || type2 == nil:
+					if type1 != type2 {
+						bad = true
+					}
+				case type1 == TestTypeTime || type2 == TestTypeTime:
+					if type1 != type2 {
+						bad = true
+						break
+					}
+					time1 := result[j][k].(time.Time)
+					time2 := queryResult.results[i][j][k].(time.Time)
+					if !time1.Equal(time2) {
+						bad = true
+					}
+				case type1.Kind() == reflect.Slice || type2.Kind() == reflect.Slice:
+					if !reflect.DeepEqual(result[j][k], queryResult.results[i][j][k]) {
+						bad = true
+					}
+				default:
+					if result[j][k] != queryResult.results[i][j][k] {
+						bad = true
+					}
+				}
+				if bad {
 					t.Errorf("result - %v row %v, %v - received: %T, %v  - expected: %T, %v - query: %v", i, j, k,
 						result[j][k], result[j][k], queryResult.results[i][j][k], queryResult.results[i][j][k], queryResult.query)
-					continue
 				}
 			}
+
 		}
 
 	}

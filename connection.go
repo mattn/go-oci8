@@ -90,16 +90,16 @@ func (c *OCI8Conn) ping(ctx context.Context) error {
 		(*C.OCISvcCtx)(c.svc),
 		(*C.OCIError)(c.err),
 		C.OCI_DEFAULT)
-	if rv != C.OCI_SUCCESS {
-		if strings.HasPrefix(ociGetError(rv, c.err).Error(), "ORA-01010") {
-			// Older versions of Oracle do not support ping,
-			// but a reponse of "ORA-01010: invalid OCI operation" confirms connectivity.
-			// See https://github.com/rana/ora/issues/224
-			return nil
-		}
-		return errors.New("ping failed")
+	if rv == C.OCI_SUCCESS {
+		return nil
 	}
-	return nil
+	if strings.HasPrefix(ociGetError(rv, c.err).Error(), "ORA-01010") {
+		// Older versions of Oracle do not support ping,
+		// but a reponse of "ORA-01010: invalid OCI operation" confirms connectivity.
+		// See https://github.com/rana/ora/issues/224
+		return nil
+	}
+	return errors.New("ping failed")
 }
 
 func (c *OCI8Conn) Begin() (driver.Tx, error) {

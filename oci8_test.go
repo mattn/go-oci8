@@ -17,13 +17,15 @@ import (
 // note minimum Go version for testing is 1.8
 
 var (
-	TestDisableDatabase    bool
-	TestHostValid          string
-	TestHostInvalid        string
-	TestUsername           string
-	TestPassword           string
-	TestDatabase           string
-	TestDisableDestructive bool
+	TestDisableDatabase      bool
+	TestHostValid            string
+	TestHostInvalid          string
+	TestUsername             string
+	TestPassword             string
+	TestContextTimeoutString string
+	TestContextTimeout       time.Duration
+	TestDatabase             string
+	TestDisableDestructive   bool
 
 	TestTimeString string
 
@@ -75,14 +77,22 @@ func setupForTesting() int {
 	flag.StringVar(&TestHostInvalid, "hostInvalid", "169.254.200.200", "a host where a Oracle database is not running")
 	flag.StringVar(&TestUsername, "username", "", "the username for the Oracle database")
 	flag.StringVar(&TestPassword, "password", "", "the password for the Oracle database")
+	flag.StringVar(&TestContextTimeoutString, "contextTimeout", "30s", "the context timeout for queries")
 	flag.BoolVar(&TestDisableDestructive, "disableDestructive", false, "set to true to disable the destructive Oracle tests")
 
 	flag.Parse()
 
+	var err error
+	TestContextTimeout, err = time.ParseDuration(TestContextTimeoutString)
+	if err != nil {
+		fmt.Println("parse context timeout error:", err)
+		return 4
+	}
+
 	if !TestDisableDatabase {
 		TestDB = testGetDB()
 		if TestDB == nil {
-			return 4
+			return 6
 		}
 	}
 
@@ -176,7 +186,7 @@ func testGetDB() *sql.DB {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	err = db.PingContext(ctx)
 	cancel()
 	if err != nil {
@@ -204,7 +214,7 @@ func testGetDB() *sql.DB {
 // testGetRows runs a statment and returns the rows as [][]interface{}
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	defer cancel()
 	var rows *sql.Rows
 	rows, err := stmt.QueryContext(ctx, args...)
@@ -262,6 +272,31 @@ func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interfac
 	return values, nil
 }
 
+// testExec runs an exec query and returns error
+func testExec(t *testing.T, query string, args []interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("prepare error: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, args...)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		return fmt.Errorf("exec error: %v", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		return fmt.Errorf("stmt close error: %v", err)
+	}
+
+	return nil
+}
+
 // testRunQueryResults runs a slice of testQueryResults tests
 func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 	for _, queryResult := range queryResults {
@@ -272,7 +307,7 @@ func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 		stmt, err := TestDB.PrepareContext(ctx, queryResult.query)
 		cancel()
 		if err != nil {
@@ -302,15 +337,16 @@ func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.St
 			t.Errorf("result is nil - query: %v", queryResult.query)
 			continue
 		}
-		if len(result) < 1 && queryResult.results[i] != nil {
-			t.Errorf("result len less than 1 - query: %v", queryResult.query)
+		if len(result) != len(queryResult.results[i]) {
+			t.Errorf("result rows len %v not equal to expected len %v - query: %v",
+				len(result), len(queryResult.results[i]), queryResult.query)
 			continue
 		}
 
 		for j := 0; j < len(result); j++ {
 			if len(result[j]) != len(queryResult.results[i][j]) {
-				t.Errorf("result len %v not equal to expected len %v - query: %v",
-					len(result), len(queryResult.results[i][j]), queryResult.query)
+				t.Errorf("result columns len %v not equal to expected len %v - query: %v",
+					len(result[j]), len(queryResult.results[i][j]), queryResult.query)
 				continue
 			}
 

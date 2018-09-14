@@ -44,7 +44,7 @@ func TestSelectParallel(t *testing.T) {
 		t.SkipNow()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, "select :1 from dual")
 	cancel()
 	if err != nil {
@@ -89,14 +89,14 @@ func TestSelectParallel(t *testing.T) {
 	}
 }
 
-// TestContextTimeout checks that ExecContext timeout works
-func TestContextTimeout(t *testing.T) {
+// TestContextTimeoutBreak checks that ExecContext timeout works
+func TestContextTimeoutBreak(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
 
 	// exec
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(1); end;")
 	cancel()
 	if err != nil {
@@ -117,7 +117,7 @@ func TestContextTimeout(t *testing.T) {
 	}
 
 	// query
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, "select SLEEP_SECONDS(1) from dual")
 	cancel()
 	if err != nil {
@@ -1115,5 +1115,344 @@ func TestSelectGoTypes(t *testing.T) {
 		},
 	}
 
+	testRunQueryResults(t, queryResults)
+}
+
+// TestDestructiveString checks insert, select, update, and delete of string types
+func TestDestructiveString(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	// https://ss64.com/ora/syntax-datatypes.html
+
+	// VARCHAR2
+	err := testExec(t, "create table VARCHAR2_"+TestTimeString+
+		" ( A VARCHAR2(1), B VARCHAR2(2000), C VARCHAR2(4000) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table VARCHAR2_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExec(t, "insert into VARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into VARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults := []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from VARCHAR2_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from VARCHAR2_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from VARCHAR2_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2
+	err = testExec(t, "create table NVARCHAR2_"+TestTimeString+
+		" ( A NVARCHAR2(1), B NVARCHAR2(1000), C NVARCHAR2(2000) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table NVARCHAR2_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExec(t, "insert into NVARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into NVARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NVARCHAR2_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)},
+					[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from NVARCHAR2_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NVARCHAR2_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// CHAR
+	err = testExec(t, "create table CHAR_"+TestTimeString+
+		" ( A CHAR(1), B CHAR(1000), C CHAR(2000) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table CHAR_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CHAR_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)},
+					[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CHAR_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"b"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CHAR_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 100) + strings.Repeat(" ", 900), strings.Repeat("a", 200) + strings.Repeat(" ", 1800)},
+					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 900), strings.Repeat("b", 200) + strings.Repeat(" ", 1800)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CHAR_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 900), strings.Repeat("b", 200) + strings.Repeat(" ", 1800)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR
+	err = testExec(t, "create table NCHAR_"+TestTimeString+
+		" ( A NCHAR(1), B NCHAR(500), C NCHAR(1000) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table NCHAR_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 500), strings.Repeat("a", 1000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 500), strings.Repeat("b", 1000)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCHAR_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 500), strings.Repeat("a", 1000)},
+					[]interface{}{"b", strings.Repeat("b", 500), strings.Repeat("b", 1000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCHAR_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 500), strings.Repeat("b", 1000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"b"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCHAR_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 100) + strings.Repeat(" ", 400), strings.Repeat("a", 200) + strings.Repeat(" ", 800)},
+					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 400), strings.Repeat("b", 200) + strings.Repeat(" ", 800)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCHAR_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 400), strings.Repeat("b", 200) + strings.Repeat(" ", 800)},
+				},
+			},
+		},
+	}
 	testRunQueryResults(t, queryResults)
 }

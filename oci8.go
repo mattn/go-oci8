@@ -151,33 +151,37 @@ func (tx *OCI8Tx) Rollback() error {
 }
 
 func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
-	var (
-		conn OCI8Conn
-		dsn  *DSN
-	)
-
+	var dsn *DSN
 	if dsn, err = ParseDSN(dsnString); err != nil {
-		return nil, err
+		return
 	}
 
+	var conn OCI8Conn
 	conn.operationMode = dsn.operationMode
 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,
-		0); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
+		0,
+	); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
 		// TODO: error handle not yet allocated, we can't get string error from oracle
-		return nil, errors.New("can't OCIEnvCreate")
+		err = errors.New("can't OCIEnvCreate")
+		return
 	} else {
 		conn.env = rv.ptr
+		// conn allocations: env
 	}
 
 	if rv := C.WrapOCIHandleAlloc(
 		conn.env,
 		C.OCI_HTYPE_ERROR,
-		0); rv.rv != C.OCI_SUCCESS {
-		return nil, errors.New("cant allocate error handle")
+		0,
+	); rv.rv != C.OCI_SUCCESS {
+		err = errors.New("cant allocate error handle")
+		C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+		return
 	} else {
 		conn.err = rv.ptr
+		// conn allocations: env, err
 	}
 
 	phost := C.CString(dsn.Connect)
@@ -191,10 +195,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		if rv := C.WrapOCIHandleAlloc(
 			conn.env,
 			C.OCI_HTYPE_SERVER,
-			0); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("cant allocate server handle")
+			0,
+		); rv.rv != C.OCI_SUCCESS {
+			err = errors.New("cant allocate server handle")
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		} else {
 			conn.srv = rv.ptr
+			// conn allocations: env, err, srv
 		}
 
 		if dsn.externalauthentication {
@@ -216,10 +225,16 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 		if rv := C.WrapOCIHandleAlloc(
 			conn.env,
 			C.OCI_HTYPE_SVCCTX,
-			0); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("cant allocate service handle")
+			0,
+		); rv.rv != C.OCI_SUCCESS {
+			err = errors.New("cant allocate service handle")
+			C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		} else {
 			conn.svc = rv.ptr
+			// conn allocations: env, err, srv, svc
 		}
 
 		if rv := C.OCIAttrSet(
@@ -228,18 +243,31 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.srv,
 			0,
 			C.OCI_ATTR_SERVER,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
+			(*C.OCIError)(conn.err),
+		); rv != C.OCI_SUCCESS {
+			err = ociGetError(rv, conn.err)
+			C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+			C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		}
 
 		// allocate a user session handle
 		if rv := C.WrapOCIHandleAlloc(
 			conn.env,
 			C.OCI_HTYPE_SESSION,
-			0); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("cant allocate user session handle")
+			0,
+		); rv.rv != C.OCI_SUCCESS {
+			err = errors.New("cant allocate user session handle")
+			C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+			C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		} else {
 			conn.usr_session = rv.ptr
+			// conn allocations: env, err, srv, svc, usr_session
 		}
 
 		if !dsn.externalauthentication {
@@ -250,8 +278,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 				(unsafe.Pointer(puser)),
 				C.ub4(len(dsn.Username)),
 				C.OCI_ATTR_USERNAME,
-				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-				return nil, ociGetError(rv, conn.err)
+				(*C.OCIError)(conn.err),
+			); rv != C.OCI_SUCCESS {
+				err = ociGetError(rv, conn.err)
+				C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+				C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+				C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+				C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+				C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+				return
 			}
 
 			// set password attribute in the user session handle
@@ -261,8 +296,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 				(unsafe.Pointer(ppass)),
 				C.ub4(len(dsn.Password)),
 				C.OCI_ATTR_PASSWORD,
-				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-				return nil, ociGetError(rv, conn.err)
+				(*C.OCIError)(conn.err),
+			); rv != C.OCI_SUCCESS {
+				err = ociGetError(rv, conn.err)
+				C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+				C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+				C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+				C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+				C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+				return
 			}
 
 			// begin the session
@@ -289,8 +331,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.usr_session,
 			0,
 			C.OCI_ATTR_SESSION,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
+			(*C.OCIError)(conn.err),
+		); rv != C.OCI_SUCCESS {
+			err = ociGetError(rv, conn.err)
+			C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+			C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+			C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		}
 
 	} else {
@@ -302,10 +351,15 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			(*C.OraText)(unsafe.Pointer(ppass)),
 			C.ub4(len(dsn.Password)),
 			(*C.OraText)(unsafe.Pointer(phost)),
-			C.ub4(len(dsn.Connect))); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-			return nil, ociGetError(rv.rv, conn.err)
+			C.ub4(len(dsn.Connect)),
+		); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
+			err = ociGetError(rv.rv, conn.err)
+			C.OCIHandleFree(conn.err, C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+			return
 		} else {
 			conn.svc = rv.ptr
+			// conn allocations: env, err
 		}
 
 	}
@@ -315,7 +369,10 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 	conn.prefetch_rows = dsn.prefetch_rows
 	conn.prefetch_memory = dsn.prefetch_memory
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
-	return &conn, nil
+
+	connection = &conn
+
+	return
 }
 
 func freeBoundParameters(boundParameters []oci8bind) {

@@ -112,18 +112,22 @@ func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 		if rv := C.WrapOCIHandleAlloc(
 			c.env,
 			C.OCI_HTYPE_TRANS,
-			0); rv.rv != C.OCI_SUCCESS {
+			0,
+		); rv.rv != C.OCI_SUCCESS {
 			return nil, errors.New("can't allocate handle")
 		} else {
 			th = rv.ptr
 		}
+
 		if rv := C.OCIAttrSet(
 			c.svc,
 			C.OCI_HTYPE_SVCCTX,
 			th,
 			0,
 			C.OCI_ATTR_TRANS,
-			(*C.OCIError)(c.err)); rv != C.OCI_SUCCESS {
+			(*C.OCIError)(c.err),
+		); rv != C.OCI_SUCCESS {
+			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
 			return nil, ociGetError(rv, c.err)
 		}
 
@@ -131,10 +135,13 @@ func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 			(*C.OCISvcCtx)(c.svc),
 			(*C.OCIError)(c.err),
 			0,
-			c.transactionMode); // C.OCI_TRANS_SERIALIZABLE C.OCI_TRANS_READWRITE C.OCI_TRANS_READONLY
-		rv != C.OCI_SUCCESS {
+			c.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
+		); rv != C.OCI_SUCCESS {
+			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
 			return nil, ociGetError(rv, c.err)
 		}
+		// TOFIX: memory leak: th needs to be saved into OCI8Tx so OCIHandleFree can be called on it
+
 	}
 	c.inTransaction = true
 	return &OCI8Tx{c}, nil
@@ -148,36 +155,40 @@ func (c *OCI8Conn) Close() error {
 
 	var err error
 	if useOCISessionBegin {
-		// OCISessionEnd() and OCIServerDetach()
 		if rv := C.OCISessionEnd(
 			(*C.OCISvcCtx)(c.svc),
 			(*C.OCIError)(c.err),
 			(*C.OCISession)(c.usr_session),
-			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+			C.OCI_DEFAULT,
+		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, c.err)
 		}
 		if rv := C.OCIServerDetach(
 			(*C.OCIServer)(c.srv),
 			(*C.OCIError)(c.err),
-			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+			C.OCI_DEFAULT,
+		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, c.err)
 		}
+		C.OCIHandleFree(c.usr_session, C.OCI_HTYPE_SESSION)
+		C.OCIHandleFree(c.svc, C.OCI_HTYPE_SVCCTX)
+		C.OCIHandleFree(c.srv, C.OCI_HTYPE_SERVER)
 	} else {
-
 		if rv := C.OCILogoff(
 			(*C.OCISvcCtx)(c.svc),
-			(*C.OCIError)(c.err)); rv != C.OCI_SUCCESS {
+			(*C.OCIError)(c.err),
+		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, c.err)
 		}
 	}
 
-	C.OCIHandleFree(
-		c.env,
-		C.OCI_HTYPE_ENV)
+	C.OCIHandleFree(c.err, C.OCI_HTYPE_ERROR)
+	C.OCIHandleFree(c.env, C.OCI_HTYPE_ENV)
 
 	c.svc = nil
 	c.env = nil
 	c.err = nil
+
 	return err
 }
 
@@ -189,14 +200,16 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 	if c.enableQMPlaceholders {
 		query = placeholders(query)
 	}
+
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
-	var s, bp, defp unsafe.Pointer
 
+	var s, bp, defp unsafe.Pointer
 	if rv := C.WrapOCIHandleAlloc(
 		c.env,
 		C.OCI_HTYPE_STMT,
-		(C.size_t)(unsafe.Sizeof(bp)*2)); rv.rv != C.OCI_SUCCESS {
+		(C.size_t)(unsafe.Sizeof(bp)*2),
+	); rv.rv != C.OCI_SUCCESS {
 		return nil, ociGetError(rv.rv, c.err)
 	} else {
 		s = rv.ptr
@@ -216,7 +229,5 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 		return nil, ociGetError(rv, c.err)
 	}
 
-	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
-	//runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
-	return ss, nil
+	return &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
 }

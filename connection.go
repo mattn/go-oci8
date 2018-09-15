@@ -210,7 +210,9 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
-		C.ub4(C.OCI_DEFAULT)); rv != C.OCI_SUCCESS {
+		C.ub4(C.OCI_DEFAULT),
+	); rv != C.OCI_SUCCESS {
+		C.OCIHandleFree(s, C.OCI_HTYPE_STMT)
 		return nil, ociGetError(rv, c.err)
 	}
 

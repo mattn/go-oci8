@@ -151,13 +151,13 @@ func TestQuestionMark(t *testing.T) {
 	a, b := 4, 5
 	c := "zz"
 	r := sqlstest(TestDB, t, "select ? as v1, ? as v2, ? as v3 from dual", a, b, c)
-	if fmt.Sprintf("%v", r["V1"]) != fmt.Sprintf("%v", a) {
+	if fmt.Sprintf("%s", r["V1"]) != fmt.Sprintf("%v", a) {
 		t.Fatal(r["V1"], "!=", a)
 	}
-	if fmt.Sprintf("%v", r["V2"]) != fmt.Sprintf("%v", b) {
+	if fmt.Sprintf("%s", r["V2"]) != fmt.Sprintf("%v", b) {
 		t.Fatal(r["V2"], "!=", b)
 	}
-	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
+	if fmt.Sprintf("%s", r["V3"]) != fmt.Sprintf("%v", c) {
 		t.Fatal(r["V3"], "!=", c)
 	}
 }

@@ -20,16 +20,6 @@ type dbc interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
-func TestTruncate(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	_, err := TestDB.Exec("truncate table foo")
-	if err != nil {
-		panic(err)
-	}
-}
-
 func sqlstest(d dbc, t *testing.T, sql string, p ...interface{}) map[string]interface{} {
 	rows, err := NewS(d.Query(sql, p...))
 	if err != nil {
@@ -151,13 +141,13 @@ func TestQuestionMark(t *testing.T) {
 	a, b := 4, 5
 	c := "zz"
 	r := sqlstest(TestDB, t, "select ? as v1, ? as v2, ? as v3 from dual", a, b, c)
-	if fmt.Sprintf("%s", r["V1"]) != fmt.Sprintf("%v", a) {
+	if fmt.Sprintf("%v", r["V1"]) != fmt.Sprintf("%v", a) {
 		t.Fatal(r["V1"], "!=", a)
 	}
-	if fmt.Sprintf("%s", r["V2"]) != fmt.Sprintf("%v", b) {
+	if fmt.Sprintf("%v", r["V2"]) != fmt.Sprintf("%v", b) {
 		t.Fatal(r["V2"], "!=", b)
 	}
-	if fmt.Sprintf("%s", r["V3"]) != fmt.Sprintf("%v", c) {
+	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
 		t.Fatal(r["V3"], "!=", c)
 	}
 }
@@ -278,50 +268,6 @@ func TestSmallClob(t *testing.T) {
 	r := sqlstest(TestDB, t, "select c19 from foo where cend= :1", id)
 	if n != r["C19"].(string) {
 		t.Fatal(r["C19"], "!=", n)
-	}
-}
-
-func TestNvarchar(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := "Zкирddd"
-	id := "idNvarchar"
-	TestDB.Exec("insert into foo( c2, cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select c2 from foo where cend= :1", id)
-	if n != r["C2"].(string) {
-		t.Fatal(r["C2"], "!=", n)
-	}
-}
-
-func TestNchar(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C18"
-	n := "XXкирda"
-	id := "idbdNC18"
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
-	if strings.TrimRight(n, " ") != strings.TrimRight(r[f].(string), " ") {
-		t.Fatal(r[f], "!=", n)
-	}
-}
-
-func TestChar(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C17"
-	n := "XXкирda"
-	id := "idbdC17"
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
-	if strings.TrimRight(n, " ") != strings.TrimRight(r[f].(string), " ") {
-		t.Fatal(r[f], "!=", n)
 	}
 }
 

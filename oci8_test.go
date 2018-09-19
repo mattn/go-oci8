@@ -297,6 +297,33 @@ func testExec(t *testing.T, query string, args []interface{}) error {
 	return nil
 }
 
+// testExecRows runs exec query for each arg row and returns error
+func testExecRows(t *testing.T, query string, args [][]interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("prepare error: %v", err)
+	}
+
+	for i := 0; i < len(args); i++ {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx, args[i]...)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			return fmt.Errorf("exec - row %v - error: %v", i, err)
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		return fmt.Errorf("stmt close error: %v", err)
+	}
+
+	return nil
+}
+
 // testRunQueryResults runs a slice of testQueryResults tests
 func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 	for _, queryResult := range queryResults {

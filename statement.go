@@ -212,7 +212,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				sbind.kind = C.SQLT_STR
 			} else {
 				sbind.kind = C.SQLT_CHR
-				d := fmt.Sprintf("%s", v)
+				d := fmt.Sprintf("%v", v)
 				sbind.clen = C.sb4(len(d))
 				sbind.pbuf = unsafe.Pointer(C.CString(d))
 			}

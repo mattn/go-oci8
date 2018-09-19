@@ -24,12 +24,11 @@ func (s *OCI8Stmt) Close() error {
 	}
 	s.closed = true
 
-	//runtime.SetFinalizer(s, nil)
-	C.OCIHandleFree(
-		s.s,
-		C.OCI_HTYPE_STMT)
+	C.OCIHandleFree(s.s, C.OCI_HTYPE_STMT)
+
 	s.s = nil
 	s.pbind = nil
+
 	return nil
 }
 

@@ -1140,14 +1140,11 @@ func TestDestructiveString(t *testing.T) {
 		}
 	}()
 
-	err = testExec(t, "insert into VARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into VARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)})
+	err = testExecRows(t, "insert into VARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1168,7 +1165,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from VARCHAR2_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1198,14 +1195,11 @@ func TestDestructiveString(t *testing.T) {
 		}
 	}()
 
-	err = testExec(t, "insert into NVARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into NVARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)})
+	err = testExecRows(t, "insert into NVARCHAR2_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)},
+			[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1226,7 +1220,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from NVARCHAR2_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1256,14 +1250,11 @@ func TestDestructiveString(t *testing.T) {
 		}
 	}()
 
-	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)})
+	err = testExecRows(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 1000), strings.Repeat("a", 2000)},
+			[]interface{}{"b", strings.Repeat("b", 1000), strings.Repeat("b", 2000)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1284,7 +1275,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1302,17 +1293,14 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"b"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
-	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)})
+	err = testExecRows(t, "insert into CHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)},
+			[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1333,7 +1321,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from CHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1363,14 +1351,11 @@ func TestDestructiveString(t *testing.T) {
 		}
 	}()
 
-	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 500), strings.Repeat("a", 1000)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 500), strings.Repeat("b", 1000)})
+	err = testExecRows(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 500), strings.Repeat("a", 1000)},
+			[]interface{}{"b", strings.Repeat("b", 500), strings.Repeat("b", 1000)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1391,7 +1376,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1409,17 +1394,14 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"b"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
-	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	err = testExec(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
-		[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)})
+	err = testExecRows(t, "insert into NCHAR_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 100), strings.Repeat("a", 200)},
+			[]interface{}{"b", strings.Repeat("b", 100), strings.Repeat("b", 200)},
+		})
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -1440,7 +1422,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExec(t, "delete from NCHAR_"+TestTimeString+" where A = :1", []interface{}{"a"})
 	if err != nil {
-		t.Error("insert error:", err)
+		t.Error("delete error:", err)
 	}
 
 	queryResults = []testQueryResults{
@@ -1450,6 +1432,1567 @@ func TestDestructiveString(t *testing.T) {
 			results: [][][]interface{}{
 				[][]interface{}{
 					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 400), strings.Repeat("b", 200) + strings.Repeat(" ", 800)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// RAW
+	err = testExec(t, "create table RAW_"+TestTimeString+
+		" ( A RAW(1), B RAW(1000), C RAW(2000) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table RAW_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into RAW_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{[]byte{}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+			[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice1},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from RAW_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice1},
+					[]interface{}{nil, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from RAW_"+TestTimeString+" where A = :1", []interface{}{[]byte{10}})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from RAW_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{nil, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+}
+
+// TestDestructiveNumber checks insert, select, update, and delete of number types
+func TestDestructiveNumber(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	// https://ss64.com/ora/syntax-datatypes.html
+
+	// NUMBER negative
+	err := testExec(t, "create table NUMBER_"+TestTimeString+
+		" ( A NUMBER(10,2), B NUMBER(20,4), C NUMBER(38,8) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table NUMBER_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into NUMBER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults := []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from NUMBER_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// test truncate
+	err = testExec(t, "truncate table NUMBER_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMBER_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NUMBER positive
+	err = testExecRows(t, "insert into NUMBER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from NUMBER_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DEC negative
+	err = testExec(t, "create table DEC_"+TestTimeString+
+		" ( A DEC(10,2), B DEC(20,4), C DEC(38,8) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table DEC_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into DEC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from DEC_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DEC positive
+	err = testExec(t, "truncate table DEC_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into DEC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from DEC_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DECIMAL negative
+	err = testExec(t, "create table DECIMAL_"+TestTimeString+
+		" ( A DECIMAL(10,2), B DECIMAL(20,4), C DECIMAL(38,8) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table DECIMAL_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into DECIMAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from DECIMAL_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DECIMAL positive
+	err = testExec(t, "truncate table DECIMAL_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into DECIMAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from DECIMAL_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NUMERIC negative
+	err = testExec(t, "create table NUMERIC_"+TestTimeString+
+		" ( A NUMERIC(10,2), B NUMERIC(20,4), C NUMERIC(38,8) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table NUMERIC_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into NUMERIC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from NUMERIC_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NUMERIC positive
+	err = testExec(t, "truncate table NUMERIC_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into NUMERIC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from NUMERIC_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// FLOAT negative
+	err = testExec(t, "create table FLOAT_"+TestTimeString+
+		" ( A FLOAT(28), B FLOAT(32), C FLOAT(38) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table FLOAT_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from FLOAT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// FLOAT positive
+	err = testExec(t, "truncate table FLOAT_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from FLOAT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INTEGER negative
+	err = testExec(t, "create table INTEGER_"+TestTimeString+
+		" ( A INTEGER, B INTEGER, C INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table INTEGER_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into INTEGER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
+					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from INTEGER_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-10000000},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INTEGER positive
+	err = testExec(t, "truncate table INTEGER_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into INTEGER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(10000000), int64(1000000000000000), int64(1000000000000000)},
+					[]interface{}{int64(12345679), int64(123456792), int64(123456792)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from INTEGER_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{10000000},
+			[]interface{}{12345679},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INT negative
+	err = testExec(t, "create table INT_"+TestTimeString+
+		" ( A INT, B INT, C INT )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table INT_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into INT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
+					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from INT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-10000000},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INT positive
+	err = testExec(t, "truncate table INT_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into INT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(10000000), int64(1000000000000000), int64(1000000000000000)},
+					[]interface{}{int64(12345679), int64(123456792), int64(123456792)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from INT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{10000000},
+			[]interface{}{12345679},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from INT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// SMALLINT negative
+	err = testExec(t, "create table SMALLINT_"+TestTimeString+
+		" ( A SMALLINT, B SMALLINT, C SMALLINT )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table SMALLINT_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into SMALLINT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
+					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from SMALLINT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-10000000},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
+					[]interface{}{int64(-2), int64(-2), int64(-2)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+					[]interface{}{int64(-1), int64(-1), int64(-1)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INT positive
+	err = testExec(t, "truncate table SMALLINT_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into SMALLINT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(10000000), int64(1000000000000000), int64(1000000000000000)},
+					[]interface{}{int64(12345679), int64(123456792), int64(123456792)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from SMALLINT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{10000000},
+			[]interface{}{12345679},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(0), int64(0), int64(0)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(1), int64(1), int64(1)},
+					[]interface{}{int64(2), int64(2), int64(2)},
+					[]interface{}{int64(21474836), int64(2147483647), int64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// REAL negative
+	err = testExec(t, "create table REAL_"+TestTimeString+
+		" ( A REAL, B REAL, C REAL )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table REAL_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into REAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from REAL_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// REAL positive
+	err = testExec(t, "truncate table REAL_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into REAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from REAL_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_FLOAT negative
+	err = testExec(t, "create table BINARY_FLOAT_"+TestTimeString+
+		" ( A BINARY_FLOAT, B BINARY_FLOAT, C BINARY_FLOAT )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table BINARY_FLOAT_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into BINARY_FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680)},
+			[]interface{}{-2147483648, -2147483648, -2147483648},
+			[]interface{}{-123456792, -123456792, -123456792},
+			[]interface{}{-1.99999988079071044921875, -1.99999988079071044921875, -1.99999988079071044921875},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.00415134616196155548095703125, -0.00415134616196155548095703125, -0.00415134616196155548095703125},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680)},
+					[]interface{}{float64(-2147483648), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-123456792), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.99999988079071044921875), float64(-1.99999988079071044921875), float64(-1.99999988079071044921875)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.00415134616196155548095703125), float64(-0.00415134616196155548095703125), float64(-0.00415134616196155548095703125)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from BINARY_FLOAT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-2147483648},
+			[]interface{}{float64(-288230381928101358902502915674136903680)},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-123456792), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.99999988079071044921875), float64(-1.99999988079071044921875), float64(-1.99999988079071044921875)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.00415134616196155548095703125), float64(-0.00415134616196155548095703125), float64(-0.00415134616196155548095703125)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_FLOAT positive
+	err = testExec(t, "truncate table BINARY_FLOAT_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into BINARY_FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.00415134616196155548095703125, 0.00415134616196155548095703125, 0.00415134616196155548095703125},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.99999988079071044921875, 1.99999988079071044921875, 1.99999988079071044921875},
+			[]interface{}{123456792, 123456792, 123456792},
+			[]interface{}{2147483648, 2147483648, 2147483648},
+			[]interface{}{float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.99999988079071044921875), float64(1.99999988079071044921875), float64(1.99999988079071044921875)},
+					[]interface{}{float64(123456792), float64(123456792), float64(123456792)},
+					[]interface{}{float64(2147483648), float64(2147483648), float64(2147483648)},
+					[]interface{}{float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from BINARY_FLOAT_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125)},
+					[]interface{}{float64(1.99999988079071044921875), float64(1.99999988079071044921875), float64(1.99999988079071044921875)},
+					[]interface{}{float64(123456792), float64(123456792), float64(123456792)},
+					[]interface{}{float64(2147483648), float64(2147483648), float64(2147483648)},
+					[]interface{}{float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680), float64(288230381928101358902502915674136903680)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_DOUBLE negative
+	err = testExec(t, "create table BINARY_DOUBLE_"+TestTimeString+
+		" ( A BINARY_DOUBLE, B BINARY_DOUBLE, C BINARY_DOUBLE )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table BINARY_DOUBLE_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into BINARY_DOUBLE_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
+			[]interface{}{-21474836, -2147483648, -2147483648},
+			[]interface{}{-1234567, -123456792, -123456792},
+			[]interface{}{-1.98, -1.9873, -1.98730468},
+			[]interface{}{-1, -1, -1},
+			[]interface{}{-0.76, -0.7617, -0.76171875},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
+					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from BINARY_DOUBLE_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{-21474836},
+			[]interface{}{-9999999.99},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
+					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
+					[]interface{}{float64(-1), float64(-1), float64(-1)},
+					[]interface{}{float64(-0.76), float64(-0.7617), float64(-0.76171875)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_DOUBLE positive
+	err = testExec(t, "truncate table BINARY_DOUBLE_"+TestTimeString, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into BINARY_DOUBLE_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{0, 0, 0},
+			[]interface{}{0.76, 0.7617, 0.76171875},
+			[]interface{}{1, 1, 1},
+			[]interface{}{1.98, 1.9873, 1.98730468},
+			[]interface{}{12345679, 123456792, 123456792},
+			[]interface{}{21474836, 2147483647, 2147483647},
+			[]interface{}{9999999.99, 999999999999999.9999, 99999999999999999999999999.99999999},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0), float64(0), float64(0)},
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1), float64(1), float64(1)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from BINARY_DOUBLE_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{0},
+			[]interface{}{1},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
+					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
+					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
+					[]interface{}{float64(12345679), float64(123456792), float64(123456792)},
+					[]interface{}{float64(21474836), float64(2147483647), float64(2147483647)},
 				},
 			},
 		},

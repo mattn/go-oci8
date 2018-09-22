@@ -16,6 +16,15 @@ import (
 // go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid type_hostname_here -username type_username_here -password "type_password_here"
 // note minimum Go version for testing is 1.8
 
+/* note that testing needs an Oracle user and the following:
+create or replace function TYPE_USER_HERE.SLEEP_SECONDS (p_seconds number) return integer is
+begin
+  dbms_lock.sleep(p_seconds);
+  return 1;
+end SLEEP_SECONDS;
+/
+*/
+
 var (
 	TestDisableDatabase      bool
 	TestHostValid            string
@@ -287,6 +296,33 @@ func testExec(t *testing.T, query string, args []interface{}) error {
 	if err != nil {
 		stmt.Close()
 		return fmt.Errorf("exec error: %v", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		return fmt.Errorf("stmt close error: %v", err)
+	}
+
+	return nil
+}
+
+// testExecRows runs exec query for each arg row and returns error
+func testExecRows(t *testing.T, query string, args [][]interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("prepare error: %v", err)
+	}
+
+	for i := 0; i < len(args); i++ {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx, args[i]...)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			return fmt.Errorf("exec - row %v - error: %v", i, err)
+		}
 	}
 
 	err = stmt.Close()

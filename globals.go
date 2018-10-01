@@ -18,6 +18,7 @@ import (
 
 const blobBufSize = 4000
 const useOCISessionBegin = true
+const sizeOfNilPointer = unsafe.Sizeof(unsafe.Pointer(nil))
 
 type DSN struct {
 	Connect                string

@@ -214,7 +214,7 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 	} else {
 		s = rv.ptr
 		bp = rv.extra
-		defp = unsafe.Pointer(uintptr(rv.extra) + unsafe.Sizeof(unsafe.Pointer(nil)))
+		defp = unsafe.Pointer(uintptr(rv.extra) + sizeOfNilPointer)
 	}
 
 	if rv := C.OCIStmtPrepare(

@@ -84,7 +84,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			if size < 8 {
 				size = 8
 			}
-			size += int(unsafe.Sizeof(unsafe.Pointer(nil)))
+			size += int(sizeOfNilPointer)
 			if ret := C.WrapOCIDescriptorAlloc(
 				s.c.env,
 				C.OCI_DTYPE_TIMESTAMP_TZ,
@@ -96,7 +96,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				sbind.clen = C.sb4(unsafe.Sizeof(pt))
 				pt = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
-				zp = unsafe.Pointer(uintptr(ret.extra) + unsafe.Sizeof(unsafe.Pointer(nil)))
+				zp = unsafe.Pointer(uintptr(ret.extra) + sizeOfNilPointer)
 			}
 
 			tryagain := false
@@ -447,7 +447,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_CLOB, C.SQLT_BLOB:
-			// allocate +io buffers + ub4
+			// allocate + io buffers + ub4
 			size := int(unsafe.Sizeof(unsafe.Pointer(nil)) + unsafe.Sizeof(C.ub4(0)))
 			if oci8cols[i].size < blobBufSize {
 				size += blobBufSize
@@ -460,7 +460,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 			} else {
 
 				oci8cols[i].kind = tp
-				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 
@@ -475,48 +475,48 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool)
 			//
 
 		case C.SQLT_TIMESTAMP, C.SQLT_DAT:
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_TIMESTAMP, C.size_t(unsafe.Sizeof(unsafe.Pointer(nil)))); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_TIMESTAMP, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_TIMESTAMP
-				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}
 
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_TIMESTAMP_TZ, C.size_t(unsafe.Sizeof(unsafe.Pointer(nil)))); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_TIMESTAMP_TZ, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_TIMESTAMP_TZ
-				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}
 
 		case C.SQLT_INTERVAL_DS:
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_INTERVAL_DS, C.size_t(unsafe.Sizeof(unsafe.Pointer(nil)))); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_INTERVAL_DS, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_INTERVAL_DS
-				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}
 
 		case C.SQLT_INTERVAL_YM:
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_INTERVAL_YM, C.size_t(unsafe.Sizeof(unsafe.Pointer(nil)))); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_INTERVAL_YM, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_INTERVAL_YM
-				oci8cols[i].size = int(unsafe.Sizeof(unsafe.Pointer(nil)))
+				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 			}

@@ -60,6 +60,7 @@ func (rc *OCI8Rows) Columns() []string {
 	return cols
 }
 
+// Next gets next row
 func (rc *OCI8Rows) Next(dest []driver.Value) error {
 	if rc.closed {
 		return nil
@@ -72,7 +73,6 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		C.OCI_FETCH_NEXT,
 		0,
 		C.OCI_DEFAULT)
-
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
 	} else if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
@@ -89,6 +89,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 		}
 
 		switch rc.cols[i].kind {
+
+		// SQLT_DAT
 		case C.SQLT_DAT: // for test, date are return as timestamp
 			buf := (*[1 << 30]byte)(rc.cols[i].pbuf)[0:*rc.cols[i].rlen]
 			// TODO: Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
@@ -102,38 +104,62 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				int(buf[6])-1,
 				0,
 				rc.s.c.location)
+
+		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:
-			ptmp := unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(unsafe.Pointer(nil)))
-			bamt := (*C.ub4)(ptmp)
-			ptmp = unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(C.ub4(0)) + unsafe.Sizeof(unsafe.Pointer(nil)))
-			b := (*[1 << 30]byte)(ptmp)[0:blobBufSize]
-			var buf []byte
-		again:
-			*bamt = 0
-			rv = C.OCILobRead(
-				(*C.OCISvcCtx)(rc.s.c.svc),
+			// get character set form
+			csfrm := C.ub1(C.SQLCS_IMPLICIT)
+			rv = C.OCILobCharSetForm(
+				(*C.OCIEnv)(rc.s.c.env),
 				(*C.OCIError)(rc.s.c.err),
 				*(**C.OCILobLocator)(rc.cols[i].pbuf),
-				bamt,
-				1,
-				ptmp,
-				C.ub4(blobBufSize),
-				nil,
-				nil,
-				0,
-				C.SQLCS_IMPLICIT)
-			if rv == C.OCI_NEED_DATA {
-				buf = append(buf, b[:int(*bamt)]...)
-				goto again
+				&csfrm,
+			)
+			if rv != C.OCI_SUCCESS {
+				return ociGetError(rv, rc.s.c.err)
+			}
+
+			ptmp := unsafe.Pointer(uintptr(rc.cols[i].pbuf) + sizeOfNilPointer)
+			bamt := (*C.ub4)(ptmp)
+			ptmp = unsafe.Pointer(uintptr(rc.cols[i].pbuf) + unsafe.Sizeof(C.ub4(0)) + sizeOfNilPointer)
+			b := (*[1 << 30]byte)(ptmp)[0:blobBufSize]
+			var buf []byte
+
+			// get lob
+			for {
+				// read lob while OCI_NEED_DATA
+				*bamt = 0
+				rv = C.OCILobRead(
+					(*C.OCISvcCtx)(rc.s.c.svc),
+					(*C.OCIError)(rc.s.c.err),
+					*(**C.OCILobLocator)(rc.cols[i].pbuf),
+					bamt,               // The amount/length in bytes/characters
+					1,                  // The absolute offset from the beginning of the LOB value. The subsequent polling calls the offset parameter is ignored.
+					ptmp,               // The pointer to a buffer into which the piece will be read
+					C.ub4(blobBufSize), // The length of the buffer in octets, in bytes/characters.
+					nil,                // The context pointer for the callback function. Can be null.
+					nil,                // If this is null, then OCI_NEED_DATA will be returned for each piece.
+					0,                  // If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value.
+					csfrm,              // The character set form of the buffer data: SQLCS_IMPLICIT or SQLCS_NCHAR
+				)
+				if rv == C.OCI_NEED_DATA {
+					buf = append(buf, b[:int(*bamt)]...)
+				} else {
+					break
+				}
 			}
 			if rv != C.OCI_SUCCESS {
 				return ociGetError(rv, rc.s.c.err)
 			}
+
+			// set dest to buffer
 			if rc.cols[i].kind == C.SQLT_BLOB {
 				dest[i] = append(buf, b[:int(*bamt)]...)
 			} else {
 				dest[i] = string(append(buf, b[:int(*bamt)]...))
 			}
+
+		// SQLT_CHR, SQLT_AFC, and SQLT_AVC
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			switch {
@@ -145,15 +171,23 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 			default:
 				return fmt.Errorf("Unknown column indicator: %d", rc.cols[i].ind)
 			}
+
+		// SQLT_BIN
 		case C.SQLT_BIN: // RAW
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			dest[i] = buf
+
+		// SQLT_NUM
 		case C.SQLT_NUM: // NUMBER
 			buf := (*[21]byte)(unsafe.Pointer(rc.cols[i].pbuf))
 			dest[i] = buf
+
+		// SQLT_VNU
 		case C.SQLT_VNU: // VARNUM
 			buf := (*[22]byte)(unsafe.Pointer(rc.cols[i].pbuf))
 			dest[i] = buf
+
+		// SQLT_INT
 		case C.SQLT_INT: // INT
 			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			var data int64
@@ -162,6 +196,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				return fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			dest[i] = data
+
+		// SQLT_BDOUBLE
 		case C.SQLT_BDOUBLE: // native double
 			buf := (*[8]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			var data float64
@@ -170,9 +206,13 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				return fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			dest[i] = data
+
+		// SQLT_LNG
 		case C.SQLT_LNG: // LONG
 			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
 			dest[i] = buf
+
+		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:
 			if rv := C.WrapOCIDateTimeGetDateTime(
 				(*C.OCIEnv)(rc.s.c.env),
@@ -191,6 +231,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 					int(rv.ff),
 					rc.s.c.location)
 			}
+
+		// SQLT_TIMESTAMP_TZ and SQLT_TIMESTAMP_LTZ
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
 			tptr := *(**C.OCIDateTime)(rc.cols[i].pbuf)
 			rv := C.WrapOCIDateTimeGetDateTime(
@@ -222,6 +264,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				int(rv.ss),
 				int(rv.ff),
 				loc)
+
+		// SQLT_INTERVAL_DS
 		case C.SQLT_INTERVAL_DS:
 			iptr := *(**C.OCIInterval)(rc.cols[i].pbuf)
 			rv := C.WrapOCIIntervalGetDaySecond(
@@ -232,6 +276,8 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				return ociGetError(rv.rv, rc.s.c.err)
 			}
 			dest[i] = int64(time.Duration(rv.d)*time.Hour*24 + time.Duration(rv.hh)*time.Hour + time.Duration(rv.mm)*time.Minute + time.Duration(rv.ss)*time.Second + time.Duration(rv.ff))
+
+		// SQLT_INTERVAL_YM
 		case C.SQLT_INTERVAL_YM:
 			iptr := *(**C.OCIInterval)(rc.cols[i].pbuf)
 			rv := C.WrapOCIIntervalGetYearMonth(
@@ -242,9 +288,13 @@ func (rc *OCI8Rows) Next(dest []driver.Value) error {
 				return ociGetError(rv.rv, rc.s.c.err)
 			}
 			dest[i] = int64(rv.y)*12 + int64(rv.m)
+
+		// default
 		default:
 			return fmt.Errorf("Unhandled column type: %d", rc.cols[i].kind)
+
 		}
+
 	}
 
 	return nil

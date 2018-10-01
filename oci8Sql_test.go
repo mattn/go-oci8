@@ -701,9 +701,93 @@ func TestSelectCast(t *testing.T) {
 				[][]interface{}{[]interface{}{testByteSlice1}},
 			},
 		},
+
+		// CLOB
+		testQueryResults{
+			query: "select TO_CLOB(:1) from dual",
+			args: [][]interface{}{
+				[]interface{}{""},
+				[]interface{}{"a"},
+				[]interface{}{"abc    "},
+				[]interface{}{strings.Repeat("a", 100)},
+				[]interface{}{strings.Repeat("a", 500)},
+				[]interface{}{strings.Repeat("a", 1000)},
+				[]interface{}{strings.Repeat("a", 2000)},
+				[]interface{}{strings.Repeat("a", 4000)},
+				[]interface{}{testString1},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{nil}},
+				[][]interface{}{[]interface{}{"a"}},
+				[][]interface{}{[]interface{}{"abc    "}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 100)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 500)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 1000)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 2000)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 4000)}},
+				[][]interface{}{[]interface{}{testString1}},
+			},
+		},
+
+		// NCLOB
+		testQueryResults{
+			query: "select TO_NCLOB(:1) from dual",
+			args: [][]interface{}{
+				[]interface{}{""},
+				[]interface{}{"a"},
+				[]interface{}{"abc    "},
+				[]interface{}{strings.Repeat("a", 100)},
+				[]interface{}{strings.Repeat("a", 500)},
+				[]interface{}{strings.Repeat("a", 1000)},
+				[]interface{}{strings.Repeat("a", 2000)},
+				[]interface{}{strings.Repeat("a", 4000)},
+				[]interface{}{testString1},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{nil}},
+				[][]interface{}{[]interface{}{"a"}},
+				[][]interface{}{[]interface{}{"abc    "}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 100)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 500)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 1000)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 2000)}},
+				[][]interface{}{[]interface{}{strings.Repeat("a", 4000)}},
+				[][]interface{}{[]interface{}{testString1}},
+			},
+		},
 	}
 
 	testRunQueryResults(t, queryResults)
+
+	// ROWID
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select ROWID from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result [][]interface{}
+	result, err = testGetRows(t, stmt, nil)
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if len(result) < 1 {
+		t.Fatal("len result less than 1")
+	}
+	if len(result[0]) < 1 {
+		t.Fatal("len result[0] less than 1")
+	}
+	data, ok := result[0][0].(string)
+	if !ok {
+		t.Fatal("result not string")
+	}
+	if len(data) != 18 {
+		t.Fatal("result len not equal to 18:", len(data))
+	}
 }
 
 // TestSelectGoTypes is select :1 from dual for each Go Type
@@ -1492,6 +1576,147 @@ func TestDestructiveString(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+
+	// ROWID
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select ROWID from RAW_"+TestTimeString)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result [][]interface{}
+	result, err = testGetRows(t, stmt, nil)
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if len(result) < 1 {
+		t.Fatal("len result less than 1")
+	}
+	if len(result[0]) < 1 {
+		t.Fatal("len result[0] less than 1")
+	}
+	data, ok := result[0][0].(string)
+	if !ok {
+		t.Fatal("result not string")
+	}
+	if len(data) != 18 {
+		t.Fatal("result len not equal to 18:", len(data))
+	}
+
+	// CLOB
+	err = testExec(t, "create table CLOB_"+TestTimeString+
+		" ( A VARCHAR2(100), B CLOB, C CLOB )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table CLOB_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into CLOB_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CLOB_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from CLOB_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from CLOB_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NCLOB
+	err = testExec(t, "create table NCLOB_"+TestTimeString+
+		" ( A VARCHAR2(100), B NCLOB, C NCLOB )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table NCLOB_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into NCLOB_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCLOB_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from NCLOB_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from NCLOB_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 }
 
 // TestDestructiveNumber checks insert, select, update, and delete of number types

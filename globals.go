@@ -20,6 +20,7 @@ const blobBufSize = 4000
 const useOCISessionBegin = true
 const sizeOfNilPointer = unsafe.Sizeof(unsafe.Pointer(nil))
 
+// DSN is Oracle Data Source Name
 type DSN struct {
 	Connect                string
 	Username               string
@@ -33,14 +34,16 @@ type DSN struct {
 	externalauthentication bool
 }
 
+// OCI8Driver is Oracle driver
 type OCI8Driver struct {
 }
 
+// OCI8Conn is Oracle connection
 type OCI8Conn struct {
 	svc                  unsafe.Pointer
 	srv                  unsafe.Pointer
 	env                  unsafe.Pointer
-	err                  unsafe.Pointer
+	err                  *C.OCIError
 	usr_session          unsafe.Pointer
 	prefetch_rows        uint32
 	prefetch_memory      uint32
@@ -52,8 +55,9 @@ type OCI8Conn struct {
 	closed               bool
 }
 
+// OCI8Tx is Oracle transaction
 type OCI8Tx struct {
-	c *OCI8Conn
+	conn *OCI8Conn
 }
 
 type namedValue struct {
@@ -67,8 +71,9 @@ type outValue struct {
 	In   bool
 }
 
+// OCI8Stmt is Oracle statement
 type OCI8Stmt struct {
-	c      *OCI8Conn
+	conn   *OCI8Conn
 	s      unsafe.Pointer
 	closed bool
 	bp     **C.OCIBind
@@ -76,12 +81,13 @@ type OCI8Stmt struct {
 	pbind  []oci8bind //bind params
 }
 
+// OCI8Result is Oracle result
 type OCI8Result struct {
 	n     int64
 	errn  error
 	id    int64
 	errid error
-	s     *OCI8Stmt
+	stmt  *OCI8Stmt
 }
 
 type oci8col struct {
@@ -100,8 +106,9 @@ type oci8bind struct {
 	out  interface{} // original binded data type
 }
 
+// OCI8Rows is Oracle rows
 type OCI8Rows struct {
-	s          *OCI8Stmt
+	stmt       *OCI8Stmt
 	cols       []oci8col
 	e          bool
 	indrlenptr unsafe.Pointer

@@ -16,7 +16,8 @@ import (
 	"unsafe"
 )
 
-func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
+// Exec executes a query
+func (conn *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
 		list[i] = namedValue{
@@ -24,11 +25,11 @@ func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error
 			Value:   v,
 		}
 	}
-	return c.exec(context.Background(), query, list)
+	return conn.exec(context.Background(), query, list)
 }
 
-func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
-	s, err := c.prepare(ctx, query)
+func (conn *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
+	s, err := conn.prepare(ctx, query)
 	defer s.Close()
 	if err != nil {
 		return nil, err
@@ -55,7 +56,7 @@ prepared statement is called twice like below.
 If OCI8Rows close handle of statement, this fails.
 
 // Query implements Queryer.
-func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
+func (conn *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
 		list[i] = namedValue{
@@ -63,7 +64,7 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 			Value:   v,
 		}
 	}
-	rows, err := c.query(context.Background(), query, list)
+	rows, err := conn.query(context.Background(), query, list)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 }
 */
 
-func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
-	s, err := c.prepare(ctx, query)
+func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
+	s, err := conn.prepare(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -85,15 +86,15 @@ func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (
 	return rows, nil
 }
 
-func (c *OCI8Conn) ping(ctx context.Context) error {
+func (conn *OCI8Conn) ping(ctx context.Context) error {
 	rv := C.OCIPing(
-		(*C.OCISvcCtx)(c.svc),
-		(*C.OCIError)(c.err),
+		(*C.OCISvcCtx)(conn.svc),
+		conn.err,
 		C.OCI_DEFAULT)
 	if rv == C.OCI_SUCCESS {
 		return nil
 	}
-	if strings.HasPrefix(ociGetError(rv, c.err).Error(), "ORA-01010") {
+	if strings.HasPrefix(ociGetError(rv, conn.err).Error(), "ORA-01010") {
 		// Older versions of Oracle do not support ping,
 		// but a reponse of "ORA-01010: invalid OCI operation" confirms connectivity.
 		// See https://github.com/rana/ora/issues/224
@@ -102,15 +103,16 @@ func (c *OCI8Conn) ping(ctx context.Context) error {
 	return errors.New("ping failed")
 }
 
-func (c *OCI8Conn) Begin() (driver.Tx, error) {
-	return c.begin(context.Background())
+// Begin a transaction
+func (conn *OCI8Conn) Begin() (driver.Tx, error) {
+	return conn.begin(context.Background())
 }
 
-func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
-	if c.transactionMode != C.OCI_TRANS_READWRITE {
+func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
+	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		var th unsafe.Pointer
 		if rv := C.WrapOCIHandleAlloc(
-			c.env,
+			conn.env,
 			C.OCI_HTYPE_TRANS,
 			0,
 		); rv.rv != C.OCI_SUCCESS {
@@ -120,84 +122,86 @@ func (c *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 		}
 
 		if rv := C.OCIAttrSet(
-			c.svc,
+			conn.svc,
 			C.OCI_HTYPE_SVCCTX,
 			th,
 			0,
 			C.OCI_ATTR_TRANS,
-			(*C.OCIError)(c.err),
+			conn.err,
 		); rv != C.OCI_SUCCESS {
 			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
-			return nil, ociGetError(rv, c.err)
+			return nil, ociGetError(rv, conn.err)
 		}
 
 		if rv := C.OCITransStart(
-			(*C.OCISvcCtx)(c.svc),
-			(*C.OCIError)(c.err),
+			(*C.OCISvcCtx)(conn.svc),
+			conn.err,
 			0,
-			c.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
+			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
 		); rv != C.OCI_SUCCESS {
 			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
-			return nil, ociGetError(rv, c.err)
+			return nil, ociGetError(rv, conn.err)
 		}
 		// TOFIX: memory leak: th needs to be saved into OCI8Tx so OCIHandleFree can be called on it
 
 	}
-	c.inTransaction = true
-	return &OCI8Tx{c}, nil
+	conn.inTransaction = true
+	return &OCI8Tx{conn}, nil
 }
 
-func (c *OCI8Conn) Close() error {
-	if c.closed {
+// Close a connection
+func (conn *OCI8Conn) Close() error {
+	if conn.closed {
 		return nil
 	}
-	c.closed = true
+	conn.closed = true
 
 	var err error
 	if useOCISessionBegin {
 		if rv := C.OCISessionEnd(
-			(*C.OCISvcCtx)(c.svc),
-			(*C.OCIError)(c.err),
-			(*C.OCISession)(c.usr_session),
+			(*C.OCISvcCtx)(conn.svc),
+			conn.err,
+			(*C.OCISession)(conn.usr_session),
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, c.err)
+			err = ociGetError(rv, conn.err)
 		}
 		if rv := C.OCIServerDetach(
-			(*C.OCIServer)(c.srv),
-			(*C.OCIError)(c.err),
+			(*C.OCIServer)(conn.srv),
+			conn.err,
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, c.err)
+			err = ociGetError(rv, conn.err)
 		}
-		C.OCIHandleFree(c.usr_session, C.OCI_HTYPE_SESSION)
-		C.OCIHandleFree(c.svc, C.OCI_HTYPE_SVCCTX)
-		C.OCIHandleFree(c.srv, C.OCI_HTYPE_SERVER)
+		C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+		C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
+		C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
 	} else {
 		if rv := C.OCILogoff(
-			(*C.OCISvcCtx)(c.svc),
-			(*C.OCIError)(c.err),
+			(*C.OCISvcCtx)(conn.svc),
+			conn.err,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, c.err)
+			err = ociGetError(rv, conn.err)
 		}
 	}
 
-	C.OCIHandleFree(c.err, C.OCI_HTYPE_ERROR)
-	C.OCIHandleFree(c.env, C.OCI_HTYPE_ENV)
+	C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+	C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
 
-	c.svc = nil
-	c.env = nil
-	c.err = nil
+	conn.svc = nil
+	conn.env = nil
+	conn.err = nil
 
 	return err
 }
 
-func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
-	return c.prepare(context.Background(), query)
+// Prepare a query
+func (conn *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
+	return conn.prepare(context.Background(), query)
 }
 
-func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, error) {
-	if c.enableQMPlaceholders {
+func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, error) {
+	if conn.enableQMPlaceholders {
 		query = placeholders(query)
 	}
 
@@ -206,28 +210,28 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 
 	var s, bp, defp unsafe.Pointer
 	if rv := C.WrapOCIHandleAlloc(
-		c.env,
+		conn.env,
 		C.OCI_HTYPE_STMT,
 		(C.size_t)(unsafe.Sizeof(bp)*2),
 	); rv.rv != C.OCI_SUCCESS {
-		return nil, ociGetError(rv.rv, c.err)
+		return nil, ociGetError(rv.rv, conn.err)
 	} else {
 		s = rv.ptr
 		bp = rv.extra
-		defp = unsafe.Pointer(uintptr(rv.extra) + unsafe.Sizeof(unsafe.Pointer(nil)))
+		defp = unsafe.Pointer(uintptr(rv.extra) + sizeOfNilPointer)
 	}
 
 	if rv := C.OCIStmtPrepare(
 		(*C.OCIStmt)(s),
-		(*C.OCIError)(c.err),
+		conn.err,
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT),
 	); rv != C.OCI_SUCCESS {
 		C.OCIHandleFree(s, C.OCI_HTYPE_STMT)
-		return nil, ociGetError(rv, c.err)
+		return nil, ociGetError(rv, conn.err)
 	}
 
-	return &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
+	return &OCI8Stmt{conn: conn, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
 }

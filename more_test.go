@@ -1,14 +1,11 @@
 package oci8
 
-// ( . oracle.sh ;DSN='user:pass@:0/(description=(address_list=(address=(protocol=tcp)(host=192.168.1.1)(port=1521)))(connect_data=(sid=SID)))?isolation=SERIALIZABLE'  go test )
-
 import (
 	"bytes"
 	"database/sql"
 	"fmt"
 	"math/rand"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
@@ -206,7 +203,7 @@ func TestFooRowid(t *testing.T) {
 		t.SkipNow()
 	}
 	n := "Z"
-	id := "idSmallClob"
+	id := "fooRowId"
 	_, e := TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
 	if e != nil {
 		t.Fatal(e)
@@ -238,36 +235,6 @@ func TestTransaction1(t *testing.T) {
 	e = tx.Commit()
 	if e != nil {
 		t.Fatal(e)
-	}
-}
-
-func TestBigClob(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := "Abc" + strings.Repeat("1234567890", 2000) + "xyZ"
-
-	id := "idBigClob"
-	TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select c19 from foo where cend= :1", id)
-	if n != r["C19"].(string) {
-		println(3)
-		t.Fatal(r["C19"], "!=", n)
-	}
-}
-
-func TestSmallClob(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := "Z"
-	id := "idSmallClob"
-	TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select c19 from foo where cend= :1", id)
-	if n != r["C19"].(string) {
-		t.Fatal(r["C19"], "!=", n)
 	}
 }
 

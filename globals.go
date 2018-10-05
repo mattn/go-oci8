@@ -11,114 +11,137 @@ import "C"
 import (
 	"database/sql"
 	"database/sql/driver"
+	"io/ioutil"
+	"log"
 	"regexp"
 	"time"
 	"unsafe"
 )
 
-const blobBufSize = 4000
-const useOCISessionBegin = true
-const sizeOfNilPointer = unsafe.Sizeof(unsafe.Pointer(nil))
+const (
+	blobBufSize        = 4000
+	useOCISessionBegin = true
+	sizeOfNilPointer   = unsafe.Sizeof(unsafe.Pointer(nil))
+)
 
-// DSN is Oracle Data Source Name
-type DSN struct {
-	Connect                string
-	Username               string
-	Password               string
-	prefetch_rows          uint32
-	prefetch_memory        uint32
-	Location               *time.Location
-	transactionMode        C.ub4
-	enableQMPlaceholders   bool
-	operationMode          C.ub4
-	externalauthentication bool
-}
+type (
+	// DSN is Oracle Data Source Name
+	DSN struct {
+		Connect                string
+		Username               string
+		Password               string
+		prefetch_rows          uint32
+		prefetch_memory        uint32
+		Location               *time.Location
+		transactionMode        C.ub4
+		enableQMPlaceholders   bool
+		operationMode          C.ub4
+		externalauthentication bool
+	}
 
-// OCI8Driver is Oracle driver
-type OCI8Driver struct {
-}
+	// OCI8DriverStruct is Oracle driver struct
+	OCI8DriverStruct struct {
+		// Logger is used to log connection ping errors, defaults to discard
+		// To log set it to something like: log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+		Logger *log.Logger
+	}
 
-// OCI8Conn is Oracle connection
-type OCI8Conn struct {
-	svc                  unsafe.Pointer
-	srv                  unsafe.Pointer
-	env                  unsafe.Pointer
-	err                  *C.OCIError
-	usr_session          unsafe.Pointer
-	prefetch_rows        uint32
-	prefetch_memory      uint32
-	location             *time.Location
-	transactionMode      C.ub4
-	operationMode        C.ub4
-	inTransaction        bool
-	enableQMPlaceholders bool
-	closed               bool
-}
+	// OCI8Connector is the sql driver connector
+	OCI8Connector struct {
+		// Logger is used to log connection ping errors
+		Logger *log.Logger
+	}
 
-// OCI8Tx is Oracle transaction
-type OCI8Tx struct {
-	conn *OCI8Conn
-}
+	// OCI8Conn is Oracle connection
+	OCI8Conn struct {
+		svc                  unsafe.Pointer
+		srv                  unsafe.Pointer
+		env                  unsafe.Pointer
+		err                  *C.OCIError
+		usr_session          unsafe.Pointer
+		prefetch_rows        uint32
+		prefetch_memory      uint32
+		location             *time.Location
+		transactionMode      C.ub4
+		operationMode        C.ub4
+		inTransaction        bool
+		enableQMPlaceholders bool
+		closed               bool
+		logger               *log.Logger
+	}
 
-type namedValue struct {
-	Name    string
-	Ordinal int
-	Value   driver.Value
-}
+	// OCI8Tx is Oracle transaction
+	OCI8Tx struct {
+		conn *OCI8Conn
+	}
 
-type outValue struct {
-	Dest interface{}
-	In   bool
-}
+	namedValue struct {
+		Name    string
+		Ordinal int
+		Value   driver.Value
+	}
 
-// OCI8Stmt is Oracle statement
-type OCI8Stmt struct {
-	conn   *OCI8Conn
-	s      unsafe.Pointer
-	closed bool
-	bp     **C.OCIBind
-	defp   **C.OCIDefine
-	pbind  []oci8bind //bind params
-}
+	outValue struct {
+		Dest interface{}
+		In   bool
+	}
 
-// OCI8Result is Oracle result
-type OCI8Result struct {
-	n     int64
-	errn  error
-	id    int64
-	errid error
-	stmt  *OCI8Stmt
-}
+	// OCI8Stmt is Oracle statement
+	OCI8Stmt struct {
+		conn   *OCI8Conn
+		s      unsafe.Pointer
+		closed bool
+		bp     **C.OCIBind
+		defp   **C.OCIDefine
+		pbind  []oci8bind //bind params
+	}
 
-type oci8col struct {
-	name string
-	kind C.ub2
-	size int
-	ind  *C.sb2
-	rlen *C.ub2
-	pbuf unsafe.Pointer
-}
+	// OCI8Result is Oracle result
+	OCI8Result struct {
+		n     int64
+		errn  error
+		id    int64
+		errid error
+		stmt  *OCI8Stmt
+	}
 
-type oci8bind struct {
-	kind C.ub2
-	pbuf unsafe.Pointer
-	clen C.sb4
-	out  interface{} // original binded data type
-}
+	oci8col struct {
+		name string
+		kind C.ub2
+		size int
+		ind  *C.sb2
+		rlen *C.ub2
+		pbuf unsafe.Pointer
+	}
 
-// OCI8Rows is Oracle rows
-type OCI8Rows struct {
-	stmt       *OCI8Stmt
-	cols       []oci8col
-	e          bool
-	indrlenptr unsafe.Pointer
-	closed     bool
-	done       chan struct{}
-	cls        bool
-}
+	oci8bind struct {
+		kind C.ub2
+		pbuf unsafe.Pointer
+		clen C.sb4
+		out  interface{} // original binded data type
+	}
 
-var phre = regexp.MustCompile(`\?`)
+	// OCI8Rows is Oracle rows
+	OCI8Rows struct {
+		stmt       *OCI8Stmt
+		cols       []oci8col
+		e          bool
+		indrlenptr unsafe.Pointer
+		closed     bool
+		done       chan struct{}
+		cls        bool
+	}
+)
+
+var (
+	phre = regexp.MustCompile(`\?`)
+
+	// OCI8Driver is the sql driver
+	OCI8Driver = &OCI8DriverStruct{
+		Logger: log.New(ioutil.Discard, "", 0),
+	}
+)
 
 func init() {
-	sql.Register("oci8", &OCI8Driver{})
+	sql.Register("oci8", OCI8Driver)
 }

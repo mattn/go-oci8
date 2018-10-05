@@ -12,6 +12,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -150,14 +152,19 @@ func (tx *OCI8Tx) Rollback() error {
 	return nil
 }
 
-func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) {
+func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Conn, err error) {
 	var dsn *DSN
 	if dsn, err = ParseDSN(dsnString); err != nil {
 		return
 	}
 
-	var conn OCI8Conn
-	conn.operationMode = dsn.operationMode
+	conn := OCI8Conn{
+		operationMode: dsn.operationMode,
+		logger:        oci8Driver.Logger,
+	}
+	if conn.logger == nil {
+		conn.logger = log.New(ioutil.Discard, "", 0)
+	}
 
 	if rv := C.WrapOCIEnvCreate(
 		C.OCI_DEFAULT|C.OCI_THREADED,

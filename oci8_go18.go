@@ -10,8 +10,8 @@ import (
 )
 
 // Ping implement Pinger.
-func (c *OCI8Conn) Ping(ctx context.Context) error {
-	return c.ping(ctx)
+func (conn *OCI8Conn) Ping(ctx context.Context) error {
+	return conn.ping(ctx)
 }
 
 func toNamedValue(nv driver.NamedValue) namedValue {
@@ -25,52 +25,52 @@ func toNamedValue(nv driver.NamedValue) namedValue {
 }
 
 // QueryContext implement QueryerContext.
-func (c *OCI8Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (conn *OCI8Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
 		list[i] = toNamedValue(nv)
 	}
-	return c.query(ctx, query, list)
+	return conn.query(ctx, query, list)
 }
 
 // ExecContext implement ExecerContext.
-func (c *OCI8Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (conn *OCI8Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
 		list[i] = toNamedValue(nv)
 	}
-	return c.exec(ctx, query, list)
+	return conn.exec(ctx, query, list)
 }
 
 // PrepareContext implement ConnPrepareContext.
-func (c *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return c.prepare(ctx, query)
+func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	return conn.prepare(ctx, query)
 }
 
 // BeginTx implement ConnBeginTx.
-func (c *OCI8Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return c.begin(ctx)
+func (conn *OCI8Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return conn.begin(ctx)
 }
 
 // QueryContext implement QueryerContext.
-func (s *OCI8Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+func (stmt *OCI8Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
 		list[i] = toNamedValue(nv)
 	}
-	return s.query(ctx, list, false)
+	return stmt.query(ctx, list, false)
 }
 
 // ExecContext implement ExecerContext.
-func (s *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+func (stmt *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, nv := range args {
 		list[i] = toNamedValue(nv)
 	}
-	return s.exec(ctx, list)
+	return stmt.exec(ctx, list)
 }
 
-func (c *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
+func (conn *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 	switch nv.Value.(type) {
 	default:
 		return driver.ErrSkip

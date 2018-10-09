@@ -3,6 +3,10 @@ package oci8
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
+	"io/ioutil"
+	"log"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -15,8 +19,10 @@ func TestConnect(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// Invalid
-	db, err := sql.Open("oci8", TestHostInvalid+"/")
+	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+
+	// invalid
+	db, err := sql.Open("oci8", TestHostInvalid)
 	if err != nil {
 		t.Fatal("open error:", err)
 	}
@@ -27,15 +33,37 @@ func TestConnect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	err = db.PingContext(ctx)
 	cancel()
-	expected := "ping failed"
-	if err == nil || err.Error() != expected {
-		t.Fatalf("ping error - received: %v - expected: %v", err, expected)
+	if err == nil || err != driver.ErrBadConn {
+		t.Fatalf("ping error - received: %v - expected: %v", err, driver.ErrBadConn)
 	}
 
 	err = db.Close()
 	if err != nil {
 		t.Fatal("close error:", err)
 	}
+
+	// wrong username
+	db, err = sql.Open("oci8", "dFQXYoApiU2YbquMQnfPyqxR2kAoeuWngDvtTpl3@"+TestHostValid)
+	if err != nil {
+		t.Fatal("open error:", err)
+	}
+	if db == nil {
+		t.Fatal("db is nil")
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	err = db.PingContext(ctx)
+	cancel()
+	if err == nil || err != driver.ErrBadConn {
+		t.Fatalf("ping error - received: %v - expected: %v", err, driver.ErrBadConn)
+	}
+
+	err = db.Close()
+	if err != nil {
+		t.Fatal("close error:", err)
+	}
+
+	OCI8Driver.Logger = log.New(ioutil.Discard, "", 0)
 }
 
 // TestSelectParallel checks parallel select from dual

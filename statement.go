@@ -18,6 +18,7 @@ import (
 	"unsafe"
 )
 
+// Close closes the statment
 func (stmt *OCI8Stmt) Close() error {
 	if stmt.closed {
 		return nil
@@ -32,6 +33,7 @@ func (stmt *OCI8Stmt) Close() error {
 	return nil
 }
 
+// NumInput returns the number of input
 func (stmt *OCI8Stmt) NumInput() int {
 	r := C.WrapOCIAttrGetInt(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_BIND_COUNT, stmt.conn.err)
 	if r.rv != C.OCI_SUCCESS {
@@ -40,6 +42,7 @@ func (stmt *OCI8Stmt) NumInput() int {
 	return int(r.num)
 }
 
+// bind binds the varables / arguments
 func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 	if len(args) == 0 {
 		return nil, nil
@@ -264,6 +267,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 	return boundParameters, nil
 }
 
+// Query runs a query
 func (stmt *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -580,6 +584,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	return rows, nil
 }
 
+// lastInsertId returns the last inserted ID
 func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 	// OCI_ATTR_ROWID must be get in handle -> alloc
 	// can be coverted to char, but not to int64
@@ -595,6 +600,7 @@ func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 	return int64(0), nil
 }
 
+// rowsAffected returns the number of rows affected
 func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
 	retUb4 := C.WrapOCIAttrGetUb4(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, stmt.conn.err)
 	if retUb4.rv != C.OCI_SUCCESS {
@@ -603,6 +609,7 @@ func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
 	return int64(retUb4.num), nil
 }
 
+// Exec runs an exec query
 func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -614,6 +621,7 @@ func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 	return stmt.exec(context.Background(), list)
 }
 
+// exec runs an exec query
 func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result, err error) {
 	var (
 		fbp []oci8bind

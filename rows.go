@@ -110,7 +110,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			// get character set form
 			csfrm := C.ub1(C.SQLCS_IMPLICIT)
 			rv = C.OCILobCharSetForm(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				*(**C.OCILobLocator)(rows.cols[i].pbuf),
 				&csfrm,
@@ -130,7 +130,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				// read lob while OCI_NEED_DATA
 				*bamt = 0
 				rv = C.OCILobRead(
-					(*C.OCISvcCtx)(rows.stmt.conn.svc),
+					rows.stmt.conn.svc,
 					rows.stmt.conn.err,
 					*(**C.OCILobLocator)(rows.cols[i].pbuf),
 					bamt,               // The amount/length in bytes/characters
@@ -215,7 +215,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:
 			if rv := C.WrapOCIDateTimeGetDateTime(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				*(**C.OCIDateTime)(rows.cols[i].pbuf),
 			); rv.rv != C.OCI_SUCCESS {
@@ -236,14 +236,14 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
 			tptr := *(**C.OCIDateTime)(rows.cols[i].pbuf)
 			rv := C.WrapOCIDateTimeGetDateTime(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				tptr)
 			if rv.rv != C.OCI_SUCCESS {
 				return ociGetError(rv.rv, rows.stmt.conn.err)
 			}
 			rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				tptr)
 			if rvz.rv != C.OCI_SUCCESS {
@@ -269,7 +269,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_INTERVAL_DS:
 			iptr := *(**C.OCIInterval)(rows.cols[i].pbuf)
 			rv := C.WrapOCIIntervalGetDaySecond(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				iptr)
 			if rv.rv != C.OCI_SUCCESS {
@@ -281,7 +281,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_INTERVAL_YM:
 			iptr := *(**C.OCIInterval)(rows.cols[i].pbuf)
 			rv := C.WrapOCIIntervalGetYearMonth(
-				(*C.OCIEnv)(rows.stmt.conn.env),
+				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				iptr)
 			if rv.rv != C.OCI_SUCCESS {

@@ -89,7 +89,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			}
 			size += int(sizeOfNilPointer)
 			if ret := C.WrapOCIDescriptorAlloc(
-				stmt.conn.env,
+				unsafe.Pointer(stmt.conn.env),
 				C.OCI_DTYPE_TIMESTAMP_TZ,
 				C.size_t(size)); ret.rv != C.OCI_SUCCESS {
 				defer freeBoundParameters(boundParameters)
@@ -106,7 +106,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 
 			copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
 			rv := C.OCIDateTimeConstruct(
-				stmt.conn.env,
+				unsafe.Pointer(stmt.conn.env),
 				stmt.conn.err,
 				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
 				C.sb2(v.Year()),
@@ -124,7 +124,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			} else {
 				//check if oracle timezone offset is same ?
 				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-					(*C.OCIEnv)(stmt.conn.env),
+					stmt.conn.env,
 					stmt.conn.err,
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
 				if rvz.rv != C.OCI_SUCCESS {
@@ -149,7 +149,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 
 				copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
 				rv := C.OCIDateTimeConstruct(
-					stmt.conn.env,
+					unsafe.Pointer(stmt.conn.env),
 					stmt.conn.err,
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
 					C.sb2(v.Year()),
@@ -335,7 +335,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		}
 	}()
 	rv := C.OCIStmtExecute(
-		(*C.OCISvcCtx)(stmt.conn.svc),
+		stmt.conn.svc,
 		(*C.OCIStmt)(stmt.s),
 		stmt.conn.err,
 		iter,
@@ -458,7 +458,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			} else {
 				size += oci8cols[i].size
 			}
-			if ret := C.WrapOCIDescriptorAlloc(stmt.conn.env, C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
@@ -479,7 +479,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			//
 
 		case C.SQLT_TIMESTAMP, C.SQLT_DAT:
-			if ret := C.WrapOCIDescriptorAlloc(stmt.conn.env, C.OCI_DTYPE_TIMESTAMP, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_TIMESTAMP, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
@@ -491,7 +491,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			}
 
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			if ret := C.WrapOCIDescriptorAlloc(stmt.conn.env, C.OCI_DTYPE_TIMESTAMP_TZ, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_TIMESTAMP_TZ, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
@@ -503,7 +503,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			}
 
 		case C.SQLT_INTERVAL_DS:
-			if ret := C.WrapOCIDescriptorAlloc(stmt.conn.env, C.OCI_DTYPE_INTERVAL_DS, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_INTERVAL_DS, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
@@ -515,7 +515,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			}
 
 		case C.SQLT_INTERVAL_YM:
-			if ret := C.WrapOCIDescriptorAlloc(stmt.conn.env, C.OCI_DTYPE_INTERVAL_YM, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
+			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_INTERVAL_YM, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
 
@@ -588,7 +588,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 	// OCI_ATTR_ROWID must be get in handle -> alloc
 	// can be coverted to char, but not to int64
-	retRowid := C.WrapOCIAttrRowId(stmt.conn.env, stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.err)
+	retRowid := C.WrapOCIAttrRowId(unsafe.Pointer(stmt.conn.env), stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.err)
 	if retRowid.rv == C.OCI_SUCCESS {
 		bs := make([]byte, 18)
 		for i, b := range retRowid.rowid[:18] {
@@ -655,7 +655,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Res
 	}()
 
 	rv := C.OCIStmtExecute(
-		(*C.OCISvcCtx)(stmt.conn.svc),
+		stmt.conn.svc,
 		(*C.OCIStmt)(stmt.s),
 		stmt.conn.err,
 		1,

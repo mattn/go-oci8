@@ -54,9 +54,9 @@ type (
 
 	// OCI8Conn is Oracle connection
 	OCI8Conn struct {
-		svc                  unsafe.Pointer
-		srv                  unsafe.Pointer
-		env                  unsafe.Pointer
+		svc                  *C.OCISvcCtx
+		srv                  *C.OCIServer
+		env                  *C.OCIEnv
 		err                  *C.OCIError
 		usr_session          unsafe.Pointer
 		prefetch_rows        uint32

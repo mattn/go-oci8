@@ -709,6 +709,120 @@ func TestSelectCast(t *testing.T) {
 			},
 		},
 
+		// INTERVAL DAY TO MONTH - YEAR
+		testQueryResults{
+			query: "select NUMTOYMINTERVAL (:1, 'YEAR') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-24)}},
+				[][]interface{}{[]interface{}{int64(-12)}},
+				[][]interface{}{[]interface{}{int64(12)}},
+				[][]interface{}{[]interface{}{int64(24)}},
+				[][]interface{}{[]interface{}{int64(12)}},
+			},
+		},
+
+		// INTERVAL DAY TO MONTH - MONTH
+		testQueryResults{
+			query: "select NUMTOYMINTERVAL (:1, 'MONTH') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-2)}},
+				[][]interface{}{[]interface{}{int64(-1)}},
+				[][]interface{}{[]interface{}{int64(1)}},
+				[][]interface{}{[]interface{}{int64(2)}},
+				[][]interface{}{[]interface{}{int64(1)}},
+			},
+		},
+
+		// INTERVAL DAY TO SECOND - DAY
+		testQueryResults{
+			query: "select NUMTODSINTERVAL(:1, 'DAY') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-172800000000000)}},
+				[][]interface{}{[]interface{}{int64(-86400000000000)}},
+				[][]interface{}{[]interface{}{int64(86400000000000)}},
+				[][]interface{}{[]interface{}{int64(172800000000000)}},
+				[][]interface{}{[]interface{}{int64(86400000000000)}},
+			},
+		},
+
+		// INTERVAL DAY TO SECOND - HOUR
+		testQueryResults{
+			query: "select NUMTODSINTERVAL(:1, 'HOUR') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-7200000000000)}},
+				[][]interface{}{[]interface{}{int64(-3600000000000)}},
+				[][]interface{}{[]interface{}{int64(3600000000000)}},
+				[][]interface{}{[]interface{}{int64(7200000000000)}},
+				[][]interface{}{[]interface{}{int64(3600000000000)}},
+			},
+		},
+
+		// INTERVAL DAY TO SECOND - MINUTE
+		testQueryResults{
+			query: "select NUMTODSINTERVAL(:1, 'MINUTE') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-120000000000)}},
+				[][]interface{}{[]interface{}{int64(-60000000000)}},
+				[][]interface{}{[]interface{}{int64(60000000000)}},
+				[][]interface{}{[]interface{}{int64(120000000000)}},
+				[][]interface{}{[]interface{}{int64(60000000000)}},
+			},
+		},
+
+		// INTERVAL DAY TO SECOND - SECOND
+		testQueryResults{
+			query: "select NUMTODSINTERVAL(:1, 'SECOND') from dual",
+			args: [][]interface{}{
+				[]interface{}{-2},
+				[]interface{}{-1},
+				[]interface{}{1},
+				[]interface{}{2},
+				[]interface{}{float64(1) + float64(1/24)}, // TOFIX: should accept decimal numbers
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{int64(-2000000000)}},
+				[][]interface{}{[]interface{}{int64(-1000000000)}},
+				[][]interface{}{[]interface{}{int64(1000000000)}},
+				[][]interface{}{[]interface{}{int64(2000000000)}},
+				[][]interface{}{[]interface{}{int64(1000000000)}},
+			},
+		},
+
 		// RAW(2000)
 		testQueryResults{
 			query: "select cast (:1 as RAW(2000)) from dual",
@@ -781,6 +895,27 @@ func TestSelectCast(t *testing.T) {
 				[][]interface{}{[]interface{}{strings.Repeat("a", 2000)}},
 				[][]interface{}{[]interface{}{strings.Repeat("a", 4000)}},
 				[][]interface{}{[]interface{}{testString1}},
+			},
+		},
+
+		// BLOB
+		testQueryResults{
+			query: "select TO_BLOB(:1) from dual",
+			args: [][]interface{}{
+				[]interface{}{[]byte{}},
+				[]interface{}{[]byte{10}},
+				[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+				[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+				[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+				[]interface{}{testByteSlice1},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{nil}},
+				[][]interface{}{[]interface{}{[]byte{10}}},
+				[][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
+				[][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+				[][]interface{}{[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}}},
+				[][]interface{}{[]interface{}{testByteSlice1}},
 			},
 		},
 	}
@@ -1739,6 +1874,61 @@ func TestDestructiveString(t *testing.T) {
 			results: [][][]interface{}{
 				[][]interface{}{
 					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BLOB
+	err = testExec(t, "create table BLOB_"+TestTimeString+
+		" ( A VARCHAR2(100), B BLOB, C BLOB )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table BLOB_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into BLOB_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", []byte{}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+			[]interface{}{"b", []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BLOB_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"a", nil, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+					[]interface{}{"b", []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from BLOB_"+TestTimeString+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from BLOB_" + TestTimeString,
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{"b", []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
 				},
 			},
 		},

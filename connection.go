@@ -164,7 +164,7 @@ func (conn *OCI8Conn) Close() error {
 		if rv := C.OCISessionEnd(
 			conn.svc,
 			conn.err,
-			(*C.OCISession)(conn.usr_session),
+			conn.usrSession,
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, conn.err)
@@ -176,7 +176,7 @@ func (conn *OCI8Conn) Close() error {
 		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, conn.err)
 		}
-		C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+		C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 		C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 		C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
 	} else {
@@ -211,6 +211,7 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
 
+	var stmt *C.OCIStmt
 	var s, bp, defp unsafe.Pointer
 	if rv := C.WrapOCIHandleAlloc(
 		unsafe.Pointer(conn.env),
@@ -219,13 +220,13 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 	); rv.rv != C.OCI_SUCCESS {
 		return nil, ociGetError(rv.rv, conn.err)
 	} else {
-		s = rv.ptr
+		stmt = (*C.OCIStmt)(rv.ptr)
 		bp = rv.extra
 		defp = unsafe.Pointer(uintptr(rv.extra) + sizeOfNilPointer)
 	}
 
 	if rv := C.OCIStmtPrepare(
-		(*C.OCIStmt)(s),
+		stmt,
 		conn.err,
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
@@ -236,5 +237,5 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 		return nil, ociGetError(rv, conn.err)
 	}
 
-	return &OCI8Stmt{conn: conn, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
+	return &OCI8Stmt{conn: conn, stmt: stmt, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil
 }

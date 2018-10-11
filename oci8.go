@@ -64,8 +64,8 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	dsn.Connect = host
 
 	// set safe defaults
-	dsn.prefetch_rows = 10
-	dsn.prefetch_memory = 0
+	dsn.prefetchRows = 10
+	dsn.prefetchMemory = 0
 	dsn.operationMode = C.OCI_DEFAULT
 
 	qp, err := ParseQuery(params)
@@ -102,13 +102,13 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid prefetch_rows: %v", v[0])
 			}
-			dsn.prefetch_rows = uint32(z)
+			dsn.prefetchRows = uint32(z)
 		case "prefetch_memory":
 			z, err := strconv.ParseUint(v[0], 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("invalid prefetch_memory: %v", v[0])
 			}
-			dsn.prefetch_memory = uint32(z)
+			dsn.prefetchMemory = uint32(z)
 		case "as":
 			switch v[0] {
 			case "SYSDBA", "sysdba":
@@ -130,6 +130,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	return dsn, nil
 }
 
+// Commit transaction commit
 func (tx *OCI8Tx) Commit() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransCommit(
@@ -141,6 +142,7 @@ func (tx *OCI8Tx) Commit() error {
 	return nil
 }
 
+// Rollback transaction rollback
 func (tx *OCI8Tx) Rollback() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransRollback(
@@ -152,6 +154,7 @@ func (tx *OCI8Tx) Rollback() error {
 	return nil
 }
 
+// Open opens a new database connection
 func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Conn, err error) {
 	var dsn *DSN
 	if dsn, err = ParseDSN(dsnString); err != nil {
@@ -273,14 +276,14 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		} else {
-			conn.usr_session = rv.ptr
-			// conn allocations: env, err, srv, svc, usr_session
+			conn.usrSession = (*C.OCISession)(rv.ptr)
+			// conn allocations: env, err, srv, svc, usrSession
 		}
 
 		if !dsn.externalauthentication {
 			//  set username attribute in user session handle
 			if rv := C.OCIAttrSet(
-				conn.usr_session,
+				unsafe.Pointer(conn.usrSession),
 				C.OCI_HTYPE_SESSION,
 				(unsafe.Pointer(puser)),
 				C.ub4(len(dsn.Username)),
@@ -288,7 +291,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 				conn.err,
 			); rv != C.OCI_SUCCESS {
 				err = ociGetError(rv, conn.err)
-				C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 				C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
 				C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
@@ -298,7 +301,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 
 			// set password attribute in the user session handle
 			if rv := C.OCIAttrSet(
-				conn.usr_session,
+				unsafe.Pointer(conn.usrSession),
 				C.OCI_HTYPE_SESSION,
 				(unsafe.Pointer(ppass)),
 				C.ub4(len(dsn.Password)),
@@ -306,7 +309,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 				conn.err,
 			); rv != C.OCI_SUCCESS {
 				err = ociGetError(rv, conn.err)
-				C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 				C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
 				C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
@@ -318,7 +321,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			C.WrapOCISessionBegin(
 				conn.svc,
 				conn.err,
-				(*C.OCISession)(conn.usr_session),
+				conn.usrSession,
 				C.OCI_CRED_RDBMS,
 				conn.operationMode)
 		} else {
@@ -326,7 +329,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			C.WrapOCISessionBegin(
 				conn.svc,
 				conn.err,
-				(*C.OCISession)(conn.usr_session),
+				conn.usrSession,
 				C.OCI_CRED_EXT,
 				conn.operationMode)
 		}
@@ -335,13 +338,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 		if rv := C.OCIAttrSet(
 			unsafe.Pointer(conn.svc),
 			C.OCI_HTYPE_SVCCTX,
-			conn.usr_session,
+			unsafe.Pointer(conn.usrSession),
 			0,
 			C.OCI_ATTR_SESSION,
 			conn.err,
 		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, conn.err)
-			C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
+			C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 			C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 			C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
 			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
@@ -373,8 +376,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 
 	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode
-	conn.prefetch_rows = dsn.prefetch_rows
-	conn.prefetch_memory = dsn.prefetch_memory
+	conn.prefetchRows = dsn.prefetchRows
+	conn.prefetchMemory = dsn.prefetchMemory
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
 
 	connection = &conn
@@ -472,23 +475,29 @@ func outputBoundParameters(boundParameters []oci8bind) {
 	}
 }
 
+// GetLastInsertId retuns last inserted ID
 func GetLastInsertId(id int64) string {
 	return *(*string)(unsafe.Pointer(uintptr(id)))
 }
 
+// LastInsertId returns last inserted ID
 func (r *OCI8Result) LastInsertId() (int64, error) {
 	return r.id, r.errid
 }
 
+// RowsAffected returns rows affected
 func (r *OCI8Result) RowsAffected() (int64, error) {
 	return r.n, r.errn
 }
 
+// freeDecriptor calles C OCIDescriptorFree
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
 	tptr := *(*unsafe.Pointer)(p)
 	C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype)
 }
 
+// ociGetErrorS gets error.
+// Also calls isBadConnection to check if bad connection error
 func ociGetErrorS(err *C.OCIError) error {
 	rv := C.WrapOCIErrorGet(err)
 	s := C.GoString(&rv.err[0])
@@ -548,6 +557,7 @@ func ociGetError(rv C.sword, err *C.OCIError) error {
 	return fmt.Errorf("oracle return error code %d", rv)
 }
 
+// CByte comverts byte slice to C char
 func CByte(b []byte) *C.char {
 	p := C.malloc(C.size_t(len(b)))
 	pp := (*[1 << 30]byte)(p)

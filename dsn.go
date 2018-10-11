@@ -42,8 +42,10 @@ const (
 	encodeQueryComponent
 )
 
+// EscapeError for invalid escape
 type EscapeError string
 
+// Error returns string for invalid URL escape
 func (e EscapeError) Error() string {
 	return "invalid URL escape " + strconv.Quote(string(e))
 }

@@ -19,6 +19,7 @@ import (
 	"unsafe"
 )
 
+// Close closes rows
 func (rows *OCI8Rows) Close() error {
 	if rows.closed {
 		return nil
@@ -52,6 +53,7 @@ func (rows *OCI8Rows) Close() error {
 	return nil
 }
 
+// Columns returns columns
 func (rows *OCI8Rows) Columns() []string {
 	cols := make([]string, len(rows.cols))
 	for i, col := range rows.cols {
@@ -67,7 +69,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 	}
 
 	rv := C.OCIStmtFetch2(
-		(*C.OCIStmt)(rows.stmt.s),
+		rows.stmt.stmt,
 		rows.stmt.conn.err,
 		1,
 		C.OCI_FETCH_NEXT,
@@ -229,7 +231,8 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 					int(rv.mm),
 					int(rv.ss),
 					int(rv.ff),
-					rows.stmt.conn.location)
+					rows.stmt.conn.location,
+				)
 			}
 
 		// SQLT_TIMESTAMP_TZ and SQLT_TIMESTAMP_LTZ
@@ -305,7 +308,7 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 	var p unsafe.Pointer
 	var tp C.ub2
 
-	rp := C.WrapOCIParamGet(rows.stmt.s, C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
+	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv == C.OCI_SUCCESS {
 		p = rp.ptr
 	}
@@ -386,11 +389,12 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 	return ""
 }
 
+// ColumnTypeLength returns column length
 func (rows *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
 	var p unsafe.Pointer
 	var lp C.ub2
 
-	rp := C.WrapOCIParamGet(rows.stmt.s, C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
+	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv != C.OCI_SUCCESS {
 		return 0, false
 	}
@@ -413,7 +417,7 @@ func (rows *OCI8Rows) ColumnTypePrecisionScale(i int) (precision, scale int64, o
 
 // ColumnTypeNullable implement RowsColumnTypeNullable.
 func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
-	retUb4 := C.WrapOCIAttrGetUb4(rows.stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_IS_NULL, rows.stmt.conn.err)
+	retUb4 := C.WrapOCIAttrGetUb4(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_IS_NULL, rows.stmt.conn.err)
 	if retUb4.rv != C.OCI_SUCCESS {
 		return false, false
 	}
@@ -425,7 +429,7 @@ func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
 	var p unsafe.Pointer
 	var tp C.ub2
 
-	rp := C.WrapOCIParamGet(rows.stmt.s, C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
+	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv == C.OCI_SUCCESS {
 		p = rp.ptr
 	}

@@ -1,10 +1,8 @@
 package oci8
 
 import (
-	"bytes"
 	"database/sql"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -65,73 +63,6 @@ func sqlstestv(d dbc, t *testing.T, sql string, p ...interface{}) []interface{} 
 	return res
 }
 
-func TestInterval1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := time.Duration(1234567898123456789)
-	r := sqlstest(TestDB, t, "select NUMTODSINTERVAL( :0 / 1000000000, 'SECOND') as intervalds from dual", int64(n))
-	if n != time.Duration(r["INTERVALDS"].(int64)) {
-		t.Fatal(r, "!=", n)
-	}
-}
-
-func TestInterval2(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := time.Duration(-1234567898123456789)
-	r := sqlstest(TestDB, t, "select NUMTODSINTERVAL( :0 / 1000000000, 'SECOND') as intervalds from dual", int64(n))
-	if n != time.Duration(r["INTERVALDS"].(int64)) {
-		t.Fatal(r, "!=", n)
-	}
-}
-
-func TestInterval3(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := int64(1234567890)
-	r := sqlstest(TestDB, t, "select NUMTOYMINTERVAL( :0, 'MONTH') as intervalym from dual", n)
-	if n != r["INTERVALYM"].(int64) {
-		t.Fatal(r, "!=", n)
-	}
-}
-
-func TestInterval4(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := int64(-1234567890)
-	r := sqlstest(TestDB, t, "select NUMTOYMINTERVAL( :0, 'MONTH') as intervalym from dual", n)
-	if n != r["INTERVALYM"].(int64) {
-		t.Fatal(r, "!=", n)
-	}
-}
-
-func TestIntervals5(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n1 := time.Duration(987)
-	n2 := time.Duration(-65)
-	n3 := int64(4332)
-	n4 := int64(-1239872)
-	r := sqlstest(TestDB, t, "select NUMTODSINTERVAL( :0 / 1000000000, 'SECOND') as i1, NUMTODSINTERVAL( :1 / 1000000000, 'SECOND') as i2, NUMTOYMINTERVAL( :2, 'MONTH') as i3, NUMTOYMINTERVAL( :3, 'MONTH') as i4 from dual", n1, n2, n3, n4)
-	if n1 != time.Duration(r["I1"].(int64)) {
-		t.Fatal(r["I1"], "!=", n1)
-	}
-	if n2 != time.Duration(r["I2"].(int64)) {
-		t.Fatal(r["I2"], "!=", n2)
-	}
-	if n3 != r["I3"].(int64) {
-		t.Fatal(r["I3"], "!=", n3)
-	}
-	if n4 != r["I4"].(int64) {
-		t.Fatal(r["I4"], "!=", n4)
-	}
-}
-
 func TestQuestionMark(t *testing.T) {
 	// skip for now
 	t.SkipNow()
@@ -160,56 +91,6 @@ func TestString3(t *testing.T) {
 	if n != r["STR"].(string) {
 		t.Fatal(r["STR"], "!=", n)
 	}
-}
-
-func TestFooLargeBlob(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := make([]byte, 600000)
-	for i := 0; i < len(n); i++ {
-		n[i] = byte(rand.Int31n(256))
-	}
-
-	id := "idlblob"
-	TestDB.Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select c21 from foo where cend= :1", id)
-	if !bytes.Equal(n, r["C21"].([]byte)) {
-		t.Fatal(r["C21"], "!=", n)
-	}
-}
-
-func TestSmallBlob(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := make([]byte, 6)
-	for i := 0; i < len(n); i++ {
-		n[i] = byte(rand.Int31n(256))
-	}
-
-	id := "idsblob"
-	TestDB.Exec("insert into foo( c21, cend) values( :1, :2)", n, id)
-
-	r := sqlstest(TestDB, t, "select c21 from foo where cend=:1", id)
-	if !bytes.Equal(n, r["C21"].([]byte)) {
-		t.Fatal(r["C21"], "!=", n)
-	}
-}
-
-func TestFooRowid(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	n := "Z"
-	id := "fooRowId"
-	_, e := TestDB.Exec("insert into foo( c19, cend) values( :1, :2)", n, id)
-	if e != nil {
-		t.Fatal(e)
-	}
-
-	sqlstest(TestDB, t, "select rowid from foo")
 }
 
 //this test fail if transactions are readonly

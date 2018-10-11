@@ -88,7 +88,7 @@ func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue
 
 func (conn *OCI8Conn) ping(ctx context.Context) error {
 	rv := C.OCIPing(
-		(*C.OCISvcCtx)(conn.svc),
+		conn.svc,
 		conn.err,
 		C.OCI_DEFAULT)
 	if rv == C.OCI_SUCCESS {
@@ -115,7 +115,7 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		var th unsafe.Pointer
 		if rv := C.WrapOCIHandleAlloc(
-			conn.env,
+			unsafe.Pointer(conn.env),
 			C.OCI_HTYPE_TRANS,
 			0,
 		); rv.rv != C.OCI_SUCCESS {
@@ -125,7 +125,7 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 		}
 
 		if rv := C.OCIAttrSet(
-			conn.svc,
+			unsafe.Pointer(conn.svc),
 			C.OCI_HTYPE_SVCCTX,
 			th,
 			0,
@@ -137,7 +137,7 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 		}
 
 		if rv := C.OCITransStart(
-			(*C.OCISvcCtx)(conn.svc),
+			conn.svc,
 			conn.err,
 			0,
 			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
@@ -162,7 +162,7 @@ func (conn *OCI8Conn) Close() error {
 	var err error
 	if useOCISessionBegin {
 		if rv := C.OCISessionEnd(
-			(*C.OCISvcCtx)(conn.svc),
+			conn.svc,
 			conn.err,
 			(*C.OCISession)(conn.usr_session),
 			C.OCI_DEFAULT,
@@ -170,18 +170,18 @@ func (conn *OCI8Conn) Close() error {
 			err = ociGetError(rv, conn.err)
 		}
 		if rv := C.OCIServerDetach(
-			(*C.OCIServer)(conn.srv),
+			conn.srv,
 			conn.err,
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, conn.err)
 		}
 		C.OCIHandleFree(conn.usr_session, C.OCI_HTYPE_SESSION)
-		C.OCIHandleFree(conn.svc, C.OCI_HTYPE_SVCCTX)
-		C.OCIHandleFree(conn.srv, C.OCI_HTYPE_SERVER)
+		C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
+		C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
 	} else {
 		if rv := C.OCILogoff(
-			(*C.OCISvcCtx)(conn.svc),
+			conn.svc,
 			conn.err,
 		); rv != C.OCI_SUCCESS {
 			err = ociGetError(rv, conn.err)
@@ -189,7 +189,7 @@ func (conn *OCI8Conn) Close() error {
 	}
 
 	C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
-	C.OCIHandleFree(conn.env, C.OCI_HTYPE_ENV)
+	C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 
 	conn.svc = nil
 	conn.env = nil
@@ -213,7 +213,7 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 
 	var s, bp, defp unsafe.Pointer
 	if rv := C.WrapOCIHandleAlloc(
-		conn.env,
+		unsafe.Pointer(conn.env),
 		C.OCI_HTYPE_STMT,
 		(C.size_t)(unsafe.Sizeof(bp)*2),
 	); rv.rv != C.OCI_SUCCESS {

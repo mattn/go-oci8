@@ -259,8 +259,80 @@ func TestDestructiveTime(t *testing.T) {
 
 	// https://ss64.com/ora/syntax-datatypes.html
 
+	// TIMESTAMP(9) WITH TIME ZONE
+	err := testExec(t, "create table TIMESTAMPWTZ_"+TestTimeString+
+		" ( A int, B TIMESTAMP(9) WITH TIME ZONE, C TIMESTAMP(9) WITH TIME ZONE )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table TIMESTAMPWTZ_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into TIMESTAMPWTZ_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults := []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMPWTZ_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+					// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from TIMESTAMPWTZ_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{4},
+			[]interface{}{5},
+			[]interface{}{6},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMPWTZ_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 	// INTERVAL YEAR TO MONTH
-	err := testExec(t, "create table INTERVALYTM_"+TestTimeString+
+	err = testExec(t, "create table INTERVALYTM_"+TestTimeString+
 		" ( A int, B INTERVAL YEAR TO MONTH, C INTERVAL YEAR TO MONTH )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
@@ -287,7 +359,7 @@ func TestDestructiveTime(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults := []testQueryResults{
+	queryResults = []testQueryResults{
 		testQueryResults{
 			query: "select A, B, C from INTERVALYTM_" + TestTimeString + " order by A",
 			args:  [][]interface{}{[]interface{}{}},

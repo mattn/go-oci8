@@ -39,30 +39,6 @@ func sqlstest(d dbc, t *testing.T, sql string, p ...interface{}) map[string]inte
 	return res
 }
 
-func sqlstestv(d dbc, t *testing.T, sql string, p ...interface{}) []interface{} {
-	rows, err := NewS(d.Query(sql, p...))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !rows.Next() {
-		rows.Close()
-		t.Fatal("no row returned:", rows.Err())
-	}
-	err = rows.Scan()
-	if err != nil {
-		rows.Close()
-		t.Fatal(err)
-	}
-	//res := rows.Map()
-	res := rows.Row()
-	err = rows.Close()
-	if err != nil {
-		rows.Close()
-		t.Fatal(err)
-	}
-	return res
-}
-
 func TestQuestionMark(t *testing.T) {
 	// skip for now
 	t.SkipNow()
@@ -91,82 +67,6 @@ func TestString3(t *testing.T) {
 	if n != r["STR"].(string) {
 		t.Fatal(r["STR"], "!=", n)
 	}
-}
-
-func TestDate(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C6"
-
-	const fm = "2006-01-02 15:04:05.999999999 -07:00"
-
-	n, err := time.Parse(fm, "2014-10-23 04:56:12.123456789 +09:06")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	id := "idbdate" + f
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
-}
-
-func TestTimestamp(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C9"
-
-	const fm = "2006-01-02 15:04:05.999999999 -07:00"
-
-	n, err := time.Parse(fm, "2014-10-23 04:56:12.123456789 +09:06")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	id := "idTstamp" + f
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
-}
-
-func TestTimestampTz(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C10"
-
-	const fm = "2006-01-02 15:04:05.999999999 -07:00"
-
-	n, err := time.Parse(fm, "2014-10-23 04:56:12.123456789 +09:06")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	id := "idTs" + f
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
-}
-
-func TestTimestampLtz(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	f := "C11"
-
-	const fm = "2006-01-02 15:04:05.999999999 -07:00"
-
-	n, err := time.Parse(fm, "2014-10-23 04:56:12.123456000 +09:06")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	id := "idTs" + f
-	TestDB.Exec("insert into foo( "+f+", cend) values( :1, :2)", n, id)
-
-	sqlstest(TestDB, t, "select "+f+" from foo where cend= :1", id)
 }
 
 func TestTimeZones(t *testing.T) {

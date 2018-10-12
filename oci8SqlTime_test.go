@@ -15,9 +15,79 @@ func TestSelectCastTime(t *testing.T) {
 
 	queryResults := []testQueryResults{
 
+		// TIMESTAMP(9)
+		testQueryResults{
+			query: "select cast (:1 as TIMESTAMP(9)) from dual",
+			args: [][]interface{}{
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
+			},
+		},
+
 		// TIMESTAMP(9) WITH TIME ZONE
 		testQueryResults{
 			query: "select cast (:1 as TIMESTAMP(9) WITH TIME ZONE) from dual",
+			args: [][]interface{}{
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
+				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+				[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)}},
+				[][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)}},
+				[][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)}},
+				// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
+				// [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)}},
+			},
+		},
+
+		// TIMESTAMP(9) WITH LOCAL TIME ZONE
+		testQueryResults{
+			query: "select cast (:1 as TIMESTAMP(9) WITH LOCAL TIME ZONE) from dual",
 			args: [][]interface{}{
 				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
 				[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
@@ -259,8 +329,80 @@ func TestDestructiveTime(t *testing.T) {
 
 	// https://ss64.com/ora/syntax-datatypes.html
 
+	// TIMESTAMP(9)
+	err := testExec(t, "create table TIMESTAMP_"+TestTimeString+
+		" ( A int, B TIMESTAMP(9), C TIMESTAMP(9) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table TIMESTAMP_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into TIMESTAMP_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults := []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMP_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
+					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
+					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
+					// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from TIMESTAMP_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{4},
+			[]interface{}{5},
+			[]interface{}{6},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMP_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 	// TIMESTAMP(9) WITH TIME ZONE
-	err := testExec(t, "create table TIMESTAMPWTZ_"+TestTimeString+
+	err = testExec(t, "create table TIMESTAMPWTZ_"+TestTimeString+
 		" ( A int, B TIMESTAMP(9) WITH TIME ZONE, C TIMESTAMP(9) WITH TIME ZONE )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
@@ -287,7 +429,7 @@ func TestDestructiveTime(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults := []testQueryResults{
+	queryResults = []testQueryResults{
 		testQueryResults{
 			query: "select A, B, C from TIMESTAMPWTZ_" + TestTimeString + " order by A",
 			args:  [][]interface{}{[]interface{}{}},
@@ -319,6 +461,78 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = []testQueryResults{
 		testQueryResults{
 			query: "select A, B, C from TIMESTAMPWTZ_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// TIMESTAMP(9) WITH LOCAL TIME ZONE
+	err = testExec(t, "create table TIMESTAMPWLTZ_"+TestTimeString+
+		" ( A int, B TIMESTAMP(9) WITH LOCAL TIME ZONE, C TIMESTAMP(9) WITH LOCAL TIME ZONE )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer func() {
+		err = testExec(t, "drop table TIMESTAMPWLTZ_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into TIMESTAMPWLTZ_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMPWLTZ_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
+					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
+					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
+					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
+					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
+					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
+					// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExecRows(t, "delete from TIMESTAMPWLTZ_"+TestTimeString+" where A = :1",
+		[][]interface{}{
+			[]interface{}{4},
+			[]interface{}{5},
+			[]interface{}{6},
+		})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TIMESTAMPWLTZ_" + TestTimeString + " order by A",
 			args:  [][]interface{}{[]interface{}{}},
 			results: [][][]interface{}{
 				[][]interface{}{

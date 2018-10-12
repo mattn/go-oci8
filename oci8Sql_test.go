@@ -47,20 +47,6 @@ func testGetDB() *sql.DB {
 		return nil
 	}
 
-	db.Exec("drop table foo")
-
-	_, err = db.Exec(sql1)
-	if err != nil {
-		fmt.Println("sql1 error:", err)
-		return nil
-	}
-
-	_, err = db.Exec("truncate table foo")
-	if err != nil {
-		fmt.Println("truncate error:", err)
-		return nil
-	}
-
 	return db
 }
 

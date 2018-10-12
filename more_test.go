@@ -93,32 +93,6 @@ func TestString3(t *testing.T) {
 	}
 }
 
-//this test fail if transactions are readonly
-func TestTransaction1(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	tx, e := TestDB.Begin()
-	if e != nil {
-		t.Fatal(e)
-	}
-
-	_, e = tx.Exec("insert into foo( c1) values( :1)", "123abc")
-	if e != nil {
-		t.Fatal(e)
-	}
-
-	_, e = tx.Exec("update foo set c1='ertertetert'")
-	if e != nil {
-		t.Fatal(e)
-	}
-
-	e = tx.Commit()
-	if e != nil {
-		t.Fatal(e)
-	}
-}
-
 func TestDate(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()

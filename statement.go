@@ -25,9 +25,9 @@ func (stmt *OCI8Stmt) Close() error {
 	}
 	stmt.closed = true
 
-	C.OCIHandleFree(stmt.s, C.OCI_HTYPE_STMT)
+	C.OCIHandleFree(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT)
 
-	stmt.s = nil
+	stmt.stmt = nil
 	stmt.pbind = nil
 
 	return nil
@@ -35,7 +35,7 @@ func (stmt *OCI8Stmt) Close() error {
 
 // NumInput returns the number of input
 func (stmt *OCI8Stmt) NumInput() int {
-	r := C.WrapOCIAttrGetInt(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_BIND_COUNT, stmt.conn.err)
+	r := C.WrapOCIAttrGetInt(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_BIND_COUNT, stmt.conn.err)
 	if r.rv != C.OCI_SUCCESS {
 		return -1
 	}
@@ -226,7 +226,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			cname := C.CString(name)
 			defer C.free(unsafe.Pointer(cname))
 			if rv := C.OCIBindByName(
-				(*C.OCIStmt)(stmt.s),
+				stmt.stmt,
 				stmt.bp,
 				stmt.conn.err,
 				(*C.OraText)(unsafe.Pointer(cname)),
@@ -245,7 +245,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			}
 		} else {
 			if rv := C.OCIBindByPos(
-				(*C.OCIStmt)(stmt.s),
+				stmt.stmt,
 				stmt.bp,
 				stmt.conn.err,
 				C.ub4(i+1),
@@ -292,23 +292,23 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	defer freeBoundParameters(fbp)
 
 	iter := C.ub4(1)
-	if retUb2 := C.WrapOCIAttrGetUb2(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_STMT_TYPE, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
+	if retUb2 := C.WrapOCIAttrGetUb2(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_STMT_TYPE, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
 		return nil, ociGetError(retUb2.rv, stmt.conn.err)
 	} else if retUb2.num == C.OCI_STMT_SELECT {
 		iter = 0
 	}
 
 	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
-	if stmt.conn.prefetch_rows > 0 {
-		if rv := C.WrapOCIAttrSetUb4(stmt.s, C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetch_rows), C.OCI_ATTR_PREFETCH_ROWS, stmt.conn.err); rv != C.OCI_SUCCESS {
+	if stmt.conn.prefetchRows > 0 {
+		if rv := C.WrapOCIAttrSetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetchRows), C.OCI_ATTR_PREFETCH_ROWS, stmt.conn.err); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, stmt.conn.err)
 		}
 	}
 
 	// if non-zero, oci will fetch rows until the memory limit or row prefetch limit is hit.
 	// useful for memory constrained systems
-	if stmt.conn.prefetch_memory > 0 {
-		if rv := C.WrapOCIAttrSetUb4(stmt.s, C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetch_memory), C.OCI_ATTR_PREFETCH_MEMORY, stmt.conn.err); rv != C.OCI_SUCCESS {
+	if stmt.conn.prefetchMemory > 0 {
+		if rv := C.WrapOCIAttrSetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetchMemory), C.OCI_ATTR_PREFETCH_MEMORY, stmt.conn.err); rv != C.OCI_SUCCESS {
 			return nil, ociGetError(rv, stmt.conn.err)
 		}
 	}
@@ -336,7 +336,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	}()
 	rv := C.OCIStmtExecute(
 		stmt.conn.svc,
-		(*C.OCIStmt)(stmt.s),
+		stmt.stmt,
 		stmt.conn.err,
 		iter,
 		0,
@@ -349,7 +349,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	}
 
 	var rc int
-	if retUb2 := C.WrapOCIAttrGetUb2(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_PARAM_COUNT, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
+	if retUb2 := C.WrapOCIAttrGetUb2(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_PARAM_COUNT, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
 		return nil, ociGetError(retUb2.rv, stmt.conn.err)
 	} else {
 		rc = int(retUb2.num)
@@ -363,7 +363,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		var tp C.ub2
 		var lp C.ub2
 
-		if rp := C.WrapOCIParamGet(stmt.s, C.OCI_HTYPE_STMT, stmt.conn.err, C.ub4(i+1)); rp.rv != C.OCI_SUCCESS {
+		if rp := C.WrapOCIParamGet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, stmt.conn.err, C.ub4(i+1)); rp.rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
 			return nil, ociGetError(rp.rv, stmt.conn.err)
 		} else {
@@ -462,12 +462,10 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 				C.free(indrlenptr)
 				return nil, ociGetError(ret.rv, stmt.conn.err)
 			} else {
-
 				oci8cols[i].kind = tp
 				oci8cols[i].size = int(sizeOfNilPointer)
 				oci8cols[i].pbuf = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
-
 			}
 
 			//      testing
@@ -541,7 +539,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		oci8cols[i].rlen = &indrlen[i].rlen
 
 		if rv := C.OCIDefineByPos(
-			(*C.OCIStmt)(stmt.s),
+			stmt.stmt,
 			stmt.defp,
 			stmt.conn.err,
 			C.ub4(i+1),
@@ -588,7 +586,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 	// OCI_ATTR_ROWID must be get in handle -> alloc
 	// can be coverted to char, but not to int64
-	retRowid := C.WrapOCIAttrRowId(unsafe.Pointer(stmt.conn.env), stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.err)
+	retRowid := C.WrapOCIAttrRowId(unsafe.Pointer(stmt.conn.env), unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.err)
 	if retRowid.rv == C.OCI_SUCCESS {
 		bs := make([]byte, 18)
 		for i, b := range retRowid.rowid[:18] {
@@ -602,7 +600,7 @@ func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 
 // rowsAffected returns the number of rows affected
 func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
-	retUb4 := C.WrapOCIAttrGetUb4(stmt.s, C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, stmt.conn.err)
+	retUb4 := C.WrapOCIAttrGetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, stmt.conn.err)
 	if retUb4.rv != C.OCI_SUCCESS {
 		return 0, ociGetError(retUb4.rv, stmt.conn.err)
 	}
@@ -656,7 +654,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Res
 
 	rv := C.OCIStmtExecute(
 		stmt.conn.svc,
-		(*C.OCIStmt)(stmt.s),
+		stmt.stmt,
 		stmt.conn.err,
 		1,
 		0,

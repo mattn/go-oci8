@@ -30,8 +30,8 @@ type (
 		Connect                string
 		Username               string
 		Password               string
-		prefetch_rows          uint32
-		prefetch_memory        uint32
+		prefetchRows           uint32
+		prefetchMemory         uint32
 		Location               *time.Location
 		transactionMode        C.ub4
 		enableQMPlaceholders   bool
@@ -58,9 +58,9 @@ type (
 		srv                  *C.OCIServer
 		env                  *C.OCIEnv
 		err                  *C.OCIError
-		usr_session          unsafe.Pointer
-		prefetch_rows        uint32
-		prefetch_memory      uint32
+		usrSession           *C.OCISession
+		prefetchRows         uint32
+		prefetchMemory       uint32
 		location             *time.Location
 		transactionMode      C.ub4
 		operationMode        C.ub4
@@ -89,7 +89,7 @@ type (
 	// OCI8Stmt is Oracle statement
 	OCI8Stmt struct {
 		conn   *OCI8Conn
-		s      unsafe.Pointer
+		stmt   *C.OCIStmt
 		closed bool
 		bp     **C.OCIBind
 		defp   **C.OCIDefine

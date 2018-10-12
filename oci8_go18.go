@@ -70,6 +70,7 @@ func (stmt *OCI8Stmt) ExecContext(ctx context.Context, args []driver.NamedValue)
 	return stmt.exec(ctx, list)
 }
 
+// CheckNamedValue checks the named value
 func (conn *OCI8Conn) CheckNamedValue(nv *driver.NamedValue) error {
 	switch nv.Value.(type) {
 	default:

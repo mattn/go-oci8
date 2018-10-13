@@ -101,11 +101,11 @@ func ociGetError(err *C.OCIError) (int, error) {
 	errorText := make([]byte, 1024)
 
 	C.OCIErrorGet(
-		unsafe.Pointer(err),       // error handle
-		1,                         // status record number, starts from 1
-		nil,                       // sqlstate, not supported in release 8.x or later
-		&errorCode,                // error code
-		(*C.uchar)(&errorText[0]), // error message text
+		unsafe.Pointer(err),         // error handle
+		1,                           // status record number, starts from 1
+		nil,                         // sqlstate, not supported in release 8.x or later
+		&errorCode,                  // error code
+		(*C.OraText)(&errorText[0]), // error message text
 		1024,              // size of the buffer provided in number of bytes
 		C.OCI_HTYPE_ERROR, // type of the handle (OCI_HTYPE_ERR or OCI_HTYPE_ENV)
 	)

@@ -160,11 +160,3 @@ func TestParseDSN(t *testing.T) {
 		}
 	}
 }
-
-// TestIsBadConn tests bad connection error codes
-func TestIsBadConn(t *testing.T) {
-	var errorCode = "ORA-03114"
-	if !isBadConnection(errorCode) {
-		t.Errorf("TestIsBadConn: expected %+v, actual %+v", true, isBadConnection(errorCode))
-	}
-}

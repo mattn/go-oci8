@@ -4,19 +4,6 @@
 #include <stdint.h>
 
 typedef struct {
-  char err[1024];
-  sword rv;
-} retErr;
-
-static retErr
-WrapOCIErrorGet(OCIError *err) {
-  retErr vvv;
-  sb4 errcode;
-  OCIErrorGet(err, 1, NULL, &errcode, (OraText*) vvv.err, sizeof(vvv.err), OCI_HTYPE_ERROR);
-  return vvv;
-}
-
-typedef struct {
   int num;
   sword rv;
 } retInt;

@@ -642,6 +642,21 @@ func TestSelectGoTypesNumber(t *testing.T) {
 				[][]interface{}{[]interface{}{float64(9223372036854775808)}},
 			},
 		},
+
+		// sum
+		testQueryResults{
+			query: "select sum(A) from (select :1 as A from dual union select :2 as A from dual)",
+			args: [][]interface{}{
+				[]interface{}{float64(1.5), float64(2.25)},
+				[]interface{}{int64(1), int64(2)},
+				[]interface{}{int64(1), float64(2.25)},
+			},
+			results: [][][]interface{}{
+				[][]interface{}{[]interface{}{float64(3.75)}},
+				[][]interface{}{[]interface{}{float64(3)}},
+				[][]interface{}{[]interface{}{float64(3.25)}},
+			},
+		},
 	}
 
 	testRunQueryResults(t, queryResults)

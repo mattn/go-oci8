@@ -181,12 +181,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_NUM
 		case C.SQLT_NUM: // NUMBER
-			buf := (*[21]byte)(unsafe.Pointer(rows.cols[i].pbuf))
+			buf := (*[21]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_VNU
 		case C.SQLT_VNU: // VARNUM
-			buf := (*[22]byte)(unsafe.Pointer(rows.cols[i].pbuf))
+			buf := (*[22]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_INT

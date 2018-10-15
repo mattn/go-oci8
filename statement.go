@@ -426,19 +426,25 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 				// The scale of numeric type attributes.
 				scale = int(rv.num)
 			}
-			// If the precision is nonzero and scale is -127, then it is a FLOAT, else it is a NUMBER(precision, scale).
-			// For the case when precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
-			// https://www.codeproject.com/Articles/776119/An-Oracle-OCI-Data-Source-Class-for-Ultimate-Gri
+			// The precision of numeric type attributes. If the precision is nonzero and scale is -127, then it is a FLOAT;
+			// otherwise, it is a NUMBER(precision, scale).
+			// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
+			// https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci06des.htm#LNOCI16458
 
-			if !(precision != 0 && scale == -127) && scale == 0 {
-				oci8cols[i].kind = C.SQLT_INT
-				oci8cols[i].size = 8
-				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
-			} else {
+			if (precision == 0 && scale == 0) || scale > 0 || scale == -127 {
 				oci8cols[i].kind = C.SQLT_BDOUBLE
 				oci8cols[i].size = 8
 				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
+			} else {
+				oci8cols[i].kind = C.SQLT_INT
+				oci8cols[i].size = 8
+				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 			}
+
+		case C.SQLT_INT:
+			oci8cols[i].kind = C.SQLT_INT
+			oci8cols[i].size = 8
+			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE:
 			oci8cols[i].kind = C.SQLT_BDOUBLE

@@ -341,11 +341,11 @@ func TestSelectParallel(t *testing.T) {
 			if len(result[0]) != 1 {
 				t.Fatal("len result[0] not equal to 1")
 			}
-			data, ok := result[0][0].(int64)
+			data, ok := result[0][0].(float64)
 			if !ok {
-				t.Fatal("result not int64")
+				t.Fatal("result not float64")
 			}
-			if data != int64(num) {
+			if data != float64(num) {
 				t.Fatal("result not equal to:", num)
 			}
 		}(i)

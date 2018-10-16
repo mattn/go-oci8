@@ -93,7 +93,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				C.OCI_DTYPE_TIMESTAMP_TZ,
 				C.size_t(size)); ret.rv != C.OCI_SUCCESS {
 				defer freeBoundParameters(boundParameters)
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 				sbind.kind = C.SQLT_TIMESTAMP_TZ
 				sbind.clen = C.sb4(unsafe.Sizeof(pt))
@@ -129,7 +129,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
 				if rvz.rv != C.OCI_SUCCESS {
 					defer freeBoundParameters(boundParameters)
-					return nil, ociGetError(rvz.rv, stmt.conn.err)
+					return nil, getError(rvz.rv, stmt.conn.err)
 				}
 				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
 					//fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
@@ -164,7 +164,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				)
 				if rv != C.OCI_SUCCESS {
 					defer freeBoundParameters(boundParameters)
-					return nil, ociGetError(rv, stmt.conn.err)
+					return nil, getError(rv, stmt.conn.err)
 				}
 			}
 
@@ -241,7 +241,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				nil,
 				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters(stmt.pbind)
-				return nil, ociGetError(rv, stmt.conn.err)
+				return nil, getError(rv, stmt.conn.err)
 			}
 		} else {
 			if rv := C.OCIBindByPos(
@@ -259,7 +259,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				nil,
 				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 				defer freeBoundParameters(stmt.pbind)
-				return nil, ociGetError(rv, stmt.conn.err)
+				return nil, getError(rv, stmt.conn.err)
 			}
 		}
 		boundParameters = append(boundParameters, sbind)
@@ -293,7 +293,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 	iter := C.ub4(1)
 	if retUb2 := C.WrapOCIAttrGetUb2(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_STMT_TYPE, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
-		return nil, ociGetError(retUb2.rv, stmt.conn.err)
+		return nil, getError(retUb2.rv, stmt.conn.err)
 	} else if retUb2.num == C.OCI_STMT_SELECT {
 		iter = 0
 	}
@@ -301,7 +301,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
 	if stmt.conn.prefetchRows > 0 {
 		if rv := C.WrapOCIAttrSetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetchRows), C.OCI_ATTR_PREFETCH_ROWS, stmt.conn.err); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, stmt.conn.err)
+			return nil, getError(rv, stmt.conn.err)
 		}
 	}
 
@@ -309,7 +309,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	// useful for memory constrained systems
 	if stmt.conn.prefetchMemory > 0 {
 		if rv := C.WrapOCIAttrSetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.ub4(stmt.conn.prefetchMemory), C.OCI_ATTR_PREFETCH_MEMORY, stmt.conn.err); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, stmt.conn.err)
+			return nil, getError(rv, stmt.conn.err)
 		}
 	}
 
@@ -345,12 +345,12 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		mode)
 	close(done)
 	if rv != C.OCI_SUCCESS {
-		return nil, ociGetError(rv, stmt.conn.err)
+		return nil, getError(rv, stmt.conn.err)
 	}
 
 	var rc int
 	if retUb2 := C.WrapOCIAttrGetUb2(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_PARAM_COUNT, stmt.conn.err); retUb2.rv != C.OCI_SUCCESS {
-		return nil, ociGetError(retUb2.rv, stmt.conn.err)
+		return nil, getError(retUb2.rv, stmt.conn.err)
 	} else {
 		rc = int(retUb2.num)
 	}
@@ -365,7 +365,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		if rp := C.WrapOCIParamGet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, stmt.conn.err, C.ub4(i+1)); rp.rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
-			return nil, ociGetError(rp.rv, stmt.conn.err)
+			return nil, getError(rp.rv, stmt.conn.err)
 		} else {
 			// A descriptor of the parameter at the position given in the pos parameter, of handle type OCI_DTYPE_PARAM.
 			p = rp.ptr
@@ -373,7 +373,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		if tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, stmt.conn.err); tpr.rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
-			return nil, ociGetError(tpr.rv, stmt.conn.err)
+			return nil, getError(tpr.rv, stmt.conn.err)
 		} else {
 			// external datatype of the column. Valid datatypes are: SQLT_CHR, SQLT_DATE, etc...
 			tp = tpr.num
@@ -381,7 +381,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		if nsr := C.WrapOCIAttrGetString(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_NAME, stmt.conn.err); nsr.rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
-			return nil, ociGetError(nsr.rv, stmt.conn.err)
+			return nil, getError(nsr.rv, stmt.conn.err)
 		} else {
 			// the name of the column that is being loaded.
 			oci8cols[i].name = string((*[1 << 30]byte)(unsafe.Pointer(nsr.ptr))[0:int(nsr.size)])
@@ -389,7 +389,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		if lpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_SIZE, stmt.conn.err); lpr.rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
-			return nil, ociGetError(lpr.rv, stmt.conn.err)
+			return nil, getError(lpr.rv, stmt.conn.err)
 		} else {
 			// Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
 			lp = lpr.num
@@ -414,31 +414,37 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			var scale int
 			if rv := C.WrapOCIAttrGetInt(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_PRECISION, stmt.conn.err); rv.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(rv.rv, stmt.conn.err)
+				return nil, getError(rv.rv, stmt.conn.err)
 			} else {
 				// The precision of numeric type attributes.
 				precision = int(rv.num)
 			}
 			if rv := C.WrapOCIAttrGetInt(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_SCALE, stmt.conn.err); rv.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(rv.rv, stmt.conn.err)
+				return nil, getError(rv.rv, stmt.conn.err)
 			} else {
 				// The scale of numeric type attributes.
 				scale = int(rv.num)
 			}
-			// If the precision is nonzero and scale is -127, then it is a FLOAT, else it is a NUMBER(precision, scale).
-			// For the case when precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
-			// https://www.codeproject.com/Articles/776119/An-Oracle-OCI-Data-Source-Class-for-Ultimate-Gri
+			// The precision of numeric type attributes. If the precision is nonzero and scale is -127, then it is a FLOAT;
+			// otherwise, it is a NUMBER(precision, scale).
+			// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
+			// https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci06des.htm#LNOCI16458
 
-			if !(precision != 0 && scale == -127) && scale == 0 {
-				oci8cols[i].kind = C.SQLT_INT
-				oci8cols[i].size = 8
-				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
-			} else {
+			if (precision == 0 && scale == 0) || scale > 0 || scale == -127 {
 				oci8cols[i].kind = C.SQLT_BDOUBLE
 				oci8cols[i].size = 8
 				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
+			} else {
+				oci8cols[i].kind = C.SQLT_INT
+				oci8cols[i].size = 8
+				oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 			}
+
+		case C.SQLT_INT:
+			oci8cols[i].kind = C.SQLT_INT
+			oci8cols[i].size = 8
+			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE:
 			oci8cols[i].kind = C.SQLT_BDOUBLE
@@ -460,7 +466,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			}
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 				oci8cols[i].kind = tp
 				oci8cols[i].size = int(sizeOfNilPointer)
@@ -479,7 +485,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		case C.SQLT_TIMESTAMP, C.SQLT_DAT:
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_TIMESTAMP, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_TIMESTAMP
@@ -491,7 +497,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_TIMESTAMP_TZ, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_TIMESTAMP_TZ
@@ -503,7 +509,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		case C.SQLT_INTERVAL_DS:
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_INTERVAL_DS, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
 				C.free(indrlenptr)
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_INTERVAL_DS
@@ -514,7 +520,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		case C.SQLT_INTERVAL_YM:
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_INTERVAL_YM, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
-				return nil, ociGetError(ret.rv, stmt.conn.err)
+				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 
 				oci8cols[i].kind = C.SQLT_INTERVAL_YM
@@ -551,7 +557,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			nil,
 			C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
 			C.free(indrlenptr)
-			return nil, ociGetError(rv, stmt.conn.err)
+			return nil, getError(rv, stmt.conn.err)
 		}
 	}
 
@@ -602,7 +608,7 @@ func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
 	retUb4 := C.WrapOCIAttrGetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, stmt.conn.err)
 	if retUb4.rv != C.OCI_SUCCESS {
-		return 0, ociGetError(retUb4.rv, stmt.conn.err)
+		return 0, getError(retUb4.rv, stmt.conn.err)
 	}
 	return int64(retUb4.num), nil
 }
@@ -663,7 +669,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Res
 		mode)
 	close(done)
 	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
-		return nil, ociGetError(rv, stmt.conn.err)
+		return nil, getError(rv, stmt.conn.err)
 	}
 
 	n, en := stmt.rowsAffected()

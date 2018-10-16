@@ -352,8 +352,8 @@ func TestSelectGoTypesString(t *testing.T) {
 				[]interface{}{byte('z')},
 			},
 			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{int64(97)}},
-				[][]interface{}{[]interface{}{int64(122)}},
+				[][]interface{}{[]interface{}{float64(97)}},
+				[][]interface{}{[]interface{}{float64(122)}},
 			},
 		},
 
@@ -365,8 +365,8 @@ func TestSelectGoTypesString(t *testing.T) {
 				[]interface{}{'z'},
 			},
 			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{int64(97)}},
-				[][]interface{}{[]interface{}{int64(122)}},
+				[][]interface{}{[]interface{}{float64(97)}},
+				[][]interface{}{[]interface{}{float64(122)}},
 			},
 		},
 

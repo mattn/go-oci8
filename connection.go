@@ -12,7 +12,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"strings"
 	"unsafe"
 )
 
@@ -94,15 +93,14 @@ func (conn *OCI8Conn) ping(ctx context.Context) error {
 	if rv == C.OCI_SUCCESS {
 		return nil
 	}
-	cError := C.WrapOCIErrorGet(conn.err)
-	s := C.GoString(&cError.err[0])
-	if strings.HasPrefix(s, "ORA-01010") {
+	errorCode, err := ociGetError(conn.err)
+	if errorCode == 1010 {
 		// Older versions of Oracle do not support ping,
 		// but a reponse of "ORA-01010: invalid OCI operation" confirms connectivity.
 		// See https://github.com/rana/ora/issues/224
 		return nil
 	}
-	conn.logger.Print("Ping error: ", s)
+	conn.logger.Print("Ping error: ", err)
 	return driver.ErrBadConn
 }
 
@@ -133,7 +131,7 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 			conn.err,
 		); rv != C.OCI_SUCCESS {
 			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
-			return nil, ociGetError(rv, conn.err)
+			return nil, getError(rv, conn.err)
 		}
 
 		if rv := C.OCITransStart(
@@ -143,7 +141,7 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
 		); rv != C.OCI_SUCCESS {
 			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
-			return nil, ociGetError(rv, conn.err)
+			return nil, getError(rv, conn.err)
 		}
 		// TOFIX: memory leak: th needs to be saved into OCI8Tx so OCIHandleFree can be called on it
 
@@ -167,14 +165,14 @@ func (conn *OCI8Conn) Close() error {
 			conn.usrSession,
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, conn.err)
+			err = getError(rv, conn.err)
 		}
 		if rv := C.OCIServerDetach(
 			conn.srv,
 			conn.err,
 			C.OCI_DEFAULT,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, conn.err)
+			err = getError(rv, conn.err)
 		}
 		C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 		C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
@@ -184,7 +182,7 @@ func (conn *OCI8Conn) Close() error {
 			conn.svc,
 			conn.err,
 		); rv != C.OCI_SUCCESS {
-			err = ociGetError(rv, conn.err)
+			err = getError(rv, conn.err)
 		}
 	}
 
@@ -218,7 +216,7 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 		C.OCI_HTYPE_STMT,
 		(C.size_t)(unsafe.Sizeof(bp)*2),
 	); rv.rv != C.OCI_SUCCESS {
-		return nil, ociGetError(rv.rv, conn.err)
+		return nil, getError(rv.rv, conn.err)
 	} else {
 		stmt = (*C.OCIStmt)(rv.ptr)
 		bp = rv.extra
@@ -234,7 +232,7 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 		C.ub4(C.OCI_DEFAULT),
 	); rv != C.OCI_SUCCESS {
 		C.OCIHandleFree(s, C.OCI_HTYPE_STMT)
-		return nil, ociGetError(rv, conn.err)
+		return nil, getError(rv, conn.err)
 	}
 
 	return &OCI8Stmt{conn: conn, stmt: stmt, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}, nil

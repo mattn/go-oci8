@@ -78,7 +78,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 	if rv == C.OCI_NO_DATA {
 		return io.EOF
 	} else if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
-		return ociGetError(rv, rows.stmt.conn.err)
+		return getError(rv, rows.stmt.conn.err)
 	}
 
 	for i := range dest {
@@ -118,7 +118,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				&csfrm,
 			)
 			if rv != C.OCI_SUCCESS {
-				return ociGetError(rv, rows.stmt.conn.err)
+				return getError(rv, rows.stmt.conn.err)
 			}
 
 			ptmp := unsafe.Pointer(uintptr(rows.cols[i].pbuf) + sizeOfNilPointer)
@@ -151,7 +151,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				}
 			}
 			if rv != C.OCI_SUCCESS {
-				return ociGetError(rv, rows.stmt.conn.err)
+				return getError(rv, rows.stmt.conn.err)
 			}
 
 			// set dest to buffer
@@ -181,12 +181,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_NUM
 		case C.SQLT_NUM: // NUMBER
-			buf := (*[21]byte)(unsafe.Pointer(rows.cols[i].pbuf))
+			buf := (*[21]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_VNU
 		case C.SQLT_VNU: // VARNUM
-			buf := (*[22]byte)(unsafe.Pointer(rows.cols[i].pbuf))
+			buf := (*[22]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_INT
@@ -221,7 +221,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				rows.stmt.conn.err,
 				*(**C.OCIDateTime)(rows.cols[i].pbuf),
 			); rv.rv != C.OCI_SUCCESS {
-				return ociGetError(rv.rv, rows.stmt.conn.err)
+				return getError(rv.rv, rows.stmt.conn.err)
 			} else {
 				dest[i] = time.Date(
 					int(rv.y),
@@ -243,14 +243,14 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				rows.stmt.conn.err,
 				tptr)
 			if rv.rv != C.OCI_SUCCESS {
-				return ociGetError(rv.rv, rows.stmt.conn.err)
+				return getError(rv.rv, rows.stmt.conn.err)
 			}
 			rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
 				rows.stmt.conn.env,
 				rows.stmt.conn.err,
 				tptr)
 			if rvz.rv != C.OCI_SUCCESS {
-				return ociGetError(rvz.rv, rows.stmt.conn.err)
+				return getError(rvz.rv, rows.stmt.conn.err)
 			}
 			nnn := C.GoStringN((*C.char)((unsafe.Pointer)(&rvz.zone[0])), C.int(rvz.zlen))
 			loc, err := time.LoadLocation(nnn)
@@ -276,7 +276,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				rows.stmt.conn.err,
 				iptr)
 			if rv.rv != C.OCI_SUCCESS {
-				return ociGetError(rv.rv, rows.stmt.conn.err)
+				return getError(rv.rv, rows.stmt.conn.err)
 			}
 			dest[i] = int64(time.Duration(rv.d)*time.Hour*24 + time.Duration(rv.hh)*time.Hour + time.Duration(rv.mm)*time.Minute + time.Duration(rv.ss)*time.Second + time.Duration(rv.ff))
 
@@ -288,7 +288,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				rows.stmt.conn.err,
 				iptr)
 			if rv.rv != C.OCI_SUCCESS {
-				return ociGetError(rv.rv, rows.stmt.conn.err)
+				return getError(rv.rv, rows.stmt.conn.err)
 			}
 			dest[i] = int64(rv.y)*12 + int64(rv.m)
 

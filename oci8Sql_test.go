@@ -47,20 +47,6 @@ func testGetDB() *sql.DB {
 		return nil
 	}
 
-	db.Exec("drop table foo")
-
-	_, err = db.Exec(sql1)
-	if err != nil {
-		fmt.Println("sql1 error:", err)
-		return nil
-	}
-
-	_, err = db.Exec("truncate table foo")
-	if err != nil {
-		fmt.Println("truncate error:", err)
-		return nil
-	}
-
 	return db
 }
 
@@ -349,17 +335,17 @@ func TestSelectParallel(t *testing.T) {
 			if result == nil {
 				t.Fatal("result is nil")
 			}
-			if len(result) < 1 {
-				t.Fatal("len result less than 1")
+			if len(result) != 1 {
+				t.Fatal("len result not equal to 1")
 			}
-			if len(result[0]) < 1 {
-				t.Fatal("len result[0] less than 1")
+			if len(result[0]) != 1 {
+				t.Fatal("len result[0] not equal to 1")
 			}
-			data, ok := result[0][0].(int64)
+			data, ok := result[0][0].(float64)
 			if !ok {
-				t.Fatal("result not int64")
+				t.Fatal("result not float64")
 			}
-			if data != int64(num) {
+			if data != float64(num) {
 				t.Fatal("result not equal to:", num)
 			}
 		}(i)
@@ -419,4 +405,312 @@ func TestContextTimeoutBreak(t *testing.T) {
 	if err != nil {
 		t.Fatal("stmt close error:", err)
 	}
+}
+
+// TestDestructiveTransaction tests a transaction
+func TestDestructiveTransaction(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	err := testExec(t, "create table TRANSACTION_"+TestTimeString+
+		" ( A INT, B INT, C INT )", nil)
+	if err != nil {
+		t.Error("create table error:", err)
+		return
+	}
+
+	defer func() {
+		err = testExec(t, "drop table TRANSACTION_"+TestTimeString, nil)
+		if err != nil {
+			t.Error("drop table error:", err)
+		}
+	}()
+
+	err = testExecRows(t, "insert into TRANSACTION_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{1, 2, 3},
+			[]interface{}{4, 5, 6},
+			[]interface{}{6, 7, 8},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+		return
+	}
+
+	// TODO: How should context work? Probably should have more context create and cancel.
+
+	var tx1 *sql.Tx
+	var tx2 *sql.Tx
+	ctx, cancel := context.WithTimeout(context.Background(), 2*TestContextTimeout)
+	defer cancel()
+	tx1, err = TestDB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Error("begin tx error:", err)
+		return
+	}
+	tx2, err = TestDB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Error("begin tx error:", err)
+		return
+	}
+
+	queryResults := []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), int64(2), int64(3)},
+					[]interface{}{int64(4), int64(5), int64(6)},
+					[]interface{}{int64(6), int64(7), int64(8)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	_, err = tx1.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{22, 1}...)
+	if err != nil {
+		t.Error("exec error:", err)
+		return
+	}
+	_, err = tx2.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{55, 4}...)
+	if err != nil {
+		t.Error("exec error:", err)
+		return
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), int64(2), int64(3)},
+					[]interface{}{int64(4), int64(5), int64(6)},
+					[]interface{}{int64(6), int64(7), int64(8)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// tx1 with rows A = 1
+	var stmt *sql.Stmt
+	stmt, err = tx1.PrepareContext(ctx, "select A, B, C from TRANSACTION_"+TestTimeString+" where A = :1")
+	if err != nil {
+		t.Error("prepare error:", err)
+		return
+	}
+	var result [][]interface{}
+	result, err = testGetRows(t, stmt, []interface{}{1})
+	if result == nil {
+		t.Error("result is nil")
+		return
+	}
+	if len(result) != 1 {
+		t.Error("len result not equal to 1")
+		return
+	}
+	if len(result[0]) != 3 {
+		t.Error("len result[0] not equal to 3")
+		return
+	}
+	data, ok := result[0][0].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected := int64(1)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][1].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(22)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][2].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(3)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+
+	// tx1 with rows A = 4
+	result, err = testGetRows(t, stmt, []interface{}{4})
+	if result == nil {
+		t.Error("result is nil")
+		return
+	}
+	if len(result) != 1 {
+		t.Error("len result not equal to 1")
+		return
+	}
+	if len(result[0]) != 3 {
+		t.Error("len result[0] not equal to 3")
+		return
+	}
+	data, ok = result[0][0].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(4)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][1].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(5)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][2].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(6)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+
+	// tx2 with rows A = 1
+	stmt, err = tx2.PrepareContext(ctx, "select A, B, C from TRANSACTION_"+TestTimeString+" where A = :1")
+	if err != nil {
+		t.Error("prepare error:", err)
+		return
+	}
+	result, err = testGetRows(t, stmt, []interface{}{1})
+	if result == nil {
+		t.Error("result is nil")
+		return
+	}
+	if len(result) != 1 {
+		t.Error("len result not equal to 1")
+		return
+	}
+	if len(result[0]) != 3 {
+		t.Error("len result[0] not equal to 3")
+		return
+	}
+	data, ok = result[0][0].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(1)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][1].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(2)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][2].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(3)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+
+	// tx2 with rows A = 4
+	result, err = testGetRows(t, stmt, []interface{}{4})
+	if result == nil {
+		t.Error("result is nil")
+		return
+	}
+	if len(result) != 1 {
+		t.Error("len result not equal to 1")
+		return
+	}
+	if len(result[0]) != 3 {
+		t.Error("len result[0] not equal to 3")
+		return
+	}
+	data, ok = result[0][0].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(4)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][1].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(55)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+	data, ok = result[0][2].(int64)
+	if !ok {
+		t.Error("result not int64")
+		return
+	}
+	expected = int64(6)
+	if data != expected {
+		t.Error("result not equal to:", expected)
+		return
+	}
+
+	err = tx1.Commit()
+	if err != nil {
+		t.Error("commit err:", err)
+		return
+	}
+	err = tx2.Commit()
+	if err != nil {
+		t.Error("commit err:", err)
+		return
+	}
+
+	queryResults = []testQueryResults{
+		testQueryResults{
+			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+			args:  [][]interface{}{[]interface{}{}},
+			results: [][][]interface{}{
+				[][]interface{}{
+					[]interface{}{int64(1), int64(22), int64(3)},
+					[]interface{}{int64(4), int64(55), int64(6)},
+					[]interface{}{int64(6), int64(7), int64(8)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
 }

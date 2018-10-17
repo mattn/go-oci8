@@ -2190,6 +2190,8 @@ func TestFunctionCallNumber(t *testing.T) {
 
 	// https://ss64.com/ora/syntax-datatypes.html
 
+	var execResults testExecResults
+
 	execResultInt64 := []testExecResult{
 		testExecResult{
 			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-32768), In: true}},
@@ -2220,6 +2222,7 @@ func TestFunctionCallNumber(t *testing.T) {
 			results: map[string]interface{}{"num1": int64(32768)},
 		},
 	}
+
 	execResultInt64Medium := []testExecResult{
 		testExecResult{
 			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483648), In: true}},
@@ -2231,26 +2234,24 @@ func TestFunctionCallNumber(t *testing.T) {
 		},
 	}
 
-	/*
-		execResultInt64Big := []testExecResult{
-			testExecResult{
-				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-9223372036854775808), In: true}},
-				results: map[string]interface{}{"num1": int64(-9223372036854775807)},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483649), In: true}},
-				results: map[string]interface{}{"num1": int64(-2147483648)},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483647), In: true}},
-				results: map[string]interface{}{"num1": int64(2147483648)},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(9223372036854775806), In: true}},
-				results: map[string]interface{}{"num1": int64(9223372036854775807)},
-			},
-		}
-	*/
+	execResultInt64Big := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-9223372036854775808), In: true}},
+			results: map[string]interface{}{"num1": int64(-9223372036854775807)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483649), In: true}},
+			results: map[string]interface{}{"num1": int64(-2147483648)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483647), In: true}},
+			results: map[string]interface{}{"num1": int64(2147483648)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(9223372036854775806), In: true}},
+			results: map[string]interface{}{"num1": int64(9223372036854775807)},
+		},
+	}
 
 	execResultFloat64Int := []testExecResult{
 		testExecResult{
@@ -2332,8 +2333,7 @@ func TestFunctionCallNumber(t *testing.T) {
 	}
 
 	// NUMBER
-	execResults := testExecResults{
-		query: `
+	execResults.query = `
 declare
 	function GET_NUMBER(p_number NUMBER) return NUMBER as
 	begin
@@ -2341,11 +2341,12 @@ declare
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
-end;`,
-		execResults: execResultInt64,
-	}
+end;`
+	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
@@ -2372,6 +2373,8 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
 	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
@@ -2390,6 +2393,8 @@ end;`
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
@@ -2410,6 +2415,8 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
 	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
@@ -2429,9 +2436,13 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
 	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64
 	testRunExecResults(t, execResults)
 
 	// INTEGER
@@ -2447,6 +2458,8 @@ end;`
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
@@ -2467,6 +2480,8 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
 	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
@@ -2485,6 +2500,8 @@ end;`
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
@@ -2505,9 +2522,13 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64Medium
 	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Big
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64
 	testRunExecResults(t, execResults)
 
 	// BINARY_FLOAT
@@ -2542,6 +2563,8 @@ end;`
 	execResults.execResults = execResultFloat64Int
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64
 	testRunExecResults(t, execResults)
 
 	// PLS_INTEGER

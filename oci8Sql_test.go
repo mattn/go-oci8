@@ -163,6 +163,73 @@ func testExecRows(t *testing.T, query string, args [][]interface{}) error {
 	return nil
 }
 
+// testRunExecResults runs exec queries for each arg row and checks results
+func testRunExecResults(t *testing.T, execResults testExecResults) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, execResults.query)
+	cancel()
+	if err != nil {
+		t.Errorf("prepare error: %v - query: %v", err, execResults.query)
+		return
+	}
+
+	for _, execResult := range execResults.execResults {
+		testRunExecResult(t, execResult, execResults.query, stmt)
+	}
+}
+
+// testRunExecResult runs exec query for each arg row and checks results
+func testRunExecResult(t *testing.T, execResult testExecResult, query string, stmt *sql.Stmt) {
+	var rv reflect.Value
+	results := make(map[string]interface{}, len(execResult.args))
+
+	// change args to namedArgs
+	namedArgs := make([]interface{}, 0, len(execResult.args))
+	for key, value := range execResult.args {
+		// make pointer
+		rv = reflect.ValueOf(value.Dest)
+		out := reflect.New(rv.Type())
+		if !out.Elem().CanSet() {
+			t.Fatalf("unable to set pointer: %v - query: %v", key, query)
+			return
+		}
+		out.Elem().Set(rv)
+		results[key] = out.Interface()
+
+		namedArgs = append(namedArgs, sql.Named(key, sql.Out{Dest: out.Interface(), In: value.In}))
+	}
+
+	// exec query with namedArgs
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err := stmt.ExecContext(ctx, namedArgs...)
+	if err != nil {
+		t.Errorf("exec error: %v - query: %v - args: %v", err, query, execResult.args)
+		return
+	}
+	cancel()
+
+	// check results
+	for key, value := range execResult.results {
+		// check if have result
+		result, ok := results[key]
+		if !ok {
+			t.Errorf("result not found: %v - query: %v", key, query)
+			continue
+		}
+
+		// get result from result pointer
+		rv = reflect.ValueOf(result)
+		rv = reflect.Indirect(rv)
+		result = rv.Interface()
+
+		// check if value matches result
+		if result != value {
+			t.Errorf("arg: %v - received: %T, %v - expected: %T, %v - query: %v",
+				key, result, result, value, value, query)
+		}
+	}
+}
+
 // testRunQueryResults runs a slice of testQueryResults tests
 func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
 	for _, queryResult := range queryResults {

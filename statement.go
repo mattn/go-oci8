@@ -626,10 +626,9 @@ func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 }
 
 // exec runs an exec query
-func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result, err error) {
-	var (
-		fbp []oci8bind
-	)
+func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Result, error) {
+	var err error
+	var fbp []oci8bind
 
 	if fbp, err = stmt.bind(args); err != nil {
 		return nil, err
@@ -678,6 +677,11 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Res
 	if n > 0 {
 		id, ei = stmt.lastInsertId()
 	}
-	outputBoundParameters(fbp)
+
+	err = outputBoundParameters(fbp)
+	if err != nil {
+		return nil, err
+	}
+
 	return &OCI8Result{stmt: stmt, n: n, errn: en, id: id, errid: ei}, nil
 }

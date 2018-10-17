@@ -1,6 +1,7 @@
 package oci8
 
 import (
+	"database/sql"
 	"testing"
 )
 
@@ -2180,4 +2181,385 @@ func TestDestructiveNumber(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+}
+
+func TestFunctionCallNumber(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	// https://ss64.com/ora/syntax-datatypes.html
+
+	execResultInt64 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-32768), In: true}},
+			results: map[string]interface{}{"num1": int64(-32767)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-128), In: true}},
+			results: map[string]interface{}{"num1": int64(-127)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-1), In: true}},
+			results: map[string]interface{}{"num1": int64(0)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0), In: true}},
+			results: map[string]interface{}{"num1": int64(1)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(1), In: true}},
+			results: map[string]interface{}{"num1": int64(2)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(127), In: true}},
+			results: map[string]interface{}{"num1": int64(128)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(32767), In: true}},
+			results: map[string]interface{}{"num1": int64(32768)},
+		},
+	}
+	execResultInt64Medium := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483648), In: true}},
+			results: map[string]interface{}{"num1": int64(-2147483647)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483646), In: true}},
+			results: map[string]interface{}{"num1": int64(2147483647)},
+		},
+	}
+
+	/*
+		execResultInt64Big := []testExecResult{
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-9223372036854775808), In: true}},
+				results: map[string]interface{}{"num1": int64(-9223372036854775807)},
+			},
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483649), In: true}},
+				results: map[string]interface{}{"num1": int64(-2147483648)},
+			},
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483647), In: true}},
+				results: map[string]interface{}{"num1": int64(2147483648)},
+			},
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(9223372036854775806), In: true}},
+				results: map[string]interface{}{"num1": int64(9223372036854775807)},
+			},
+		}
+	*/
+
+	execResultFloat64Int := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0), In: true}},
+			results: map[string]interface{}{"num1": float64(1)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1), In: true}},
+			results: map[string]interface{}{"num1": float64(2)},
+		},
+	}
+
+	execResultFloat64IntMedium := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-2147483648), In: true}},
+			results: map[string]interface{}{"num1": float64(-2147483647)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-123456792), In: true}},
+			results: map[string]interface{}{"num1": float64(-123456791)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(123456792), In: true}},
+			results: map[string]interface{}{"num1": float64(123456793)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(2147483646), In: true}},
+			results: map[string]interface{}{"num1": float64(2147483647)},
+		},
+	}
+
+	execResultFloat64IntBig := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-288230381928101358902502915674136903680), In: true}},
+			results: map[string]interface{}{"num1": float64(-288230381928101358902502915674136903679)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(288230381928101358902502915674136903680), In: true}},
+			results: map[string]interface{}{"num1": float64(288230381928101358902502915674136903681)},
+		},
+	}
+
+	execResultFloat64 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-1.9990234375), In: true}},
+			results: map[string]interface{}{"num1": float64(-0.9990234375)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-0.0068359375), In: true}},
+			results: map[string]interface{}{"num1": float64(0.9931640625)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0.0048828125), In: true}},
+			results: map[string]interface{}{"num1": float64(1.0048828125)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1.9990234375), In: true}},
+			results: map[string]interface{}{"num1": float64(2.9990234375)},
+		},
+	}
+
+	execResultFloat64Big := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-1.99999988079071044921875), In: true}},
+			results: map[string]interface{}{"num1": float64(-0.99999988079071044921875)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-0.00415134616196155548095703125), In: true}},
+			results: map[string]interface{}{"num1": float64(0.99584865383803844451904296875)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0.00415134616196155548095703125), In: true}},
+			results: map[string]interface{}{"num1": float64(1.00415134616196155548095703125)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1.99999988079071044921875), In: true}},
+			results: map[string]interface{}{"num1": float64(2.99999988079071044921875)},
+		},
+	}
+
+	// NUMBER
+	execResults := testExecResults{
+		query: `
+declare
+	function GET_NUMBER(p_number NUMBER) return NUMBER as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`,
+		execResults: execResultInt64,
+	}
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntBig
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Big
+	testRunExecResults(t, execResults)
+
+	// DEC
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number DEC) return DEC as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// DECIMAL
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number DECIMAL) return DECIMAL as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// NUMERIC
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number NUMERIC) return NUMERIC as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// FLOAT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number FLOAT) return FLOAT as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// INTEGER
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number INTEGER) return INTEGER as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// INT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number INT) return INT as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// SMALLINT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number SMALLINT) return SMALLINT as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// REAL
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number REAL) return REAL as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// BINARY_FLOAT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number BINARY_FLOAT) return BINARY_FLOAT as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+
+	// BINARY_DOUBLE
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number BINARY_DOUBLE) return BINARY_DOUBLE as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
+
+	// PLS_INTEGER
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number PLS_INTEGER) return PLS_INTEGER as
+	begin
+		return p_number + 1;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64Medium
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64Int
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat64IntMedium
+	testRunExecResults(t, execResults)
 }

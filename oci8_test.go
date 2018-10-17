@@ -59,6 +59,18 @@ type testQueryResults struct {
 	results [][][]interface{}
 }
 
+// testExecResults is for testing an exec queries
+type testExecResults struct {
+	query       string
+	execResults []testExecResult
+}
+
+// testExecResult is for testing an exec query
+type testExecResult struct {
+	args    map[string]sql.Out
+	results map[string]interface{}
+}
+
 // TestMain sets up testing
 func TestMain(m *testing.M) {
 	code := setupForTesting()

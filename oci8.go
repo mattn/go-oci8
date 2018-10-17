@@ -9,12 +9,13 @@ import "C"
 // noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
+	"bytes"
 	"database/sql/driver"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -385,8 +386,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 	return
 }
 
-func outputBoundParameters(boundParameters []oci8bind) {
-	for _, col := range boundParameters {
+func outputBoundParameters(boundParameters []oci8bind) error {
+	for i, col := range boundParameters {
 		if col.pbuf != nil {
 			switch v := col.out.(type) {
 			case *string:
@@ -413,27 +414,25 @@ func outputBoundParameters(boundParameters []oci8bind) {
 				*v = uint16(getUint64(col.pbuf))
 			case *uint8:
 				*v = uint8(getUint64(col.pbuf))
+			case *uintptr:
+				*v = uintptr(getUint64(col.pbuf))
 
 			case *float64:
-
-				buf := (*[1 << 30]byte)(col.pbuf)[0:8]
-				f := uint64(buf[7])
-				f |= uint64(buf[6]) << 8
-				f |= uint64(buf[5]) << 16
-				f |= uint64(buf[4]) << 24
-				f |= uint64(buf[3]) << 32
-				f |= uint64(buf[2]) << 40
-				f |= uint64(buf[1]) << 48
-				f |= uint64(buf[0]) << 56
-
-				// Don't know why bits are inverted that way, but it works
-				if buf[0]&0x80 == 0 {
-					f ^= 0xffffffffffffffff
-				} else {
-					f &= 0x7fffffffffffffff
+				buf := (*[8]byte)(col.pbuf)[0:8]
+				var data float64
+				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+				if err != nil {
+					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-
-				*v = math.Float64frombits(f)
+				*v = data
+			case *float32:
+				buf := (*[8]byte)(col.pbuf)[0:8]
+				var data float32
+				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+				if err != nil {
+					return fmt.Errorf("binary read for column %v - error: %v", i, err)
+				}
+				*v = data
 
 			case *bool:
 				buf := (*[1 << 30]byte)(col.pbuf)[0:1]
@@ -441,6 +440,8 @@ func outputBoundParameters(boundParameters []oci8bind) {
 			}
 		}
 	}
+
+	return nil
 }
 
 // GetLastInsertId retuns last inserted ID

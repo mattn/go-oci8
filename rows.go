@@ -163,7 +163,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_CHR, SQLT_AFC, and SQLT_AVC
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_AVC:
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			switch {
 			case *rows.cols[i].ind == 0: // Normal
 				dest[i] = string(buf)
@@ -176,22 +176,22 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_BIN
 		case C.SQLT_BIN: // RAW
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_NUM
 		case C.SQLT_NUM: // NUMBER
-			buf := (*[21]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[21]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_VNU
 		case C.SQLT_VNU: // VARNUM
-			buf := (*[22]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[22]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_INT
 		case C.SQLT_INT: // INT
-			buf := (*[8]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[8]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			var data int64
 			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
 			if err != nil {
@@ -201,7 +201,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_BDOUBLE
 		case C.SQLT_BDOUBLE: // native double
-			buf := (*[8]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[8]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			var data float64
 			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
 			if err != nil {
@@ -211,7 +211,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_LNG
 		case C.SQLT_LNG: // LONG
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rows.cols[i].pbuf))[0:*rows.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
 			dest[i] = buf
 
 		// SQLT_TIMESTAMP

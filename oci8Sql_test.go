@@ -202,11 +202,11 @@ func testRunExecResult(t *testing.T, execResult testExecResult, query string, st
 	// exec query with namedArgs
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	_, err := stmt.ExecContext(ctx, namedArgs...)
+	cancel()
 	if err != nil {
 		t.Errorf("exec error: %v - query: %v - args: %v", err, query, execResult.args)
 		return
 	}
-	cancel()
 
 	// check results
 	for key, value := range execResult.results {

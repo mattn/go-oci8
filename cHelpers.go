@@ -1,9 +1,6 @@
 package oci8
 
-/*
-#include "oci8.go.h"
-#cgo !noPkgConfig pkg-config: oci8
-*/
+// #include "oci8.go.h"
 import "C"
 
 import (
@@ -13,8 +10,6 @@ import (
 	"fmt"
 	"unsafe"
 )
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 func freeBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {

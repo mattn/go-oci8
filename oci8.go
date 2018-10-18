@@ -1,12 +1,7 @@
 package oci8
 
-/*
-#include "oci8.go.h"
-#cgo !noPkgConfig pkg-config: oci8
-*/
+// #include "oci8.go.h"
 import "C"
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
 	"bytes"

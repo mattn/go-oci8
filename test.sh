@@ -12,7 +12,7 @@ cd /tmp/
 wget -nv https://dl.google.com/go/go1.11.linux-amd64.tar.gz
 wget -nv https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz
 wget -nv https://dl.google.com/go/go1.9.7.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.8.7.linux-amd64.tar.gz
+# wget -nv https://dl.google.com/go/go1.8.7.linux-amd64.tar.gz
 
 mkdir -p /usr/local/goFiles1.11.x
 tar -xf /tmp/go1.11.linux-amd64.tar.gz
@@ -26,9 +26,9 @@ mkdir -p /usr/local/goFiles1.9.x
 tar -xf /tmp/go1.9.7.linux-amd64.tar.gz
 mv /tmp/go /usr/local/go1.9.x
 
-mkdir -p /usr/local/goFiles1.8.x
-tar -xf /tmp/go1.8.7.linux-amd64.tar.gz
-mv /tmp/go /usr/local/go1.8.x
+# mkdir -p /usr/local/goFiles1.8.x
+# tar -xf /tmp/go1.8.7.linux-amd64.tar.gz
+# mv /tmp/go /usr/local/go1.8.x
 
 
 echo "setting up Oracle"

@@ -2,678 +2,757 @@ package oci8
 
 import (
 	"database/sql"
+	"math"
 	"testing"
 )
 
-// TestSelectCastNumber checks cast x from dual number types
-func TestSelectCastNumber(t *testing.T) {
+// TestSelectDualNumber checks select dual for number types
+func TestSelectDualNumber(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	queryResults := testQueryResults{}
+
+	// bool
+	queryResultBoolToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{false},
+			results: [][]interface{}{[]interface{}{int64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{true},
+			results: [][]interface{}{[]interface{}{int64(1)}},
+		},
+	}
+	// int8: -128 to 127
+	queryResultInt8ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int8(-128)},
+			results: [][]interface{}{[]interface{}{int64(-128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(-1)},
+			results: [][]interface{}{[]interface{}{int64(-1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(0)},
+			results: [][]interface{}{[]interface{}{int64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(1)},
+			results: [][]interface{}{[]interface{}{int64(1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(127)},
+			results: [][]interface{}{[]interface{}{int64(127)}},
+		},
+	}
+	// int16: -32768 to 32767
+	queryResultInt16ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int16(-32768)},
+			results: [][]interface{}{[]interface{}{int64(-32768)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(-128)},
+			results: [][]interface{}{[]interface{}{int64(-128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(127)},
+			results: [][]interface{}{[]interface{}{int64(127)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(32767)},
+			results: [][]interface{}{[]interface{}{int64(32767)}},
+		},
+	}
+	// int32: -2147483648 to 2147483647
+	queryResultInt32ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int32(-2147483648)},
+			results: [][]interface{}{[]interface{}{int64(-2147483648)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(-32768)},
+			results: [][]interface{}{[]interface{}{int64(-32768)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(32767)},
+			results: [][]interface{}{[]interface{}{int64(32767)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(2147483647)},
+			results: [][]interface{}{[]interface{}{int64(2147483647)}},
+		},
+	}
+	// int64: -9223372036854775808 to 9223372036854775807
+	queryResultInt64ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int64(-9223372036854775808)},
+			results: [][]interface{}{[]interface{}{int64(-9223372036854775808)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(-2147483648)},
+			results: [][]interface{}{[]interface{}{int64(-2147483648)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(2147483647)},
+			results: [][]interface{}{[]interface{}{int64(2147483647)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(9223372036854775807)},
+			results: [][]interface{}{[]interface{}{int64(9223372036854775807)}},
+		},
+	}
+	// uint8: 0 to 255
+	queryResultUint8ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint8(0)},
+			results: [][]interface{}{[]interface{}{int64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(1)},
+			results: [][]interface{}{[]interface{}{int64(1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(127)},
+			results: [][]interface{}{[]interface{}{int64(127)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(128)},
+			results: [][]interface{}{[]interface{}{int64(128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(255)},
+			results: [][]interface{}{[]interface{}{int64(255)}},
+		},
+	}
+	// uint16: 0 to 65535
+	queryResultUint16ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint16(255)},
+			results: [][]interface{}{[]interface{}{int64(255)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint16(65535)},
+			results: [][]interface{}{[]interface{}{int64(65535)}},
+		},
+	}
+	// uint32: 0 to 4294967295
+	queryResultUint32ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint32(65535)},
+			results: [][]interface{}{[]interface{}{int64(65535)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint32(4294967295)},
+			results: [][]interface{}{[]interface{}{int64(4294967295)}},
+		},
+	}
+	// uint64: 0 to 18446744073709551615
+	// for 18446744073709551615 get: get rows error: query error: sql: converting argument $1 type: uint64 values with high bit set are not supported
+	queryResultUint64ToInt := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint64(4294967295)},
+			results: [][]interface{}{[]interface{}{int64(4294967295)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint64(9223372036854775807)},
+			results: [][]interface{}{[]interface{}{int64(9223372036854775807)}},
+		},
+	}
+	// bool
+	queryResultBoolToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{false},
+			results: [][]interface{}{[]interface{}{float64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{true},
+			results: [][]interface{}{[]interface{}{float64(1)}},
+		},
+	}
+	// int8: -128 to 127
+	queryResultInt8ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int8(-128)},
+			results: [][]interface{}{[]interface{}{float64(-128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(-1)},
+			results: [][]interface{}{[]interface{}{float64(-1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(0)},
+			results: [][]interface{}{[]interface{}{float64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(1)},
+			results: [][]interface{}{[]interface{}{float64(1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int8(127)},
+			results: [][]interface{}{[]interface{}{float64(127)}},
+		},
+	}
+	// int16: -32768 to 32767
+	queryResultInt16ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int16(-32768)},
+			results: [][]interface{}{[]interface{}{float64(-32768)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(-128)},
+			results: [][]interface{}{[]interface{}{float64(-128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(127)},
+			results: [][]interface{}{[]interface{}{float64(127)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int16(32767)},
+			results: [][]interface{}{[]interface{}{float64(32767)}},
+		},
+	}
+	// int32: -2147483648 to 2147483647
+	queryResultInt32ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int32(-2147483648)},
+			results: [][]interface{}{[]interface{}{float64(-2147483648)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(-32768)},
+			results: [][]interface{}{[]interface{}{float64(-32768)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(32767)},
+			results: [][]interface{}{[]interface{}{float64(32767)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int32(2147483647)},
+			results: [][]interface{}{[]interface{}{float64(2147483647)}},
+		},
+	}
+	// int64: -9223372036854775808 to 9223372036854775807
+	queryResultInt64ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int64(-9223372036854775808)},
+			results: [][]interface{}{[]interface{}{float64(-9223372036854775808)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(-2147483648)},
+			results: [][]interface{}{[]interface{}{float64(-2147483648)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(2147483647)},
+			results: [][]interface{}{[]interface{}{float64(2147483647)}},
+		},
+		testQueryResult{
+			args:    []interface{}{int64(9223372036854775807)},
+			results: [][]interface{}{[]interface{}{float64(9223372036854775807)}},
+		},
+	}
+	// uint8: 0 to 255
+	queryResultUint8ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint8(0)},
+			results: [][]interface{}{[]interface{}{float64(0)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(1)},
+			results: [][]interface{}{[]interface{}{float64(1)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(127)},
+			results: [][]interface{}{[]interface{}{float64(127)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(128)},
+			results: [][]interface{}{[]interface{}{float64(128)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint8(255)},
+			results: [][]interface{}{[]interface{}{float64(255)}},
+		},
+	}
+	// uint16: 0 to 65535
+	queryResultUint16ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint16(255)},
+			results: [][]interface{}{[]interface{}{float64(255)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint16(65535)},
+			results: [][]interface{}{[]interface{}{float64(65535)}},
+		},
+	}
+	// uint32: 0 to 4294967295
+	queryResultUint32ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint32(65535)},
+			results: [][]interface{}{[]interface{}{float64(65535)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint32(4294967295)},
+			results: [][]interface{}{[]interface{}{float64(4294967295)}},
+		},
+	}
+	// uint64: 0 to 18446744073709551615
+	// for 18446744073709551615 get: get rows error: query error: sql: converting argument $1 type: uint64 values with high bit set are not supported
+	queryResultUint64ToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{uint64(4294967295)},
+			results: [][]interface{}{[]interface{}{float64(4294967295)}},
+		},
+		testQueryResult{
+			args:    []interface{}{uint64(9223372036854775807)},
+			results: [][]interface{}{[]interface{}{float64(9223372036854775807)}},
+		},
+	}
+	// float32 positive: sign 1 bit, exponent 8 bits, Mantissa 23 bits
+	queryResultFloat32PositiveToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x00000000)}, // 0 00000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x00000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40000000)}, // 0 10000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40400000)}, // 0 10000000 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40400000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40600000)}, // 0 10000000 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40600000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40800000)}, // 0 10000001 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40800000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40c00000)}, // 0 10000001 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40c00000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x40e00000)}, // 0 10000001 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40e00000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x60000000)}, // 0 11000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x60400000)}, // 0 11000000 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60400000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x60600000)}, // 0 11000000 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60600000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x407f8000)}, // 0 10000000 11111111000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407f8000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x407fc000)}, // 0 10000000 11111111100000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407fc000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x407fe000)}, // 0 10000000 11111111110000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407fe000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x407ff000)}, // 0 10000000 11111111111000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ff000))}},
+		},
+		/*
+			TODO: get decimal errors at this point, why?
+			testQueryResult{
+				args:    []interface{}{math.Float32frombits(0x407ff800)}, // 0 10000000 11111111111100000000000
+				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ff800))}},
+			},
+			testQueryResult{
+				args:    []interface{}{math.Float32frombits(0x407ffc00)}, // 0 10000000 11111111111110000000000
+				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ffc00))}},
+			},
+		*/
+	}
+	// float32 negative: sign 1 bit, exponent 8 bits, Mantissa 23 bits
+	queryResultFloat32NegativeToFloat := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0x80000000)}, // 1 00000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x80000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0000000)}, // 1 10000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0400000)}, // 1 10000000 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0400000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0600000)}, // 1 10000000 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0600000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0800000)}, // 1 10000001 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0800000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0c00000)}, // 1 10000001 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0c00000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc0e00000)}, // 1 10000001 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0e00000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xe0000000)}, // 1 11000000 00000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0000000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xe0400000)}, // 1 11000000 10000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0400000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xe0600000)}, // 1 11000000 11000000000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0600000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc07f8000)}, // 1 10000000 11111111000000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07f8000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc07fc000)}, // 1 10000000 11111111100000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07fc000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc07fe000)}, // 1 10000000 11111111110000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07fe000))}},
+		},
+		testQueryResult{
+			args:    []interface{}{math.Float32frombits(0xc07ff000)}, // 1 10000000 11111111111000000000000
+			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ff000))}},
+		},
+		/*
+			TODO: get decimal errors at this point, why?
+			testQueryResult{
+				args:    []interface{}{math.Float32frombits(0xc07ff800)}, // 1 10000000 11111111111100000000000
+				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ff800))}},
+			},
+			testQueryResult{
+				args:    []interface{}{math.Float32frombits(0xc07ffc00)}, // 1 10000000 11111111111110000000000
+				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ffc00))}},
+			},
+		*/
+	}
+
+	// TODO: added float64 positive and negative
 
 	// https://ss64.com/ora/syntax-datatypes.html
 
-	queryResults := []testQueryResults{
-
-		// NUMBER(38,10)
-		testQueryResults{
-			query: "select cast (:1 as NUMBER(38,10)) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-99999999999999999999999999.9999999999)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.9873046875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.76171875)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.76171875)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.9873046875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(99999999999999999999999999.9999999999)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-99999999999999999999999999.9999999999)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.76171875)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.76171875)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(99999999999999999999999999.9999999999)}},
-			},
-		},
-
-		// DEC(38,10)
-		testQueryResults{
-			query: "select cast (:1 as DEC(38,10)) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-99999999999999999999999999.9999999999)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.9873046875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.76171875)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.76171875)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.9873046875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(99999999999999999999999999.9999999999)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-99999999999999999999999999.9999999999)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.76171875)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.76171875)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(99999999999999999999999999.9999999999)}},
-			},
-		},
-
-		// DECIMAL(38,10)
-		testQueryResults{
-			query: "select cast (:1 as DECIMAL(38,10)) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-99999999999999999999999999.9999999999)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.9873046875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.76171875)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.76171875)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.9873046875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(99999999999999999999999999.9999999999)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-99999999999999999999999999.9999999999)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.76171875)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.76171875)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(99999999999999999999999999.9999999999)}},
-			},
-		},
-
-		// NUMERIC(38,10)
-		testQueryResults{
-			query: "select cast (:1 as NUMERIC(38,10)) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-99999999999999999999999999.9999999999)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.9873046875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.76171875)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.76171875)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.9873046875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(99999999999999999999999999.9999999999)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-99999999999999999999999999.9999999999)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.76171875)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.76171875)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.9873046875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(99999999999999999999999999.9999999999)}},
-			},
-		},
-
-		// FLOAT
-		testQueryResults{
-			query: "select cast (:1 as FLOAT) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-288230381928101358902502915674136903680)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.99999988079071044921875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.00415134616196155548095703125)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.00415134616196155548095703125)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.99999988079071044921875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(288230381928101358902502915674136903680)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-288230381928101358902502915674136903680)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(288230381928101358902502915674136903680)}},
-			},
-		},
-
-		// INTEGER
-		testQueryResults{
-			query: "select cast (:1 as INTEGER) from dual",
-			args: [][]interface{}{
-				[]interface{}{int64(-2147483648)},
-				[]interface{}{int64(-1)},
-				[]interface{}{int64(0)},
-				[]interface{}{int64(1)},
-				[]interface{}{int64(2147483647)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{int64(-2147483648)}},
-				[][]interface{}{[]interface{}{int64(-1)}},
-				[][]interface{}{[]interface{}{int64(0)}},
-				[][]interface{}{[]interface{}{int64(1)}},
-				[][]interface{}{[]interface{}{int64(2147483647)}},
-			},
-		},
-
-		// INT
-		testQueryResults{
-			query: "select cast (:1 as INT) from dual",
-			args: [][]interface{}{
-				[]interface{}{int64(-2147483648)},
-				[]interface{}{int64(-1)},
-				[]interface{}{int64(0)},
-				[]interface{}{int64(1)},
-				[]interface{}{int64(2147483647)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{int64(-2147483648)}},
-				[][]interface{}{[]interface{}{int64(-1)}},
-				[][]interface{}{[]interface{}{int64(0)}},
-				[][]interface{}{[]interface{}{int64(1)}},
-				[][]interface{}{[]interface{}{int64(2147483647)}},
-			},
-		},
-
-		// SMALLINT
-		testQueryResults{
-			query: "select cast (:1 as SMALLINT) from dual",
-			args: [][]interface{}{
-				[]interface{}{int64(-2147483648)},
-				[]interface{}{int64(-1)},
-				[]interface{}{int64(0)},
-				[]interface{}{int64(1)},
-				[]interface{}{int64(2147483647)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{int64(-2147483648)}},
-				[][]interface{}{[]interface{}{int64(-1)}},
-				[][]interface{}{[]interface{}{int64(0)}},
-				[][]interface{}{[]interface{}{int64(1)}},
-				[][]interface{}{[]interface{}{int64(2147483647)}},
-			},
-		},
-
-		// REAL
-		testQueryResults{
-			query: "select cast (:1 as REAL) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-288230381928101358902502915674136903680)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.99999988079071044921875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.00415134616196155548095703125)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.00415134616196155548095703125)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.99999988079071044921875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(288230381928101358902502915674136903680)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-288230381928101358902502915674136903680)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(288230381928101358902502915674136903680)}},
-			},
-		},
-
-		// BINARY_FLOAT
-		testQueryResults{
-			query: "select cast (:1 as BINARY_FLOAT) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-288230381928101358902502915674136903680)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.99999988079071044921875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.00415134616196155548095703125)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.00415134616196155548095703125)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.99999988079071044921875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483648)},
-				[]interface{}{float64(288230381928101358902502915674136903680)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-288230381928101358902502915674136903680)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483648)}},
-				[][]interface{}{[]interface{}{float64(288230381928101358902502915674136903680)}},
-			},
-		},
-
-		// BINARY_DOUBLE
-		testQueryResults{
-			query: "select cast (:1 as BINARY_DOUBLE) from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-288230381928101358902502915674136903680)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-123456792)},
-				[]interface{}{float64(-1.99999988079071044921875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.00415134616196155548095703125)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.00415134616196155548095703125)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.99999988079071044921875)},
-				[]interface{}{float64(123456792)},
-				[]interface{}{float64(2147483647)},
-				[]interface{}{float64(288230381928101358902502915674136903680)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-288230381928101358902502915674136903680)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-123456792)}},
-				[][]interface{}{[]interface{}{float64(-1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.00415134616196155548095703125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.99999988079071044921875)}},
-				[][]interface{}{[]interface{}{float64(123456792)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(288230381928101358902502915674136903680)}},
-			},
-		},
-	}
-
+	// INTEGER
+	queryResults.query = "select cast (:1 as INTEGER) from dual"
+	queryResults.queryResults = queryResultBoolToInt
 	testRunQueryResults(t, queryResults)
-}
+	queryResults.queryResults = queryResultInt8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToInt
+	testRunQueryResults(t, queryResults)
 
-// TestSelectGoTypesNumber is select :1 from dual for each number Go Type
-func TestSelectGoTypesNumber(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
+	// INT
+	queryResults.query = "select cast (:1 as INT) from dual"
+	queryResults.queryResults = queryResultBoolToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToInt
+	testRunQueryResults(t, queryResults)
+
+	// SMALLINT
+	queryResults.query = "select cast (:1 as SMALLINT) from dual"
+	queryResults.queryResults = queryResultBoolToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToInt
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToInt
+	testRunQueryResults(t, queryResults)
+
+	// NUMBER(38,10)
+	queryResults.query = "select cast (:1 as NUMBER(38,10)) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// DEC(38,10)
+	queryResults.query = "select cast (:1 as DEC(38,10)) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// DECIMAL(38,10)
+	queryResults.query = "select cast (:1 as DECIMAL(38,10)) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// NUMERIC(38,10)
+	queryResults.query = "select cast (:1 as NUMERIC(38,10)) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// FLOAT
+	queryResults.query = "select cast (:1 as FLOAT) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// REAL
+	queryResults.query = "select cast (:1 as REAL) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_FLOAT
+	queryResults.query = "select cast (:1 as BINARY_FLOAT) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_DOUBLE
+	queryResults.query = "select cast (:1 as BINARY_DOUBLE) from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
 
 	// https://tour.golang.org/basics/11
 
-	queryResults := []testQueryResults{
-		// bool
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{true},
-				[]interface{}{false},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-			},
-		},
+	// Go
+	queryResults.query = "select :1 from dual"
+	queryResults.queryResults = queryResultBoolToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultInt64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint8ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint16ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint32ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultUint64ToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32PositiveToFloat
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	testRunQueryResults(t, queryResults)
 
-		// int8: -128 to 127
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{int16(-128)},
-				[]interface{}{int16(-1)},
-				[]interface{}{int16(0)},
-				[]interface{}{int16(1)},
-				[]interface{}{int16(127)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-			},
+	// sum
+	queryResults.query = "select sum(A) from (select :1 as A from dual union select :2 as A from dual)"
+	queryResults.queryResults = []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{int64(1), int64(2)},
+			results: [][]interface{}{[]interface{}{float64(3)}},
 		},
-		// int16: -32768 to 32767
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{int16(-32768)},
-				[]interface{}{int16(-128)},
-				[]interface{}{int16(-1)},
-				[]interface{}{int16(0)},
-				[]interface{}{int16(1)},
-				[]interface{}{int16(127)},
-				[]interface{}{int16(32767)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-32768)}},
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-			},
+		testQueryResult{
+			args:    []interface{}{int64(1), float64(2.25)},
+			results: [][]interface{}{[]interface{}{float64(3.25)}},
 		},
-		// int32: -2147483648 to 2147483647
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{int32(-2147483648)},
-				[]interface{}{int32(-32768)},
-				[]interface{}{int32(-128)},
-				[]interface{}{int32(-1)},
-				[]interface{}{int32(0)},
-				[]interface{}{int32(1)},
-				[]interface{}{int32(127)},
-				[]interface{}{int32(32767)},
-				[]interface{}{int32(2147483647)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-32768)}},
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-			},
-		},
-		// int64: -9223372036854775808 to 9223372036854775807
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{int64(-9223372036854775808)},
-				[]interface{}{int64(-2147483648)},
-				[]interface{}{int64(-32768)},
-				[]interface{}{int64(-128)},
-				[]interface{}{int64(-1)},
-				[]interface{}{int64(0)},
-				[]interface{}{int64(1)},
-				[]interface{}{int64(127)},
-				[]interface{}{int64(32767)},
-				[]interface{}{int64(2147483647)},
-				[]interface{}{int64(9223372036854775807)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-9223372036854775808)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-32768)}},
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(9223372036854775807)}},
-			},
-		},
-
-		// uint8: 0 to 255
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{uint32(0)},
-				[]interface{}{uint32(1)},
-				[]interface{}{uint32(127)},
-				[]interface{}{uint32(255)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(255)}},
-			},
-		},
-		// uint16: 0 to 65535
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{uint32(0)},
-				[]interface{}{uint32(1)},
-				[]interface{}{uint32(127)},
-				[]interface{}{uint32(32767)},
-				[]interface{}{uint32(65535)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(65535)}},
-			},
-		},
-		// uint32: 0 to 4294967295
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{uint32(0)},
-				[]interface{}{uint32(1)},
-				[]interface{}{uint32(127)},
-				[]interface{}{uint32(32767)},
-				[]interface{}{uint32(2147483647)},
-				[]interface{}{uint32(4294967295)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(4294967295)}},
-			},
-		},
-		// uint64: 0 to 18446744073709551615
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{uint64(0)},
-				[]interface{}{uint64(1)},
-				[]interface{}{uint64(127)},
-				[]interface{}{uint64(32767)},
-				[]interface{}{uint64(2147483647)},
-				[]interface{}{uint64(9223372036854775807)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(127)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(2147483647)}},
-				[][]interface{}{[]interface{}{float64(9223372036854775807)}},
-			},
-		},
-
-		// float32
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{float32(-9223372036854775808)},
-				[]interface{}{float32(-2147483648)},
-				[]interface{}{float32(-32767.123046875)},
-				[]interface{}{float32(-32767)},
-				[]interface{}{float32(-128.1234588623046875)},
-				[]interface{}{float32(-128)},
-				[]interface{}{float32(-1.12345683574676513671875)},
-				[]interface{}{float32(-1)},
-				[]interface{}{float32(-0.12345679104328155517578125)},
-				[]interface{}{float32(0)},
-				[]interface{}{float32(0.12345679104328155517578125)},
-				[]interface{}{float32(1)},
-				[]interface{}{float32(1.12345683574676513671875)},
-				[]interface{}{float32(128)},
-				[]interface{}{float32(128.1234588623046875)},
-				[]interface{}{float32(32767)},
-				[]interface{}{float32(32767.123046875)},
-				[]interface{}{float32(2147483648)},
-				[]interface{}{float32(9223372036854775808)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-9223372036854775808)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-32767.123046875)}},
-				[][]interface{}{[]interface{}{float64(-32767)}},
-				[][]interface{}{[]interface{}{float64(-128.1234588623046875)}},
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1.12345683574676513671875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.12345679104328155517578125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.12345679104328155517578125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.12345683574676513671875)}},
-				[][]interface{}{[]interface{}{float64(128)}},
-				[][]interface{}{[]interface{}{float64(128.1234588623046875)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(32767.123046875)}},
-				[][]interface{}{[]interface{}{float64(2147483648)}},
-				[][]interface{}{[]interface{}{float64(9223372036854775808)}},
-			},
-		},
-
-		// float64
-		testQueryResults{
-			query: "select :1 from dual",
-			args: [][]interface{}{
-				[]interface{}{float64(-9223372036854775808)},
-				[]interface{}{float64(-2147483648)},
-				[]interface{}{float64(-32767.123046875)},
-				[]interface{}{float64(-32767)},
-				[]interface{}{float64(-128.1234588623046875)},
-				[]interface{}{float64(-128)},
-				[]interface{}{float64(-1.12345683574676513671875)},
-				[]interface{}{float64(-1)},
-				[]interface{}{float64(-0.12345679104328155517578125)},
-				[]interface{}{float64(0)},
-				[]interface{}{float64(0.12345679104328155517578125)},
-				[]interface{}{float64(1)},
-				[]interface{}{float64(1.12345683574676513671875)},
-				[]interface{}{float64(128)},
-				[]interface{}{float64(128.1234588623046875)},
-				[]interface{}{float64(32767)},
-				[]interface{}{float64(32767.123046875)},
-				[]interface{}{float64(2147483648)},
-				[]interface{}{float64(9223372036854775808)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(-9223372036854775808)}},
-				[][]interface{}{[]interface{}{float64(-2147483648)}},
-				[][]interface{}{[]interface{}{float64(-32767.123046875)}},
-				[][]interface{}{[]interface{}{float64(-32767)}},
-				[][]interface{}{[]interface{}{float64(-128.1234588623046875)}},
-				[][]interface{}{[]interface{}{float64(-128)}},
-				[][]interface{}{[]interface{}{float64(-1.12345683574676513671875)}},
-				[][]interface{}{[]interface{}{float64(-1)}},
-				[][]interface{}{[]interface{}{float64(-0.12345679104328155517578125)}},
-				[][]interface{}{[]interface{}{float64(0)}},
-				[][]interface{}{[]interface{}{float64(0.12345679104328155517578125)}},
-				[][]interface{}{[]interface{}{float64(1)}},
-				[][]interface{}{[]interface{}{float64(1.12345683574676513671875)}},
-				[][]interface{}{[]interface{}{float64(128)}},
-				[][]interface{}{[]interface{}{float64(128.1234588623046875)}},
-				[][]interface{}{[]interface{}{float64(32767)}},
-				[][]interface{}{[]interface{}{float64(32767.123046875)}},
-				[][]interface{}{[]interface{}{float64(2147483648)}},
-				[][]interface{}{[]interface{}{float64(9223372036854775808)}},
-			},
-		},
-
-		// sum
-		testQueryResults{
-			query: "select sum(A) from (select :1 as A from dual union select :2 as A from dual)",
-			args: [][]interface{}{
-				[]interface{}{int64(1), int64(2)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(3)}},
-			},
-		},
-		testQueryResults{
-			query: "select sum(A) from (select :1 as A from dual union select :2 as A from dual)",
-			args: [][]interface{}{
-				[]interface{}{int64(1), float64(2.25)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(3.25)}},
-			},
-		},
-		testQueryResults{
-			query: "select sum(A) from (select :1 as A from dual union select :2 as A from dual)",
-			args: [][]interface{}{
-				[]interface{}{float64(1.5), float64(2.25)},
-			},
-			results: [][][]interface{}{
-				[][]interface{}{[]interface{}{float64(3.75)}},
-			},
+		testQueryResult{
+			args:    []interface{}{float64(1.5), float64(2.25)},
+			results: [][]interface{}{[]interface{}{float64(3.75)}},
 		},
 	}
-
 	testRunQueryResults(t, queryResults)
 }
 
@@ -686,20 +765,15 @@ func TestDestructiveNumber(t *testing.T) {
 	// https://ss64.com/ora/syntax-datatypes.html
 
 	// NUMBER negative
-	err := testExec(t, "create table NUMBER_"+TestTimeString+
-		" ( A NUMBER(10,2), B NUMBER(20,4), C NUMBER(38,8) )", nil)
+	tableName := "NUMBER_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A NUMBER(10,2), B NUMBER(20,4), C NUMBER(38,8) )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table NUMBER_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into NUMBER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -712,12 +786,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults := []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults := testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -730,7 +803,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from NUMBER_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -739,12 +812,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -756,24 +828,23 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// test truncate
-	err = testExec(t, "truncate table NUMBER_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMBER_" + TestTimeString,
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{},
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName,
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{},
 			},
 		},
 	}
 	testRunQueryResults(t, queryResults)
 
 	// NUMBER positive
-	err = testExecRows(t, "insert into NUMBER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -787,12 +858,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -806,7 +876,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from NUMBER_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -815,12 +885,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMBER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -833,20 +902,16 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// DEC negative
-	err = testExec(t, "create table DEC_"+TestTimeString+
+	tableName = "DEC_" + TestTimeString
+	err = testExec(t, "create table "+tableName+
 		" ( A DEC(10,2), B DEC(20,4), C DEC(38,8) )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table DEC_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into DEC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -859,12 +924,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -877,7 +941,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from DEC_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -886,12 +950,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -903,12 +966,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// DEC positive
-	err = testExec(t, "truncate table DEC_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into DEC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -922,12 +985,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -941,7 +1003,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from DEC_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -950,12 +1012,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DEC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -968,20 +1029,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// DECIMAL negative
-	err = testExec(t, "create table DECIMAL_"+TestTimeString+
-		" ( A DECIMAL(10,2), B DECIMAL(20,4), C DECIMAL(38,8) )", nil)
+	tableName = "DECIMAL_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A DECIMAL(10,2), B DECIMAL(20,4), C DECIMAL(38,8) )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table DECIMAL_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into DECIMAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -994,12 +1050,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -1012,7 +1067,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from DECIMAL_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -1021,12 +1076,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -1038,12 +1092,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// DECIMAL positive
-	err = testExec(t, "truncate table DECIMAL_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into DECIMAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1057,12 +1111,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -1076,7 +1129,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from DECIMAL_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -1085,12 +1138,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from DECIMAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -1103,20 +1155,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// NUMERIC negative
-	err = testExec(t, "create table NUMERIC_"+TestTimeString+
-		" ( A NUMERIC(10,2), B NUMERIC(20,4), C NUMERIC(38,8) )", nil)
+	tableName = "NUMERIC_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A NUMERIC(10,2), B NUMERIC(20,4), C NUMERIC(38,8) )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table NUMERIC_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into NUMERIC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1129,12 +1176,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -1147,7 +1193,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from NUMERIC_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -1156,12 +1202,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -1173,12 +1218,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// NUMERIC positive
-	err = testExec(t, "truncate table NUMERIC_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into NUMERIC_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1192,12 +1237,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -1211,7 +1255,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from NUMERIC_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -1220,12 +1264,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from NUMERIC_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -1238,20 +1281,16 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// FLOAT negative
-	err = testExec(t, "create table FLOAT_"+TestTimeString+
+	tableName = "FLOAT_" + TestTimeString
+	err = testExec(t, "create table "+tableName+
 		" ( A FLOAT(28), B FLOAT(32), C FLOAT(38) )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table FLOAT_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1264,12 +1303,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -1282,7 +1320,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from FLOAT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -1291,12 +1329,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -1308,12 +1345,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// FLOAT positive
-	err = testExec(t, "truncate table FLOAT_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1327,12 +1364,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -1346,7 +1382,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from FLOAT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -1355,12 +1391,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -1373,20 +1408,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// INTEGER negative
-	err = testExec(t, "create table INTEGER_"+TestTimeString+
-		" ( A INTEGER, B INTEGER, C INTEGER )", nil)
+	tableName = "INTEGER_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A INTEGER, B INTEGER, C INTEGER )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table INTEGER_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into INTEGER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1399,12 +1429,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
 					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
@@ -1417,7 +1446,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from INTEGER_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-10000000},
@@ -1426,12 +1455,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
 					[]interface{}{int64(-2), int64(-2), int64(-2)},
 					[]interface{}{int64(-1), int64(-1), int64(-1)},
@@ -1443,12 +1471,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// INTEGER positive
-	err = testExec(t, "truncate table INTEGER_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into INTEGER_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1462,12 +1490,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1481,7 +1508,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from INTEGER_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{10000000},
 			[]interface{}{12345679},
@@ -1490,12 +1517,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INTEGER_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1508,20 +1534,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// INT negative
-	err = testExec(t, "create table INT_"+TestTimeString+
-		" ( A INT, B INT, C INT )", nil)
+	tableName = "INT_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A INT, B INT, C INT )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table INT_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into INT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1534,12 +1555,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
 					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
@@ -1552,7 +1572,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from INT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-10000000},
@@ -1561,12 +1581,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
 					[]interface{}{int64(-2), int64(-2), int64(-2)},
 					[]interface{}{int64(-1), int64(-1), int64(-1)},
@@ -1578,12 +1597,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// INT positive
-	err = testExec(t, "truncate table INT_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into INT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1597,12 +1616,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1616,7 +1634,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from INT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{10000000},
 			[]interface{}{12345679},
@@ -1625,12 +1643,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from INT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1643,20 +1660,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// SMALLINT negative
-	err = testExec(t, "create table SMALLINT_"+TestTimeString+
-		" ( A SMALLINT, B SMALLINT, C SMALLINT )", nil)
+	tableName = "SMALLINT_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A SMALLINT, B SMALLINT, C SMALLINT )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table SMALLINT_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into SMALLINT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1669,12 +1681,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-21474836), int64(-2147483648), int64(-2147483648)},
 					[]interface{}{int64(-10000000), int64(-1000000000000000), int64(-1000000000000000)},
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
@@ -1687,7 +1698,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from SMALLINT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-10000000},
@@ -1696,12 +1707,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(-1234567), int64(-123456792), int64(-123456792)},
 					[]interface{}{int64(-2), int64(-2), int64(-2)},
 					[]interface{}{int64(-1), int64(-1), int64(-1)},
@@ -1712,13 +1722,13 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	// INT positive
-	err = testExec(t, "truncate table SMALLINT_"+TestTimeString, nil)
+	// SMALLINT positive
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into SMALLINT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1732,12 +1742,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1751,7 +1760,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from SMALLINT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{10000000},
 			[]interface{}{12345679},
@@ -1760,12 +1769,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from SMALLINT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(0), int64(0), int64(0)},
 					[]interface{}{int64(1), int64(1), int64(1)},
 					[]interface{}{int64(1), int64(1), int64(1)},
@@ -1778,20 +1786,16 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// REAL negative
-	err = testExec(t, "create table REAL_"+TestTimeString+
+	tableName = "REAL_" + TestTimeString
+	err = testExec(t, "create table "+tableName+
 		" ( A REAL, B REAL, C REAL )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table REAL_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into REAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -1804,12 +1808,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -1822,7 +1825,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from REAL_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -1831,12 +1834,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -1848,12 +1850,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// REAL positive
-	err = testExec(t, "truncate table REAL_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into REAL_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -1867,12 +1869,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -1886,7 +1887,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from REAL_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -1895,12 +1896,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from REAL_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},
@@ -1913,20 +1913,16 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_FLOAT negative
-	err = testExec(t, "create table BINARY_FLOAT_"+TestTimeString+
+	tableName = "BINARY_FLOAT_" + TestTimeString
+	err = testExec(t, "create table "+tableName+
 		" ( A BINARY_FLOAT, B BINARY_FLOAT, C BINARY_FLOAT )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table BINARY_FLOAT_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into BINARY_FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680)},
 			[]interface{}{-2147483648, -2147483648, -2147483648},
@@ -1939,12 +1935,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680), float64(-288230381928101358902502915674136903680)},
 					[]interface{}{float64(-2147483648), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-123456792), float64(-123456792), float64(-123456792)},
@@ -1957,7 +1952,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from BINARY_FLOAT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-2147483648},
 			[]interface{}{float64(-288230381928101358902502915674136903680)},
@@ -1966,12 +1961,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-123456792), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.99999988079071044921875), float64(-1.99999988079071044921875), float64(-1.99999988079071044921875)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -1983,12 +1977,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_FLOAT positive
-	err = testExec(t, "truncate table BINARY_FLOAT_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into BINARY_FLOAT_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.00415134616196155548095703125, 0.00415134616196155548095703125, 0.00415134616196155548095703125},
@@ -2002,12 +1996,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -2021,7 +2014,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from BINARY_FLOAT_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -2030,12 +2023,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_FLOAT_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125), float64(0.00415134616196155548095703125)},
 					[]interface{}{float64(1.99999988079071044921875), float64(1.99999988079071044921875), float64(1.99999988079071044921875)},
 					[]interface{}{float64(123456792), float64(123456792), float64(123456792)},
@@ -2048,20 +2040,15 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_DOUBLE negative
-	err = testExec(t, "create table BINARY_DOUBLE_"+TestTimeString+
-		" ( A BINARY_DOUBLE, B BINARY_DOUBLE, C BINARY_DOUBLE )", nil)
+	tableName = "BINARY_DOUBLE_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A BINARY_DOUBLE, B BINARY_DOUBLE, C BINARY_DOUBLE )", nil)
 	if err != nil {
 		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table BINARY_DOUBLE_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into BINARY_DOUBLE_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{-9999999.99, -999999999999999.9999, -9999999999999999999999999.99999999},
 			[]interface{}{-21474836, -2147483648, -2147483648},
@@ -2074,12 +2061,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-21474836), float64(-2147483648), float64(-2147483648)},
 					[]interface{}{float64(-9999999.99), float64(-999999999999999.9999), float64(-9999999999999999999999999.99999999)},
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
@@ -2092,7 +2078,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from BINARY_DOUBLE_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{-21474836},
 			[]interface{}{-9999999.99},
@@ -2101,12 +2087,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(-1234567), float64(-123456792), float64(-123456792)},
 					[]interface{}{float64(-1.98), float64(-1.9873), float64(-1.98730468)},
 					[]interface{}{float64(-1), float64(-1), float64(-1)},
@@ -2118,12 +2103,12 @@ func TestDestructiveNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_DOUBLE positive
-	err = testExec(t, "truncate table BINARY_DOUBLE_"+TestTimeString, nil)
+	err = testExec(t, "truncate table "+tableName, nil)
 	if err != nil {
 		t.Error("truncate error:", err)
 	}
 
-	err = testExecRows(t, "insert into BINARY_DOUBLE_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{0, 0, 0},
 			[]interface{}{0.76, 0.7617, 0.76171875},
@@ -2137,12 +2122,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("insert error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0), float64(0), float64(0)},
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1), float64(1), float64(1)},
@@ -2156,7 +2140,7 @@ func TestDestructiveNumber(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from BINARY_DOUBLE_"+TestTimeString+" where A = :1",
+	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
 			[]interface{}{0},
 			[]interface{}{1},
@@ -2165,12 +2149,11 @@ func TestDestructiveNumber(t *testing.T) {
 		t.Error("delete error:", err)
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from BINARY_DOUBLE_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{float64(0.76), float64(0.7617), float64(0.76171875)},
 					[]interface{}{float64(1.98), float64(1.9873), float64(1.98730468)},
 					[]interface{}{float64(9999999.99), float64(999999999999999.9999), float64(99999999999999999999999999.99999999)},

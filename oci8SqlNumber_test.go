@@ -310,148 +310,56 @@ func TestSelectDualNumber(t *testing.T) {
 			results: [][]interface{}{[]interface{}{float64(9223372036854775807)}},
 		},
 	}
-	// float32 positive: sign 1 bit, exponent 8 bits, Mantissa 23 bits
-	queryResultFloat32PositiveToFloat := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x00000000)}, // 0 00000000 00000000000000000000000
+	// float32: sign 1 bit, exponent 8 bits, mantissa 23 bits
+	queryResultFloat32ToFloat := []testQueryResult{
+		testQueryResult{ // 0 00000000 00000000000000000000000
+			args:    []interface{}{math.Float32frombits(0x00000000)},
 			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x00000000))}},
 		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40000000)}, // 0 10000000 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40000000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40400000)}, // 0 10000000 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40400000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40600000)}, // 0 10000000 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40600000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40800000)}, // 0 10000001 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40800000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40c00000)}, // 0 10000001 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40c00000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x40e00000)}, // 0 10000001 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x40e00000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x60000000)}, // 0 11000000 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60000000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x60400000)}, // 0 11000000 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60400000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x60600000)}, // 0 11000000 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x60600000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x407f8000)}, // 0 10000000 11111111000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407f8000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x407fc000)}, // 0 10000000 11111111100000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407fc000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x407fe000)}, // 0 10000000 11111111110000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407fe000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x407ff000)}, // 0 10000000 11111111111000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ff000))}},
-		},
-		/*
-			TODO: get decimal errors at this point, why?
-			testQueryResult{
-				args:    []interface{}{math.Float32frombits(0x407ff800)}, // 0 10000000 11111111111100000000000
-				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ff800))}},
-			},
-			testQueryResult{
-				args:    []interface{}{math.Float32frombits(0x407ffc00)}, // 0 10000000 11111111111110000000000
-				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x407ffc00))}},
-			},
-		*/
-	}
-	// float32 negative: sign 1 bit, exponent 8 bits, Mantissa 23 bits
-	queryResultFloat32NegativeToFloat := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0x80000000)}, // 1 00000000 00000000000000000000000
+		testQueryResult{ // 1 00000000 00000000000000000000000
+			args:    []interface{}{math.Float32frombits(0x80000000)},
 			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0x80000000))}},
 		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0000000)}, // 1 10000000 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0000000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0400000)}, // 1 10000000 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0400000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0600000)}, // 1 10000000 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0600000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0800000)}, // 1 10000001 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0800000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0c00000)}, // 1 10000001 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0c00000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc0e00000)}, // 1 10000001 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc0e00000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xe0000000)}, // 1 11000000 00000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0000000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xe0400000)}, // 1 11000000 10000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0400000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xe0600000)}, // 1 11000000 11000000000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xe0600000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc07f8000)}, // 1 10000000 11111111000000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07f8000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc07fc000)}, // 1 10000000 11111111100000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07fc000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc07fe000)}, // 1 10000000 11111111110000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07fe000))}},
-		},
-		testQueryResult{
-			args:    []interface{}{math.Float32frombits(0xc07ff000)}, // 1 10000000 11111111111000000000000
-			results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ff000))}},
-		},
-		/*
-			TODO: get decimal errors at this point, why?
-			testQueryResult{
-				args:    []interface{}{math.Float32frombits(0xc07ff800)}, // 1 10000000 11111111111100000000000
-				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ff800))}},
-			},
-			testQueryResult{
-				args:    []interface{}{math.Float32frombits(0xc07ffc00)}, // 1 10000000 11111111111110000000000
-				results: [][]interface{}{[]interface{}{float64(math.Float32frombits(0xc07ffc00))}},
-			},
-		*/
+	}
+	// TODO: look at being able to test at greater bit range, seem to be losing precision
+	for x := 0; x < 4; x++ { // postive/negtive number and postive/negtive exponent loop
+		for i := uint32(23); i < 26; i++ { // exponent[30:24] starts at 23 to have bits start at 0
+			for j := uint32(24); j > 18; j-- { // mantissa [23:0] starts at 24 to have bits start at 0
+				bits := uint32(0)
+				if x == 1 || x == 3 {
+					// negtive number has bit 31 set
+					bits |= uint32(0x80000000)
+				}
+				if x < 2 {
+					// postive exponent has bit 30 set
+					bits |= uint32(0x40000000)
+					for k := uint32(24); k <= i; k++ {
+						// exponent starts at bit 24 and goes up
+						bits |= 1 << k
+					}
+				} else {
+					// negtive exponent starts with bits 29 to 24 set for 0
+					// remove bits starting at 24
+					for k := uint32(29); k > i; k-- {
+						bits |= 1 << k
+					}
+				}
+				for l := uint32(23); l >= j; l-- {
+					// mantissa starts at bit 23 and goes down
+					bits |= 1 << l
+				}
+				float := math.Float32frombits(bits)
+				queryResultFloat32ToFloat = append(queryResultFloat32ToFloat,
+					testQueryResult{
+						args:    []interface{}{float},
+						results: [][]interface{}{[]interface{}{float64(float)}},
+					},
+				)
+			}
+		}
 	}
 
-	// TODO: added float64 positive and negative
+	// TODO: added float64
 
 	// https://ss64.com/ora/syntax-datatypes.html
 
@@ -538,9 +446,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// DEC(38,10)
@@ -563,9 +469,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// DECIMAL(38,10)
@@ -588,9 +492,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// NUMERIC(38,10)
@@ -613,9 +515,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// FLOAT
@@ -638,9 +538,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// REAL
@@ -663,9 +561,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_FLOAT
@@ -680,9 +576,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint16ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_DOUBLE
@@ -705,9 +599,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// https://tour.golang.org/basics/11
@@ -732,9 +624,7 @@ func TestSelectDualNumber(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultUint64ToFloat
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32PositiveToFloat
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32NegativeToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat
 	testRunQueryResults(t, queryResults)
 
 	// sum
@@ -2175,171 +2065,333 @@ func TestFunctionCallNumber(t *testing.T) {
 
 	var execResults testExecResults
 
+	// int8: -128 to 127
+	execResultInt8 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int8(-128), In: true}},
+			results: map[string]interface{}{"num1": int8(-128)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int8(-1), In: true}},
+			results: map[string]interface{}{"num1": int8(-1)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int8(0), In: true}},
+			results: map[string]interface{}{"num1": int8(0)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int8(1), In: true}},
+			results: map[string]interface{}{"num1": int8(1)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int8(127), In: true}},
+			results: map[string]interface{}{"num1": int8(127)},
+		},
+	}
+	// int16: -32768 to 32767
+	execResultInt16 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int16(-32768), In: true}},
+			results: map[string]interface{}{"num1": int16(-32768)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int16(-128), In: true}},
+			results: map[string]interface{}{"num1": int16(-128)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int16(127), In: true}},
+			results: map[string]interface{}{"num1": int16(127)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int16(32767), In: true}},
+			results: map[string]interface{}{"num1": int16(32767)},
+		},
+	}
+	// int32: -2147483648 to 2147483647
+	execResultInt32 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int32(-2147483648), In: true}},
+			results: map[string]interface{}{"num1": int32(-2147483648)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int32(-32768), In: true}},
+			results: map[string]interface{}{"num1": int32(-32768)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int32(32767), In: true}},
+			results: map[string]interface{}{"num1": int32(32767)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int32(2147483647), In: true}},
+			results: map[string]interface{}{"num1": int32(2147483647)},
+		},
+	}
+	// int64: -9223372036854775808 to 9223372036854775807
 	execResultInt64 := []testExecResult{
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-32768), In: true}},
-			results: map[string]interface{}{"num1": int64(-32767)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-9223372036854775808), In: true}},
+			results: map[string]interface{}{"num1": int64(-9223372036854775808)},
 		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-128), In: true}},
-			results: map[string]interface{}{"num1": int64(-127)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-1), In: true}},
-			results: map[string]interface{}{"num1": int64(0)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0), In: true}},
-			results: map[string]interface{}{"num1": int64(1)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(1), In: true}},
-			results: map[string]interface{}{"num1": int64(2)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(127), In: true}},
-			results: map[string]interface{}{"num1": int64(128)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(32767), In: true}},
-			results: map[string]interface{}{"num1": int64(32768)},
-		},
-	}
-
-	execResultInt64Medium := []testExecResult{
 		testExecResult{
 			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483648), In: true}},
-			results: map[string]interface{}{"num1": int64(-2147483647)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483646), In: true}},
-			results: map[string]interface{}{"num1": int64(2147483647)},
-		},
-	}
-
-	execResultInt64Big := []testExecResult{
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-9223372036854775808), In: true}},
-			results: map[string]interface{}{"num1": int64(-9223372036854775807)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(-2147483649), In: true}},
 			results: map[string]interface{}{"num1": int64(-2147483648)},
 		},
 		testExecResult{
 			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(2147483647), In: true}},
-			results: map[string]interface{}{"num1": int64(2147483648)},
+			results: map[string]interface{}{"num1": int64(2147483647)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(9223372036854775806), In: true}},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(9223372036854775807), In: true}},
 			results: map[string]interface{}{"num1": int64(9223372036854775807)},
 		},
 	}
-
-	execResultFloat64Int := []testExecResult{
+	// uint8: 0 to 255
+	execResultUint8 := []testExecResult{
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0), In: true}},
-			results: map[string]interface{}{"num1": float64(1)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint8(0), In: true}},
+			results: map[string]interface{}{"num1": uint8(0)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1), In: true}},
-			results: map[string]interface{}{"num1": float64(2)},
-		},
-	}
-
-	execResultFloat64IntMedium := []testExecResult{
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-2147483648), In: true}},
-			results: map[string]interface{}{"num1": float64(-2147483647)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint8(1), In: true}},
+			results: map[string]interface{}{"num1": uint8(1)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-123456792), In: true}},
-			results: map[string]interface{}{"num1": float64(-123456791)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint8(127), In: true}},
+			results: map[string]interface{}{"num1": uint8(127)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(123456792), In: true}},
-			results: map[string]interface{}{"num1": float64(123456793)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint8(128), In: true}},
+			results: map[string]interface{}{"num1": uint8(128)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(2147483646), In: true}},
-			results: map[string]interface{}{"num1": float64(2147483647)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint8(255), In: true}},
+			results: map[string]interface{}{"num1": uint8(255)},
 		},
 	}
-
-	execResultFloat64IntBig := []testExecResult{
+	// uint16: 0 to 65535
+	execResultUint16 := []testExecResult{
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-288230381928101358902502915674136903680), In: true}},
-			results: map[string]interface{}{"num1": float64(-288230381928101358902502915674136903679)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint16(255), In: true}},
+			results: map[string]interface{}{"num1": uint16(255)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(288230381928101358902502915674136903680), In: true}},
-			results: map[string]interface{}{"num1": float64(288230381928101358902502915674136903681)},
-		},
-	}
-
-	execResultFloat64 := []testExecResult{
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-1.9990234375), In: true}},
-			results: map[string]interface{}{"num1": float64(-0.9990234375)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-0.0068359375), In: true}},
-			results: map[string]interface{}{"num1": float64(0.9931640625)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0.0048828125), In: true}},
-			results: map[string]interface{}{"num1": float64(1.0048828125)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1.9990234375), In: true}},
-			results: map[string]interface{}{"num1": float64(2.9990234375)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint16(65535), In: true}},
+			results: map[string]interface{}{"num1": uint16(65535)},
 		},
 	}
-
-	execResultFloat64Big := []testExecResult{
+	// uint32: 0 to 4294967295
+	execResultUint32 := []testExecResult{
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-1.99999988079071044921875), In: true}},
-			results: map[string]interface{}{"num1": float64(-0.99999988079071044921875)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint32(65535), In: true}},
+			results: map[string]interface{}{"num1": uint32(65535)},
 		},
 		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(-0.00415134616196155548095703125), In: true}},
-			results: map[string]interface{}{"num1": float64(0.99584865383803844451904296875)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(0.00415134616196155548095703125), In: true}},
-			results: map[string]interface{}{"num1": float64(1.00415134616196155548095703125)},
-		},
-		testExecResult{
-			args:    map[string]sql.Out{"num1": sql.Out{Dest: float64(1.99999988079071044921875), In: true}},
-			results: map[string]interface{}{"num1": float64(2.99999988079071044921875)},
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint32(4294967295), In: true}},
+			results: map[string]interface{}{"num1": uint32(4294967295)},
 		},
 	}
+	// uint64: 0 to 18446744073709551615
+	// for 18446744073709551615 get: get rows error: query error: sql: converting argument $1 type: uint64 values with high bit set are not supported
+	execResultUint64 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint64(4294967295), In: true}},
+			results: map[string]interface{}{"num1": uint64(4294967295)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: uint64(9223372036854775807), In: true}},
+			results: map[string]interface{}{"num1": uint64(9223372036854775807)},
+		},
+	}
+	// float32: sign 1 bit, exponent 8 bits, mantissa 23 bits
+	execResultFloat32 := []testExecResult{
+		testExecResult{ // 0 00000000 00000000000000000000000
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: math.Float32frombits(0x00000000), In: true}},
+			results: map[string]interface{}{"num1": math.Float32frombits(0x00000000)},
+		},
+		testExecResult{ // 1 00000000 00000000000000000000000
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: math.Float32frombits(0x80000000), In: true}},
+			results: map[string]interface{}{"num1": math.Float32frombits(0x80000000)},
+		},
+	}
+	// TODO: look at being able to test at greater bit range, seem to be losing precision
+	for x := 0; x < 4; x++ { // postive/negtive number and postive/negtive exponent loop
+		for i := uint32(23); i < 26; i++ { // exponent[30:24] starts at 23 to have bits start at 0
+			for j := uint32(24); j > 18; j-- { // mantissa [23:0] starts at 24 to have bits start at 0
+				bits := uint32(0)
+				if x == 1 || x == 3 {
+					// negtive number has bit 31 set
+					bits |= uint32(0x80000000)
+				}
+				if x < 2 {
+					// postive exponent has bit 30 set
+					bits |= uint32(0x40000000)
+					for k := uint32(24); k <= i; k++ {
+						// exponent starts at bit 24 and goes up
+						bits |= 1 << k
+					}
+				} else {
+					// negtive exponent starts with bits 29 to 24 set for 0
+					// remove bits starting at 24
+					for k := uint32(29); k > i; k-- {
+						bits |= 1 << k
+					}
+				}
+				for l := uint32(23); l >= j; l-- {
+					// mantissa starts at bit 23 and goes down
+					bits |= 1 << l
+				}
+				float := math.Float32frombits(bits)
+				execResultFloat32 = append(execResultFloat32,
+					testExecResult{
+						args:    map[string]sql.Out{"num1": sql.Out{Dest: float, In: true}},
+						results: map[string]interface{}{"num1": float},
+					},
+				)
+			}
+		}
+	}
+
+	// TODO: added float64
+
+	// INTEGER
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number INTEGER) return INTEGER as
+	begin
+		return p_number;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint64
+	testRunExecResults(t, execResults)
+	// TODO: add float
+
+	// INT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number INT) return INT as
+	begin
+		return p_number;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint64
+	testRunExecResults(t, execResults)
+	// TODO: add float
+
+	// SMALLINT
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number SMALLINT) return SMALLINT as
+	begin
+		return p_number;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt64
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint64
+	testRunExecResults(t, execResults)
+	// TODO: add float
+
+	// PLS_INTEGER
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number PLS_INTEGER) return PLS_INTEGER as
+	begin
+		return p_number;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
+	// execResults.execResults = execResultInt64
+	// testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint16
+	testRunExecResults(t, execResults)
+	// execResults.execResults = execResultUint32
+	// testRunExecResults(t, execResults)
+	// execResults.execResults = execResultUint64
+	// testRunExecResults(t, execResults)
+	// TODO: add float
 
 	// NUMBER
 	execResults.query = `
 declare
 	function GET_NUMBER(p_number NUMBER) return NUMBER as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntBig
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Big
+	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
 
 	// DEC
@@ -2347,148 +2399,112 @@ end;`
 declare
 	function GET_NUMBER(p_number DEC) return DEC as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
+	// TODO: add float
 
 	// DECIMAL
 	execResults.query = `
 declare
 	function GET_NUMBER(p_number DECIMAL) return DECIMAL as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
+	// TODO: add float
 
 	// NUMERIC
 	execResults.query = `
 declare
 	function GET_NUMBER(p_number NUMERIC) return NUMERIC as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
+	// TODO: add float
 
 	// FLOAT
 	execResults.query = `
 declare
 	function GET_NUMBER(p_number FLOAT) return FLOAT as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64
-	testRunExecResults(t, execResults)
-
-	// INTEGER
-	execResults.query = `
-declare
-	function GET_NUMBER(p_number INTEGER) return INTEGER as
-	begin
-		return p_number + 1;
-	end GET_NUMBER;
-begin
-	:num1 := GET_NUMBER(:num1);
-end;`
-	execResults.execResults = execResultInt64
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
-	testRunExecResults(t, execResults)
-
-	// INT
-	execResults.query = `
-declare
-	function GET_NUMBER(p_number INT) return INT as
-	begin
-		return p_number + 1;
-	end GET_NUMBER;
-begin
-	:num1 := GET_NUMBER(:num1);
-end;`
-	execResults.execResults = execResultInt64
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
-	testRunExecResults(t, execResults)
-
-	// SMALLINT
-	execResults.query = `
-declare
-	function GET_NUMBER(p_number SMALLINT) return SMALLINT as
-	begin
-		return p_number + 1;
-	end GET_NUMBER;
-begin
-	:num1 := GET_NUMBER(:num1);
-end;`
-	execResults.execResults = execResultInt64
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
 
 	// REAL
@@ -2496,22 +2512,28 @@ end;`
 declare
 	function GET_NUMBER(p_number REAL) return REAL as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
+	execResults.execResults = execResultInt8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Big
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	execResults.execResults = execResultUint64
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64
+	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
 
 	// BINARY_FLOAT
@@ -2519,14 +2541,28 @@ end;`
 declare
 	function GET_NUMBER(p_number BINARY_FLOAT) return BINARY_FLOAT as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
-	execResults.execResults = execResultInt64
+	execResults.execResults = execResultInt8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultInt16
+	testRunExecResults(t, execResults)
+	// execResults.execResults = execResultInt32
+	// testRunExecResults(t, execResults)
+	// execResults.execResults = execResultInt64
+	// testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint16
+	testRunExecResults(t, execResults)
+	// execResults.execResults = execResultUint32
+	// testRunExecResults(t, execResults)
+	// execResults.execResults = execResultUint64
+	// testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
 
 	// BINARY_DOUBLE
@@ -2534,38 +2570,27 @@ end;`
 declare
 	function GET_NUMBER(p_number BINARY_DOUBLE) return BINARY_DOUBLE as
 	begin
-		return p_number + 1;
+		return p_number;
 	end GET_NUMBER;
 begin
 	:num1 := GET_NUMBER(:num1);
 end;`
-	execResults.execResults = execResultInt64
+	execResults.execResults = execResultInt8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
+	execResults.execResults = execResultInt16
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
+	execResults.execResults = execResultInt32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	// execResults.execResults = execResultInt64
+	// testRunExecResults(t, execResults)
+	execResults.execResults = execResultUint8
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64
+	execResults.execResults = execResultUint16
 	testRunExecResults(t, execResults)
-
-	// PLS_INTEGER
-	execResults.query = `
-declare
-	function GET_NUMBER(p_number PLS_INTEGER) return PLS_INTEGER as
-	begin
-		return p_number + 1;
-	end GET_NUMBER;
-begin
-	:num1 := GET_NUMBER(:num1);
-end;`
-	execResults.execResults = execResultInt64
+	execResults.execResults = execResultUint32
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultInt64Medium
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64Int
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultFloat64IntMedium
+	// execResults.execResults = execResultUint64
+	// testRunExecResults(t, execResults)
+	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
 }

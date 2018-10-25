@@ -369,6 +369,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
 		_, err = ociAttrGetParam(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE, stmt.conn.err)
 		if err != nil {
+			C.free(indrlenptr)
 			return nil, err
 		}
 
@@ -383,6 +384,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		var dataSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
 		_, err = ociAttrGetParam(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE, stmt.conn.err)
 		if err != nil {
+			C.free(indrlenptr)
 			return nil, err
 		}
 
@@ -514,6 +516,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		case C.SQLT_INTERVAL_YM:
 			if ret := C.WrapOCIDescriptorAlloc(unsafe.Pointer(stmt.conn.env), C.OCI_DTYPE_INTERVAL_YM, C.size_t(sizeOfNilPointer)); ret.rv != C.OCI_SUCCESS {
+				C.free(indrlenptr)
 				return nil, getError(ret.rv, stmt.conn.err)
 			} else {
 

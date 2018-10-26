@@ -1,12 +1,7 @@
 package oci8
 
-/*
-#include "oci8.go.h"
-#cgo !noPkgConfig pkg-config: oci8
-*/
+// #include "oci8.go.h"
 import "C"
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
 	"bytes"
@@ -305,20 +300,21 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 // ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
 func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
-	var p unsafe.Pointer
-	var tp C.ub2
+	var param *C.OCIParam
 
 	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv == C.OCI_SUCCESS {
-		p = rp.ptr
+		param = (*C.OCIParam)(rp.ptr)
 	}
 
-	tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, rows.stmt.conn.err)
-	if tpr.rv == C.OCI_SUCCESS {
-		tp = tpr.num
+	var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
+	_, err := ociAttrGetParam(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE, rows.stmt.conn.err)
+	if err != nil {
+		// TOFIX: return an error
+		return ""
 	}
 
-	switch tp {
+	switch dataType {
 	case C.SQLT_CHR:
 		return "SQLT_CHR"
 	case C.SQLT_NUM:
@@ -391,22 +387,21 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 
 // ColumnTypeLength returns column length
 func (rows *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	var p unsafe.Pointer
-	var lp C.ub2
+	var param *C.OCIParam
 
 	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv != C.OCI_SUCCESS {
 		return 0, false
 	}
-	p = rp.ptr
+	param = (*C.OCIParam)(rp.ptr)
 
-	lpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_SIZE, rows.stmt.conn.err)
-	if lpr.rv != C.OCI_SUCCESS {
+	var dataSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
+	_, err := ociAttrGetParam(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE, rows.stmt.conn.err)
+	if err != nil {
 		return 0, false
 	}
-	lp = lpr.num
 
-	return int64(lp), true
+	return int64(dataSize), true
 }
 
 /*
@@ -426,19 +421,21 @@ func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.
 func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
-	var p unsafe.Pointer
-	var tp C.ub2
+	var param *C.OCIParam
 
 	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.err, C.ub4(i+1))
 	if rp.rv == C.OCI_SUCCESS {
-		p = rp.ptr
-	}
-	tpr := C.WrapOCIAttrGetUb2(p, C.OCI_DTYPE_PARAM, C.OCI_ATTR_DATA_TYPE, rows.stmt.conn.err)
-	if tpr.rv == C.OCI_SUCCESS {
-		tp = tpr.num
+		param = (*C.OCIParam)(rp.ptr)
 	}
 
-	switch tp {
+	var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
+	_, err := ociAttrGetParam(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE, rows.stmt.conn.err)
+	if err != nil {
+		// TOFIX: return an error
+		return reflect.SliceOf(reflect.TypeOf(""))
+	}
+
+	switch dataType {
 	case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
 		return reflect.SliceOf(reflect.TypeOf(""))
 	case C.SQLT_BIN:
@@ -459,8 +456,7 @@ func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
 		return reflect.TypeOf(time.Duration(0))
 	case C.SQLT_RDD: // rowid
 		return reflect.SliceOf(reflect.TypeOf(""))
-	default:
-		return reflect.SliceOf(reflect.TypeOf(""))
 	}
-	return reflect.SliceOf(reflect.TypeOf(byte(0)))
+
+	return reflect.SliceOf(reflect.TypeOf(""))
 }

@@ -1,12 +1,7 @@
 package oci8
 
-/*
-#include "oci8.go.h"
-#cgo !noPkgConfig pkg-config: oci8
-*/
+// #include "oci8.go.h"
 import "C"
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
 	"bytes"
@@ -426,13 +421,15 @@ func outputBoundParameters(boundParameters []oci8bind) error {
 				}
 				*v = data
 			case *float32:
+				// statment is using SQLT_BDOUBLE to bind
+				// need to read as float64 because of the 8 bits
 				buf := (*[8]byte)(col.pbuf)[0:8]
-				var data float32
+				var data float64
 				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
 				if err != nil {
 					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-				*v = data
+				*v = float32(data)
 
 			case *bool:
 				buf := (*[1 << 30]byte)(col.pbuf)[0:1]

@@ -50,6 +50,13 @@ func testGetDB() *sql.DB {
 	return db
 }
 
+func testDropTable(t *testing.T, tableName string) {
+	err := testExec(t, "drop table "+tableName, nil)
+	if err != nil {
+		t.Errorf("drop table %v error: %v", tableName, err)
+	}
+}
+
 // testGetRows runs a statment and returns the rows as [][]interface{}
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
@@ -163,7 +170,7 @@ func testExecRows(t *testing.T, query string, args [][]interface{}) error {
 	return nil
 }
 
-// testRunExecResults runs exec queries for each arg row and checks results
+// testRunExecResults runs testRunExecResult for each execResults
 func testRunExecResults(t *testing.T, execResults testExecResults) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, execResults.query)
@@ -176,9 +183,14 @@ func testRunExecResults(t *testing.T, execResults testExecResults) {
 	for _, execResult := range execResults.execResults {
 		testRunExecResult(t, execResult, execResults.query, stmt)
 	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Errorf("close error: %v - query: %v", err, execResults.query)
+	}
 }
 
-// testRunExecResult runs exec query for each arg row and checks results
+// testRunExecResult runs exec query for execResult and tests result
 func testRunExecResult(t *testing.T, execResult testExecResult, query string, stmt *sql.Stmt) {
 	var rv reflect.Value
 	results := make(map[string]interface{}, len(execResult.args))
@@ -202,11 +214,11 @@ func testRunExecResult(t *testing.T, execResult testExecResult, query string, st
 	// exec query with namedArgs
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	_, err := stmt.ExecContext(ctx, namedArgs...)
+	cancel()
 	if err != nil {
 		t.Errorf("exec error: %v - query: %v - args: %v", err, query, execResult.args)
 		return
 	}
-	cancel()
 
 	// check results
 	for key, value := range execResult.results {
@@ -230,96 +242,87 @@ func testRunExecResult(t *testing.T, execResult testExecResult, query string, st
 	}
 }
 
-// testRunQueryResults runs a slice of testQueryResults tests
-func testRunQueryResults(t *testing.T, queryResults []testQueryResults) {
-	for _, queryResult := range queryResults {
+// testRunQueryResults runs testRunQueryResult for each queryResults
+func testRunQueryResults(t *testing.T, queryResults testQueryResults) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, queryResults.query)
+	cancel()
+	if err != nil {
+		t.Errorf("prepare error: %v - query: %v", err, queryResults.query)
+		return
+	}
 
-		if len(queryResult.args) != len(queryResult.results) {
-			t.Errorf("args len %v and results len %v do not match - query: %v",
-				len(queryResult.args), len(queryResult.results), queryResult.query)
-			continue
-		}
+	for _, queryResult := range queryResults.queryResults {
+		testRunQueryResult(t, queryResult, queryResults.query, stmt)
+	}
 
-		ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
-		stmt, err := TestDB.PrepareContext(ctx, queryResult.query)
-		cancel()
-		if err != nil {
-			t.Errorf("prepare error: %v - query: %v", err, queryResult.query)
-			continue
-		}
-
-		testRunQueryResult(t, queryResult, stmt)
-
-		err = stmt.Close()
-		if err != nil {
-			t.Errorf("close error: %v - query: %v", err, queryResult.query)
-		}
-
+	err = stmt.Close()
+	if err != nil {
+		t.Errorf("close error: %v - query: %v", err, queryResults.query)
 	}
 }
 
 // testRunQueryResult runs a single testQueryResults test
-func testRunQueryResult(t *testing.T, queryResult testQueryResults, stmt *sql.Stmt) {
-	for i := 0; i < len(queryResult.args); i++ {
-		result, err := testGetRows(t, stmt, queryResult.args[i])
-		if err != nil {
-			t.Errorf("get rows error: %v - query: %v", err, queryResult.query)
-			continue
-		}
-		if result == nil && queryResult.results[i] != nil {
-			t.Errorf("result is nil - query: %v", queryResult.query)
-			continue
-		}
-		if len(result) != len(queryResult.results[i]) {
-			t.Errorf("result rows len %v not equal to expected len %v - query: %v",
-				len(result), len(queryResult.results[i]), queryResult.query)
+func testRunQueryResult(t *testing.T, queryResult testQueryResult, query string, stmt *sql.Stmt) {
+
+	result, err := testGetRows(t, stmt, queryResult.args)
+	if err != nil {
+		t.Errorf("get rows error: %v - query: %v", err, query)
+		return
+	}
+	if result == nil && queryResult.results != nil {
+		t.Errorf("result is nil - query: %v", query)
+		return
+	}
+	if len(result) != len(queryResult.results) {
+		t.Errorf("result rows len %v not equal to results len %v - query: %v",
+			len(result), len(queryResult.results), query)
+		return
+	}
+
+	for i := 0; i < len(result); i++ {
+		if len(result[i]) != len(queryResult.results[i]) {
+			t.Errorf("result columns len %v not equal to results len %v - query: %v",
+				len(result[i]), len(queryResult.results[i]), query)
 			continue
 		}
 
-		for j := 0; j < len(result); j++ {
-			if len(result[j]) != len(queryResult.results[i][j]) {
-				t.Errorf("result columns len %v not equal to expected len %v - query: %v",
-					len(result[j]), len(queryResult.results[i][j]), queryResult.query)
-				continue
-			}
-
-			for k := 0; k < len(result[j]); k++ {
-				bad := false
-				type1 := reflect.TypeOf(result[j][k])
-				type2 := reflect.TypeOf(queryResult.results[i][j][k])
-				switch {
-				case type1 == nil || type2 == nil:
-					if type1 != type2 {
-						bad = true
-					}
-				case type1 == TestTypeTime || type2 == TestTypeTime:
-					if type1 != type2 {
-						bad = true
-						break
-					}
-					time1 := result[j][k].(time.Time)
-					time2 := queryResult.results[i][j][k].(time.Time)
-					if !time1.Equal(time2) {
-						bad = true
-					}
-				case type1.Kind() == reflect.Slice || type2.Kind() == reflect.Slice:
-					if !reflect.DeepEqual(result[j][k], queryResult.results[i][j][k]) {
-						bad = true
-					}
-				default:
-					if result[j][k] != queryResult.results[i][j][k] {
-						bad = true
-					}
+		for j := 0; j < len(result[i]); j++ {
+			bad := false
+			type1 := reflect.TypeOf(result[i][j])
+			type2 := reflect.TypeOf(queryResult.results[i][j])
+			switch {
+			case type1 == nil || type2 == nil:
+				if type1 != type2 {
+					bad = true
 				}
-				if bad {
-					t.Errorf("result - %v row %v, %v - received: %T, %v  - expected: %T, %v - query: %v", i, j, k,
-						result[j][k], result[j][k], queryResult.results[i][j][k], queryResult.results[i][j][k], queryResult.query)
+			case type1 == TestTypeTime || type2 == TestTypeTime:
+				if type1 != type2 {
+					bad = true
+					break
+				}
+				time1 := result[i][j].(time.Time)
+				time2 := queryResult.results[i][j].(time.Time)
+				if !time1.Equal(time2) {
+					bad = true
+				}
+			case type1.Kind() == reflect.Slice || type2.Kind() == reflect.Slice:
+				if !reflect.DeepEqual(result[i][j], queryResult.results[i][j]) {
+					bad = true
+				}
+			default:
+				if result[i][j] != queryResult.results[i][j] {
+					bad = true
 				}
 			}
-
+			if bad {
+				t.Errorf("result - row %v, %v - received: %T, %v - expected: %T, %v - query: %v", i, j,
+					result[i][j], result[i][j], queryResult.results[i][j], queryResult.results[i][j], query)
+			}
 		}
 
 	}
+
 }
 
 // TestConnect checks basic invalid connection
@@ -522,12 +525,11 @@ func TestDestructiveTransaction(t *testing.T) {
 		return
 	}
 
-	queryResults := []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults := testQueryResults{
+		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(1), int64(2), int64(3)},
 					[]interface{}{int64(4), int64(5), int64(6)},
 					[]interface{}{int64(6), int64(7), int64(8)},
@@ -548,12 +550,11 @@ func TestDestructiveTransaction(t *testing.T) {
 		return
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(1), int64(2), int64(3)},
 					[]interface{}{int64(4), int64(5), int64(6)},
 					[]interface{}{int64(6), int64(7), int64(8)},
@@ -766,12 +767,11 @@ func TestDestructiveTransaction(t *testing.T) {
 		return
 	}
 
-	queryResults = []testQueryResults{
-		testQueryResults{
-			query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
-			args:  [][]interface{}{[]interface{}{}},
-			results: [][][]interface{}{
-				[][]interface{}{
+	queryResults = testQueryResults{
+		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
 					[]interface{}{int64(1), int64(22), int64(3)},
 					[]interface{}{int64(4), int64(55), int64(6)},
 					[]interface{}{int64(6), int64(7), int64(8)},
@@ -780,4 +780,5 @@ func TestDestructiveTransaction(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+
 }

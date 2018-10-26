@@ -22,24 +22,6 @@ WrapOCIAttrGetInt(dvoid *ss, ub4 hType, ub4 aType, OCIError *err) {
 }
 
 typedef struct {
-  ub2 num;
-  sword rv;
-} retUb2;
-
-static retUb2
-WrapOCIAttrGetUb2(dvoid *ss, ub4 hType, ub4 aType, OCIError *err) {
-  retUb2 vvv = {0, 0};
-  vvv.rv = OCIAttrGet(
-    ss,
-    hType,
-    &vvv.num,
-    NULL,
-    aType,
-    err);
-  return vvv;
-}
-
-typedef struct {
   ub4 num;
   sword rv;
 } retUb4;

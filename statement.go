@@ -682,3 +682,64 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 
 	return &OCI8Result{stmt: stmt, n: n, errn: en, id: id, errid: ei}, nil
 }
+
+// outputBoundParameters sets bound parameters
+func outputBoundParameters(boundParameters []oci8bind) error {
+	for i, col := range boundParameters {
+		if col.pbuf != nil {
+			switch v := col.out.(type) {
+			case *string:
+				*v = C.GoString((*C.char)(col.pbuf))
+
+			case *int:
+				*v = int(getInt64(col.pbuf))
+			case *int64:
+				*v = getInt64(col.pbuf)
+			case *int32:
+				*v = int32(getInt64(col.pbuf))
+			case *int16:
+				*v = int16(getInt64(col.pbuf))
+			case *int8:
+				*v = int8(getInt64(col.pbuf))
+
+			case *uint:
+				*v = uint(getUint64(col.pbuf))
+			case *uint64:
+				*v = getUint64(col.pbuf)
+			case *uint32:
+				*v = uint32(getUint64(col.pbuf))
+			case *uint16:
+				*v = uint16(getUint64(col.pbuf))
+			case *uint8:
+				*v = uint8(getUint64(col.pbuf))
+			case *uintptr:
+				*v = uintptr(getUint64(col.pbuf))
+
+			case *float64:
+				buf := (*[8]byte)(col.pbuf)[0:8]
+				var data float64
+				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+				if err != nil {
+					return fmt.Errorf("binary read for column %v - error: %v", i, err)
+				}
+				*v = data
+			case *float32:
+				// statment is using SQLT_BDOUBLE to bind
+				// need to read as float64 because of the 8 bits
+				buf := (*[8]byte)(col.pbuf)[0:8]
+				var data float64
+				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+				if err != nil {
+					return fmt.Errorf("binary read for column %v - error: %v", i, err)
+				}
+				*v = float32(data)
+
+			case *bool:
+				buf := (*[1 << 30]byte)(col.pbuf)[0:1]
+				*v = buf[0] != 0
+			}
+		}
+	}
+
+	return nil
+}

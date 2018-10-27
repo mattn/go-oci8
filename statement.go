@@ -350,19 +350,12 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	indrlen := (*[1 << 16]C.indrlen)(indrlenptr)[0:paramCount]
 	for i := 0; i < paramCount; i++ {
 		var param *C.OCIParam
-
-		if rp := C.WrapOCIParamGet(
-			unsafe.Pointer(stmt.stmt),
-			C.OCI_HTYPE_STMT,
-			stmt.conn.errHandle,
-			C.ub4(i+1),
-		); rp.rv != C.OCI_SUCCESS {
+		param, err = stmt.ociParamGet(C.ub4(i + 1))
+		if err != nil {
 			C.free(indrlenptr)
-			return nil, stmt.conn.getError(rp.rv)
-		} else {
-			// A descriptor of the parameter at the position given in the pos parameter, of handle type OCI_DTYPE_PARAM.
-			param = (*C.OCIParam)(rp.ptr)
+			return nil, err
 		}
+		defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
 
 		var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
 		_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
@@ -782,7 +775,24 @@ func (stmt *OCI8Stmt) outputBoundParameters(boundParameters []oci8bind) error {
 	return nil
 }
 
-// ociAttrGet calls OCIAttrGet with OCIStmt then returns attribute size, and error.
+// ociParamGet calls OCIParamGet then returns OCIParam and error.
+// OCIDescriptorFree must be called on returned OCIParam.
+func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
+	paramTemp := &C.OCIParam{}
+	param := &paramTemp
+
+	result := C.OCIParamGet(
+		unsafe.Pointer(stmt.stmt),                // A statement handle or describe handle
+		C.OCI_HTYPE_STMT,                         // Handle type: OCI_HTYPE_STMT, for a statement handle
+		stmt.conn.errHandle,                      // An error handle
+		(*unsafe.Pointer)(unsafe.Pointer(param)), // A descriptor of the parameter at the position
+		position, // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
+	)
+
+	return *param, stmt.conn.getError(result)
+}
+
+// ociAttrGet calls OCIAttrGet with OCIStmt then returns attribute size and error.
 // The attribute value is stored into passed value.
 func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
 	var size C.ub4

@@ -299,7 +299,7 @@ func (conn *OCI8Conn) ociGetError() (int, error) {
 	return int(errorCode), errors.New(string(errorText[:index]))
 }
 
-// ociAttrGet calls OCIAttrGet with OCIParam then returns attribute size, and error.
+// ociAttrGet calls OCIAttrGet with OCIParam then returns attribute size and error.
 // The attribute value is stored into passed value.
 func (conn *OCI8Conn) ociAttrGet(paramHandle *C.OCIParam, value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
 	var size C.ub4
@@ -336,4 +336,3 @@ func (conn *OCI8Conn) ociAttrSet(
 
 	return conn.getError(result)
 }
-

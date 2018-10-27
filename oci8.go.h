@@ -102,18 +102,6 @@ typedef struct {
   sword rv;
 } ret2ptr;
 
-static ret1ptr
-WrapOCIParamGet(dvoid *ss, ub4 hType, OCIError *err, ub4 pos) {
-  ret1ptr vvv = {NULL, 0};
-  vvv.rv = OCIParamGet(
-    ss,
-    hType,
-    err,
-    &vvv.ptr,
-    pos);
-  return vvv;
-}
-
 static ret2ptr
 WrapOCIDescriptorAlloc(dvoid *env, ub4 type, size_t extra) {
   ret2ptr vvv = {NULL, NULL, 0};

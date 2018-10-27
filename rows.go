@@ -303,15 +303,15 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 // ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
 func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
-	var param *C.OCIParam
-
-	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.errHandle, C.ub4(i+1))
-	if rp.rv == C.OCI_SUCCESS {
-		param = (*C.OCIParam)(rp.ptr)
+	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
+	if err != nil {
+		// TOFIX: return an error
+		return ""
 	}
+	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
 
 	var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
-	_, err := rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
+	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
 	if err != nil {
 		// TOFIX: return an error
 		return ""
@@ -390,16 +390,14 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 
 // ColumnTypeLength returns column length
 func (rows *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	var param *C.OCIParam
-
-	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.errHandle, C.ub4(i+1))
-	if rp.rv != C.OCI_SUCCESS {
+	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
+	if err != nil {
 		return 0, false
 	}
-	param = (*C.OCIParam)(rp.ptr)
+	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
 
 	var dataSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
-	_, err := rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE)
+	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE)
 	if err != nil {
 		return 0, false
 	}
@@ -424,15 +422,15 @@ func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.
 func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
-	var param *C.OCIParam
-
-	rp := C.WrapOCIParamGet(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, rows.stmt.conn.errHandle, C.ub4(i+1))
-	if rp.rv == C.OCI_SUCCESS {
-		param = (*C.OCIParam)(rp.ptr)
+	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
+	if err != nil {
+		// TOFIX: return an error
+		return reflect.SliceOf(reflect.TypeOf(""))
 	}
+	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
 
 	var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
-	_, err := rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
+	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
 	if err != nil {
 		// TOFIX: return an error
 		return reflect.SliceOf(reflect.TypeOf(""))

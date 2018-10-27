@@ -11,6 +11,7 @@ import "C"
 import (
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"io/ioutil"
 	"log"
 	"regexp"
@@ -135,6 +136,9 @@ type (
 )
 
 var (
+	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
+	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
+
 	phre = regexp.MustCompile(`\?`)
 
 	// OCI8Driver is the sql driver

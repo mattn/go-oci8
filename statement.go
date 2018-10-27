@@ -324,18 +324,11 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		}
 	}()
-	rv := C.OCIStmtExecute(
-		stmt.conn.svc,
-		stmt.stmt,
-		stmt.conn.errHandle,
-		iter,
-		0,
-		nil,
-		nil,
-		mode)
+
+	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
-	if rv != C.OCI_SUCCESS {
-		return nil, stmt.conn.getError(rv)
+	if err != nil {
+		return nil, err
 	}
 
 	var paramCountUb4 C.ub4
@@ -357,7 +350,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		}
 		defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
 
-		var dataType C.ub2 // external datatype of the column. Valid datatypes like: SQLT_CHR, SQLT_DATE, SQLT_TIMESTAMP, etc.
+		var dataType C.ub2 // external datatype of the column: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci03typ.htm#CEGIEEJI
 		_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
 		if err != nil {
 			C.free(indrlenptr)
@@ -679,18 +672,10 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		}
 	}()
 
-	rv := C.OCIStmtExecute(
-		stmt.conn.svc,
-		stmt.stmt,
-		stmt.conn.errHandle,
-		1,
-		0,
-		nil,
-		nil,
-		mode)
+	err = stmt.ociStmtExecute(1, mode)
 	close(done)
-	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
-		return nil, stmt.conn.getError(rv)
+	if err != nil && err != ErrOCISuccessWithInfo {
+		return nil, err
 	}
 
 	n, en := stmt.rowsAffected()
@@ -789,7 +774,11 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 		position, // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
 	)
 
-	return *param, stmt.conn.getError(result)
+	err := stmt.conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+	return *param, nil
 }
 
 // ociAttrGet calls OCIAttrGet with OCIStmt then returns attribute size and error.
@@ -866,4 +855,20 @@ func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, value unsafe.Pointer, maxSize
 		return nil, err
 	}
 	return *bindHandle, nil
+}
+
+// ociStmtExecute calls OCIStmtExecute
+func (stmt *OCI8Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
+	result := C.OCIStmtExecute(
+		stmt.conn.svc,       // Service context handle
+		stmt.stmt,           // A statement handle
+		stmt.conn.errHandle, // An error handle
+		iters,               // For non-SELECT statements, the number of times this statement is executed equals iters - rowoff. For SELECT statements, if iters is nonzero, then defines must have been done for the statement handle.
+		0,                   // The starting index from which the data in an array bind is relevant for this multiple row execution
+		nil,                 // This parameter is optional. If it is supplied, it must point to a snapshot descriptor of type OCI_DTYPE_SNAP
+		nil,                 // This parameter is optional. If it is supplied, it must point to a descriptor of type OCI_DTYPE_SNAP.
+		mode,                // The mode: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci17msc001.htm#LNOCI17163
+	)
+
+	return stmt.conn.getError(result)
 }

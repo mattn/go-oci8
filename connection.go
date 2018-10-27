@@ -243,7 +243,7 @@ func (conn *OCI8Conn) getError(result C.sword) error {
 	case C.OCI_INVALID_HANDLE:
 		return errors.New("OCI_INVALID_HANDLE")
 	case C.OCI_SUCCESS_WITH_INFO:
-		return errors.New("OCI_SUCCESS_WITH_INFO")
+		return ErrOCISuccessWithInfo
 	case C.OCI_RESERVED_FOR_INT_USE:
 		return errors.New("OCI_RESERVED_FOR_INT_USE")
 	case C.OCI_NO_DATA:

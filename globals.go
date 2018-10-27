@@ -91,7 +91,6 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		bp     **C.OCIBind
 		defp   **C.OCIDefine
 		pbind  []oci8bind //bind params
 	}
@@ -115,10 +114,12 @@ type (
 	}
 
 	oci8bind struct {
-		kind C.ub2
-		pbuf unsafe.Pointer
-		clen C.sb4
-		out  interface{} // original binded data type
+		kind       C.ub2
+		pbuf       unsafe.Pointer
+		clen       C.sb4
+		indicator  C.sb2
+		bindHandle **C.OCIBind
+		out        interface{} // original binded data type
 	}
 
 	// OCI8Rows is Oracle rows

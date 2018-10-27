@@ -46,7 +46,6 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 	var boundParameters []oci8bind
 	var err error
 
-	*stmt.bp = nil
 	for i, uv := range args {
 		var sbind oci8bind
 
@@ -61,11 +60,13 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		}
 
 		switch v := vv.(type) {
-		
+
 		case nil:
 			sbind.kind = C.SQLT_STR
-			sbind.pbuf = nil
 			sbind.clen = 0
+			sbind.pbuf = nil
+			sbind.indicator = -1 // set to null
+
 		case []byte:
 			sbind.kind = C.SQLT_BIN
 			sbind.clen = C.sb4(len(v))
@@ -169,12 +170,15 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		case string:
 			if sbind.out != nil {
 				sbind.kind = C.SQLT_STR
-				sbind.clen = 2048 //4 * C.sb4(len(*v))
-				sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
+				sbind.clen = C.sb4(len(v) + 1)
+				sbind.pbuf = unsafe.Pointer(C.CString(v))
 			} else {
-				sbind.kind = C.SQLT_AFC // don't trim strings !!!
+				sbind.kind = C.SQLT_AFC
 				sbind.clen = C.sb4(len(v))
 				sbind.pbuf = unsafe.Pointer(C.CString(v))
+			}
+			if len(v) == 0 {
+				sbind.indicator = -1 // set to null
 			}
 
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
@@ -211,6 +215,7 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				sbind.kind = C.SQLT_STR
 				sbind.clen = 0
 				sbind.pbuf = nil
+				sbind.indicator = -1 // set to null
 				// TODO: should this error instead of setting to null?
 			} else {
 				sbind.kind = C.SQLT_CHR
@@ -224,46 +229,15 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		boundParameters = append(boundParameters, sbind)
 
 		if uv.Name != "" {
-			name := ":" + uv.Name
-			cname := C.CString(name)
-			defer C.free(unsafe.Pointer(cname))
-			if rv := C.OCIBindByName(
-				stmt.stmt,
-				stmt.bp,
-				stmt.conn.err,
-				(*C.OraText)(unsafe.Pointer(cname)),
-				C.sb4(len(name)),
-				unsafe.Pointer(sbind.pbuf),
-				sbind.clen,
-				sbind.kind,
-				nil,
-				nil,
-				nil,
-				0,
-				nil,
-				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
-				defer freeBoundParameters(stmt.pbind)
-				return nil, getError(rv, stmt.conn.err)
-			}
+			err = stmt.ociBindByName(sbind.bindHandle, []byte(":"+uv.Name), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
 		} else {
-			if rv := C.OCIBindByPos(
-				stmt.stmt,
-				stmt.bp,
-				stmt.conn.err,
-				C.ub4(i+1),
-				unsafe.Pointer(sbind.pbuf),
-				sbind.clen,
-				sbind.kind,
-				nil,
-				nil,
-				nil,
-				0,
-				nil,
-				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
-				defer freeBoundParameters(stmt.pbind)
-				return nil, getError(rv, stmt.conn.err)
-			}
-		*/
+			err = stmt.ociBindByPos(sbind.bindHandle, C.ub4(i+1), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
+		}
+		if err != nil {
+			defer freeBoundParameters(stmt.pbind)
+			return nil, err
+		}
+
 	}
 
 	return boundParameters, nil
@@ -749,7 +723,11 @@ func (stmt *OCI8Stmt) outputBoundParameters(boundParameters []oci8bind) error {
 		if col.pbuf != nil {
 			switch v := col.out.(type) {
 			case *string:
-				*v = C.GoString((*C.char)(col.pbuf))
+				if col.indicator == -1 { // string is null
+					*v = "" // best attempt at Go nil string
+				} else {
+					*v = C.GoString((*C.char)(col.pbuf))
+				}
 
 			case *int:
 				*v = int(getInt64(col.pbuf))
@@ -819,4 +797,71 @@ func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.u
 	)
 
 	return size, stmt.conn.getError(result)
+}
+
+// ociBindByName calls OCIBindByName.
+// bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
+func (stmt *OCI8Stmt) ociBindByName(
+	bindHandle **C.OCIBind,
+	name []byte,
+	value unsafe.Pointer,
+	maxSize C.sb4,
+	dataType C.ub2,
+	indicator C.sb2,
+) error {
+	if bindHandle == nil {
+		bindHandleTemp := &C.OCIBind{}
+		bindHandle = &bindHandleTemp
+	}
+	result := C.OCIBindByName(
+		stmt.stmt,                  // The statement handle
+		bindHandle,                 // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
+		stmt.conn.errHandle,        // An error handle
+		(*C.OraText)(&name[0]),     // The placeholder, specified by its name, that maps to a variable in the statement associated with the statement handle.
+		C.sb4(len(name)),           // The length of the name specified in placeholder, in number of bytes regardless of the encoding.
+		value,                      // The pointer to a data value or an array of data values of type specified in the dty parameter
+		maxSize,                    // The maximum size possible in bytes of any data value for this bind variable
+		dataType,                   // The data type of the values being bound
+		unsafe.Pointer(&indicator), // Pointer to an indicator variable or array
+		nil,           // Pointer to the array of actual lengths of array elements
+		nil,           // Pointer to the array of column-level return codes
+		0,             // A maximum array length parameter
+		nil,           // Current array length parameter
+		C.OCI_DEFAULT, // The mode. Recommended to set to OCI_DEFAULT, which makes the bind variable have the same encoding as its statement.
+	)
+
+	return stmt.conn.getError(result)
+}
+
+// ociBindByPos calls OCIBindByPos.
+// bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
+func (stmt *OCI8Stmt) ociBindByPos(
+	bindHandle **C.OCIBind,
+	position C.ub4,
+	value unsafe.Pointer,
+	maxSize C.sb4,
+	dataType C.ub2,
+	indicator C.sb2,
+) error {
+	if bindHandle == nil {
+		bindHandleTemp := &C.OCIBind{}
+		bindHandle = &bindHandleTemp
+	}
+	result := C.OCIBindByPos(
+		stmt.stmt,                  // The statement handle
+		bindHandle,                 // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
+		stmt.conn.errHandle,        // An error handle
+		position,                   // The placeholder attributes are specified by position if OCIBindByPos() is being called.
+		value,                      // An address of a data value or an array of data values
+		maxSize,                    // The maximum size possible in bytes of any data value for this bind variable
+		dataType,                   // The data type of the values being bound
+		unsafe.Pointer(&indicator), // Pointer to an indicator variable or array
+		nil,           // Pointer to the array of actual lengths of array elements
+		nil,           // Pointer to the array of column-level return codes
+		0,             // A maximum array length parameter
+		nil,           // Current array length parameter
+		C.OCI_DEFAULT, // The mode. Recommended to set to OCI_DEFAULT, which makes the bind variable have the same encoding as its statement.
+	)
+
+	return stmt.conn.getError(result)
 }

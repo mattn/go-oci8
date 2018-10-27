@@ -229,9 +229,9 @@ func (stmt *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		boundParameters = append(boundParameters, sbind)
 
 		if uv.Name != "" {
-			err = stmt.ociBindByName(sbind.bindHandle, []byte(":"+uv.Name), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
+			sbind.bindHandle, err = stmt.ociBindByName([]byte(":"+uv.Name), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
 		} else {
-			err = stmt.ociBindByPos(sbind.bindHandle, C.ub4(i+1), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
+			sbind.bindHandle, err = stmt.ociBindByPos(C.ub4(i+1), sbind.pbuf, sbind.clen, sbind.kind, sbind.indicator)
 		}
 		if err != nil {
 			defer freeBoundParameters(stmt.pbind)
@@ -811,18 +811,10 @@ func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.u
 
 // ociBindByName calls OCIBindByName.
 // bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
-func (stmt *OCI8Stmt) ociBindByName(
-	bindHandle **C.OCIBind,
-	name []byte,
-	value unsafe.Pointer,
-	maxSize C.sb4,
-	dataType C.ub2,
-	indicator C.sb2,
-) error {
-	if bindHandle == nil {
-		bindHandleTemp := &C.OCIBind{}
-		bindHandle = &bindHandleTemp
-	}
+func (stmt *OCI8Stmt) ociBindByName(name []byte, value unsafe.Pointer, maxSize C.sb4, dataType C.ub2, indicator C.sb2) (*C.OCIBind, error) {
+	bindHandleTemp := &C.OCIBind{}
+	bindHandle := &bindHandleTemp
+
 	result := C.OCIBindByName(
 		stmt.stmt,                  // The statement handle
 		bindHandle,                 // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -840,23 +832,19 @@ func (stmt *OCI8Stmt) ociBindByName(
 		C.OCI_DEFAULT, // The mode. Recommended to set to OCI_DEFAULT, which makes the bind variable have the same encoding as its statement.
 	)
 
-	return stmt.conn.getError(result)
+	err := stmt.conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+	return *bindHandle, nil
 }
 
 // ociBindByPos calls OCIBindByPos.
 // bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
-func (stmt *OCI8Stmt) ociBindByPos(
-	bindHandle **C.OCIBind,
-	position C.ub4,
-	value unsafe.Pointer,
-	maxSize C.sb4,
-	dataType C.ub2,
-	indicator C.sb2,
-) error {
-	if bindHandle == nil {
-		bindHandleTemp := &C.OCIBind{}
-		bindHandle = &bindHandleTemp
-	}
+func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, value unsafe.Pointer, maxSize C.sb4, dataType C.ub2, indicator C.sb2) (*C.OCIBind, error) {
+	bindHandleTemp := &C.OCIBind{}
+	bindHandle := &bindHandleTemp
+
 	result := C.OCIBindByPos(
 		stmt.stmt,                  // The statement handle
 		bindHandle,                 // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -873,5 +861,9 @@ func (stmt *OCI8Stmt) ociBindByPos(
 		C.OCI_DEFAULT, // The mode. Recommended to set to OCI_DEFAULT, which makes the bind variable have the same encoding as its statement.
 	)
 
-	return stmt.conn.getError(result)
+	err := stmt.conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+	return *bindHandle, nil
 }

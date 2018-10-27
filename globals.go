@@ -118,7 +118,7 @@ type (
 		pbuf       unsafe.Pointer
 		clen       C.sb4
 		indicator  C.sb2
-		bindHandle **C.OCIBind
+		bindHandle *C.OCIBind
 		out        interface{} // original binded data type
 	}
 

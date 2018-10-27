@@ -46,10 +46,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 				C.free(col.pbuf)
 			}
 			col.pbuf = nil
-			if col.bindHandle != nil {
-				*col.bindHandle = nil
-				col.bindHandle = nil
-			}
+			col.bindHandle = nil
 		}
 	}
 }

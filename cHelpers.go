@@ -11,6 +11,25 @@ import (
 	"unsafe"
 )
 
+// getInt64 gets int64 from pointer
+func getInt64(p unsafe.Pointer) int64 {
+	return int64(*(*C.sb8)(p))
+}
+
+// getUint64 gets uint64 from pointer
+func getUint64(p unsafe.Pointer) uint64 {
+	return uint64(*(*C.sb8)(p))
+}
+
+// CByte comverts byte slice to C char
+func CByte(b []byte) *C.char {
+	p := C.malloc(C.size_t(len(b)))
+	pp := (*[1 << 30]byte)(p)
+	copy(pp[:], b)
+	return (*C.char)(p)
+}
+
+// freeBoundParameters frees bound parameters
 func freeBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {
 		if col.pbuf != nil {
@@ -35,15 +54,7 @@ func freeBoundParameters(boundParameters []oci8bind) {
 	}
 }
 
-func getInt64(p unsafe.Pointer) int64 {
-	return int64(*(*C.sb8)(p))
-}
-
-func getUint64(p unsafe.Pointer) uint64 {
-	return uint64(*(*C.sb8)(p))
-}
-
-// freeDecriptor calles C OCIDescriptorFree
+// freeDecriptor calles OCIDescriptorFree
 func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
 	tptr := *(*unsafe.Pointer)(p)
 	C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype)
@@ -111,14 +122,6 @@ func ociGetError(errHandle *C.OCIError) (int, error) {
 	index := bytes.IndexByte(errorText, 0)
 
 	return int(errorCode), errors.New(string(errorText[:index]))
-}
-
-// CByte comverts byte slice to C char
-func CByte(b []byte) *C.char {
-	p := C.malloc(C.size_t(len(b)))
-	pp := (*[1 << 30]byte)(p)
-	copy(pp[:], b)
-	return (*C.char)(p)
 }
 
 // ociAttrGetStmt calls OCIAttrGet with OCIStmt then returns attribute size, and error.

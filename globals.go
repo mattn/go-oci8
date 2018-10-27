@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	blobBufSize        = 4000
+	lobBufferSize      = 4000
 	useOCISessionBegin = true
 	sizeOfNilPointer   = unsafe.Sizeof(unsafe.Pointer(nil))
 )
@@ -57,7 +57,7 @@ type (
 		svc                  *C.OCISvcCtx
 		srv                  *C.OCIServer
 		env                  *C.OCIEnv
-		err                  *C.OCIError
+		errHandle            *C.OCIError
 		usrSession           *C.OCISession
 		prefetchRows         uint32
 		prefetchMemory       uint32

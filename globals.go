@@ -154,9 +154,15 @@ func init() {
 /*
 OCI Documentation Notes
 
+Datatypes:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#CEGIEEJI
+
 Handle and Descriptor Attributes:
 https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociaahan.htm#i442199
 
 OCI Function Server Round Trips:
 https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociacrou.htm#g430405
+
+OCI examples:
+https://github.com/alexeyvo/oracle_oci_examples
 */

@@ -722,7 +722,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(boundParameters []oci8bind) error {
 // ociParamGet calls OCIParamGet then returns OCIParam and error.
 // OCIDescriptorFree must be called on returned OCIParam.
 func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
-	paramTemp := &C.OCIParam{}
+	var paramTemp *C.OCIParam
 	param := &paramTemp
 
 	result := C.OCIParamGet(
@@ -757,10 +757,9 @@ func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.u
 	return size, stmt.conn.getError(result)
 }
 
-// ociBindByName calls OCIBindByName.
-// bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
+// ociBindByName calls OCIBindByName, then returns bind handle and error.
 func (stmt *OCI8Stmt) ociBindByName(name []byte, value unsafe.Pointer, maxSize C.sb4, dataType C.ub2, indicator C.sb2) (*C.OCIBind, error) {
-	bindHandleTemp := &C.OCIBind{}
+	var bindHandleTemp *C.OCIBind
 	bindHandle := &bindHandleTemp
 
 	result := C.OCIBindByName(
@@ -787,10 +786,9 @@ func (stmt *OCI8Stmt) ociBindByName(name []byte, value unsafe.Pointer, maxSize C
 	return *bindHandle, nil
 }
 
-// ociBindByPos calls OCIBindByPos.
-// bindHandle has to be nil or a valid bind handle. If nil, will be allocated.
+// ociBindByPos calls OCIBindByPos, then returns bind handle and error.
 func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, value unsafe.Pointer, maxSize C.sb4, dataType C.ub2, indicator C.sb2) (*C.OCIBind, error) {
-	bindHandleTemp := &C.OCIBind{}
+	var bindHandleTemp *C.OCIBind
 	bindHandle := &bindHandleTemp
 
 	result := C.OCIBindByPos(

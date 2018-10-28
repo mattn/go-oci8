@@ -150,3 +150,13 @@ var (
 func init() {
 	sql.Register("oci8", OCI8Driver)
 }
+
+/*
+OCI Documentation Notes
+
+Handle and Descriptor Attributes:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociaahan.htm#i442199
+
+OCI Function Server Round Trips:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociacrou.htm#g430405
+*/

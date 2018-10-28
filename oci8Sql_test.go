@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
@@ -16,6 +15,8 @@ import (
 
 // testGetDB connects to the test database and returns the database connection
 func testGetDB() *sql.DB {
+	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+
 	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
 
 	var openString string
@@ -331,8 +332,6 @@ func TestConnect(t *testing.T) {
 		t.SkipNow()
 	}
 
-	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
-
 	// invalid
 	db, err := sql.Open("oci8", TestHostInvalid)
 	if err != nil {
@@ -374,8 +373,6 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal("close error:", err)
 	}
-
-	OCI8Driver.Logger = log.New(ioutil.Discard, "", 0)
 }
 
 // TestSelectParallel checks parallel select from dual

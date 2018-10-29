@@ -165,4 +165,7 @@ https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociacrou.htm#g430405
 
 OCI examples:
 https://github.com/alexeyvo/oracle_oci_examples
+
+Oracle datatypes:
+https://ss64.com/ora/syntax-datatypes.html
 */

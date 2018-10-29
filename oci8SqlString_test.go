@@ -14,6 +14,8 @@ func TestSelectDualString(t *testing.T) {
 
 	queryResults := testQueryResults{}
 
+	// test strings no change
+
 	queryResultStrings1 := []testQueryResult{
 		testQueryResult{
 			args:    []interface{}{""},
@@ -191,8 +193,6 @@ func TestSelectDualString(t *testing.T) {
 		},
 	}
 
-	// https://ss64.com/ora/syntax-datatypes.html
-
 	// VARCHAR2(1)
 	queryResults.query = "select cast (:1 as VARCHAR2(1)) from dual"
 	queryResults.queryResults = queryResultStrings1
@@ -239,18 +239,6 @@ func TestSelectDualString(t *testing.T) {
 	queryResults.queryResults = queryResultStringsFix1000
 	testRunQueryResults(t, queryResults)
 
-	// RAW(1)
-	queryResults.query = "select cast (:1 as RAW(1)) from dual"
-	queryResults.queryResults = queryResultRaw1
-	testRunQueryResults(t, queryResults)
-
-	// RAW(2000)
-	queryResults.query = "select cast (:1 as RAW(2000)) from dual"
-	queryResults.queryResults = queryResultRaw1
-	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultRaw2000
-	testRunQueryResults(t, queryResults)
-
 	// CLOB
 	queryResults.query = "select TO_CLOB(:1) from dual"
 	queryResults.queryResults = queryResultStrings1
@@ -269,11 +257,449 @@ func TestSelectDualString(t *testing.T) {
 	queryResults.queryResults = queryResultStrings4000
 	testRunQueryResults(t, queryResults)
 
+	// RAW(1)
+	queryResults.query = "select cast (:1 as RAW(1)) from dual"
+	queryResults.queryResults = queryResultRaw1
+	testRunQueryResults(t, queryResults)
+
+	// RAW(2000)
+	queryResults.query = "select cast (:1 as RAW(2000)) from dual"
+	queryResults.queryResults = queryResultRaw1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultRaw2000
+	testRunQueryResults(t, queryResults)
+
 	// BLOB
 	queryResults.query = "select TO_BLOB(:1) from dual"
 	queryResults.queryResults = queryResultRaw1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultRaw2000
+	testRunQueryResults(t, queryResults)
+
+	// test strings add to end
+
+	queryResultStringsAddEnd1 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"axyz"}},
+		},
+	}
+
+	queryResultStringsAddEnd2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"abc    xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"    abcxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"    abc    xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123"},
+			results: [][]interface{}{[]interface{}{"123xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123.456"},
+			results: [][]interface{}{[]interface{}{"123.456xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abcdefghijklmnopqrstuvwxyz"},
+			results: [][]interface{}{[]interface{}{"abcdefghijklmnopqrstuvwxyzxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{" a b c d e f g h i j k l m n o p q r s t u v w x y z "},
+			results: [][]interface{}{[]interface{}{" a b c d e f g h i j k l m n o p q r s t u v w x y z xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"ab\ncd\nefxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"ab\tcd\tefxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 100) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 1000) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 998)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 998) + "xyz"}},
+		},
+	}
+
+	queryResultStringsAddEnd4000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("abcd", 999)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("abcd", 999) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{testString1},
+			results: [][]interface{}{[]interface{}{testString1 + "xyz"}},
+		},
+	}
+
+	queryResultStringsAddEndFix1000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"a" + strings.Repeat(" ", 999) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"abc    " + strings.Repeat(" ", 993) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"    abc" + strings.Repeat(" ", 993) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 989) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 990) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 100) + strings.Repeat(" ", 900) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 1000) + "xyz"}},
+		},
+	}
+
+	queryResultStringsAddEndFix2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"a" + strings.Repeat(" ", 1999) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"abc    " + strings.Repeat(" ", 1993) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"    abc" + strings.Repeat(" ", 1993) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 1989) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 1990) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 100) + strings.Repeat(" ", 1900) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 1000) + strings.Repeat(" ", 1000) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 1000) + "xyz"}},
+		},
+	}
+
+	// VARCHAR2(1)
+	queryResults.query = "select cast (:1 as VARCHAR2(1)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+
+	// VARCHAR2(4000)
+	queryResults.query = "select cast (:1 as VARCHAR2(4000)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd4000
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2(1)
+	queryResults.query = "select cast (:1 as NVARCHAR2(1)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2(2000)
+	queryResults.query = "select cast (:1 as NVARCHAR2(2000)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd2000
+	testRunQueryResults(t, queryResults)
+
+	// CHAR(1)
+	queryResults.query = "select cast (:1 as CHAR(1)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+
+	// CHAR(2000)
+	queryResults.query = "select cast (:1 as CHAR(2000)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEndFix2000
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR(1)
+	queryResults.query = "select cast (:1 as NCHAR(1)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR(1000)
+	queryResults.query = "select cast (:1 as NCHAR(1000)) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEndFix1000
+	testRunQueryResults(t, queryResults)
+
+	// CLOB
+	queryResults.query = "select TO_CLOB(:1) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd4000
+	testRunQueryResults(t, queryResults)
+
+	// NCLOB
+	queryResults.query = "select TO_NCLOB(:1) || 'xyz' from dual"
+	queryResults.queryResults = queryResultStringsAddEnd1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddEnd4000
+	testRunQueryResults(t, queryResults)
+
+	// test strings add to front
+
+	queryResultStringsAddFront1 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"xyza"}},
+		},
+	}
+
+	queryResultStringsAddFront2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"xyzabc    "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"xyz    abc"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"xyz    abc    "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123"},
+			results: [][]interface{}{[]interface{}{"xyz123"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123.456"},
+			results: [][]interface{}{[]interface{}{"xyz123.456"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abcdefghijklmnopqrstuvwxyz"},
+			results: [][]interface{}{[]interface{}{"xyzabcdefghijklmnopqrstuvwxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{" a b c d e f g h i j k l m n o p q r s t u v w x y z "},
+			results: [][]interface{}{[]interface{}{"xyz a b c d e f g h i j k l m n o p q r s t u v w x y z "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"xyzab\ncd\nef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"xyzab\tcd\tef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 100)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 1000)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 998)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("ab", 998)}},
+		},
+	}
+
+	queryResultStringsAddFront4000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("abcd", 999)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("abcd", 999)}},
+		},
+		testQueryResult{
+			args:    []interface{}{testString1},
+			results: [][]interface{}{[]interface{}{"xyz" + testString1}},
+		},
+	}
+
+	queryResultStringsAddFrontFix1000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"xyza" + strings.Repeat(" ", 999)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"xyzabc    " + strings.Repeat(" ", 993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"xyz    abc" + strings.Repeat(" ", 993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"xyz    abc    " + strings.Repeat(" ", 989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 10) + strings.Repeat(" ", 990)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 100) + strings.Repeat(" ", 900)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 1000)}},
+		},
+	}
+
+	queryResultStringsAddFrontFix2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{"xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{"xyza" + strings.Repeat(" ", 1999)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"xyzabc    " + strings.Repeat(" ", 1993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"xyz    abc" + strings.Repeat(" ", 1993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"xyz    abc    " + strings.Repeat(" ", 1989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 10) + strings.Repeat(" ", 1990)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 100) + strings.Repeat(" ", 1900)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 1000) + strings.Repeat(" ", 1000)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 1000)},
+			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("ab", 1000)}},
+		},
+	}
+
+	// VARCHAR2(1)
+	queryResults.query = "select 'xyz' || cast (:1 as VARCHAR2(1)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+
+	// VARCHAR2(4000)
+	queryResults.query = "select 'xyz' || cast (:1 as VARCHAR2(4000)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront4000
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2(1)
+	queryResults.query = "select 'xyz' || cast (:1 as NVARCHAR2(1)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2(2000)
+	queryResults.query = "select 'xyz' || cast (:1 as NVARCHAR2(2000)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront2000
+	testRunQueryResults(t, queryResults)
+
+	// CHAR(1)
+	queryResults.query = "select 'xyz' || cast (:1 as CHAR(1)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+
+	// CHAR(2000)
+	queryResults.query = "select 'xyz' || cast (:1 as CHAR(2000)) from dual"
+	queryResults.queryResults = queryResultStringsAddFrontFix2000
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR(1)
+	queryResults.query = "select 'xyz' || cast (:1 as NCHAR(1)) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR(1000)
+	queryResults.query = "select 'xyz' || cast (:1 as NCHAR(1000)) from dual"
+	queryResults.queryResults = queryResultStringsAddFrontFix1000
+	testRunQueryResults(t, queryResults)
+
+	// CLOB
+	queryResults.query = "select 'xyz' || TO_CLOB(:1) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront4000
+	testRunQueryResults(t, queryResults)
+
+	// NCLOB
+	queryResults.query = "select 'xyz' || TO_NCLOB(:1) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsAddFront4000
 	testRunQueryResults(t, queryResults)
 
 	// ROWID

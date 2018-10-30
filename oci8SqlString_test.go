@@ -2,6 +2,7 @@ package oci8
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,10 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{"a"},
 			results: [][]interface{}{[]interface{}{"a"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"\x00"},
+			results: [][]interface{}{[]interface{}{"\x00"}},
 		},
 	}
 
@@ -63,6 +68,10 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{"ab\tcd\tef"},
 			results: [][]interface{}{[]interface{}{"ab\tcd\tef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00ef"}},
 		},
 		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 100)},
@@ -111,6 +120,18 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 989)}},
 		},
 		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"ab\ncd\nef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"ab\tcd\tef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00ef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
 			results: [][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 990)}},
 		},
@@ -144,6 +165,18 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{"    abc    "},
 			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 1989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"ab\ncd\nef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"ab\tcd\tef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00ef" + strings.Repeat(" ", 1992)}},
 		},
 		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
@@ -1336,5 +1369,187 @@ func TestDestructiveString(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+
+}
+
+func TestFunctionCallString(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	var execResults testExecResults
+
+	execResultStrings1 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "", In: true}},
+			results: map[string]interface{}{"string1": ""},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "a", In: true}},
+			results: map[string]interface{}{"string1": "a"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "\x00", In: true}},
+			results: map[string]interface{}{"string1": "\x00"},
+		},
+	}
+
+	execResultStrings2000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "abc    ", In: true}},
+			results: map[string]interface{}{"string1": "abc    "},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "    abc", In: true}},
+			results: map[string]interface{}{"string1": "    abc"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "    abc    ", In: true}},
+			results: map[string]interface{}{"string1": "    abc    "},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "123", In: true}},
+			results: map[string]interface{}{"string1": "123"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "123.456", In: true}},
+			results: map[string]interface{}{"string1": "123.456"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "abcdefghijklmnopqrstuvwxyz", In: true}},
+			results: map[string]interface{}{"string1": "abcdefghijklmnopqrstuvwxyz"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: " a b c d e f g h i j k l m n o p q r s t u v w x y z ", In: true}},
+			results: map[string]interface{}{"string1": " a b c d e f g h i j k l m n o p q r s t u v w x y z "},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "ab\ncd\nef", In: true}},
+			results: map[string]interface{}{"string1": "ab\ncd\nef"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("a", 100), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("a", 100)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("a", 1000), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("a", 1000)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("ab", 1000), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("ab", 1000)},
+		},
+	}
+
+	execResultStrings4000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("abcd", 1000), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("abcd", 1000)},
+		},
+	}
+
+	execResultStrings16383 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("b", 16383), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("b", 16383)},
+		},
+	}
+
+	execResultStrings32767 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("c", 32767), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("c", 32767)},
+		},
+	}
+
+	// VARCHAR2
+	execResults.query = `
+declare
+	function GET_STRING(p_string VARCHAR2) return VARCHAR2 as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultStrings1
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings32767
+	testRunExecResults(t, execResults)
+
+	// NVARCHAR2
+	execResults.query = `
+declare
+	function GET_STRING(p_string NVARCHAR2) return NVARCHAR2 as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultStrings1
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings16383
+	testRunExecResults(t, execResults)
+
+	// CHAR
+	execResults.query = `
+declare
+	function GET_STRING(p_string CHAR) return CHAR as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultStrings1
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings32767
+	testRunExecResults(t, execResults)
+
+	// NCHAR
+	execResults.query = `
+declare
+	function GET_STRING(p_string NCHAR) return NCHAR as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultStrings1
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings32767
+	testRunExecResults(t, execResults)
+
+	// RAW
+
+	// CLOB
+
+	// NCLOB
+
+	// BLOB
 
 }

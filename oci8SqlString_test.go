@@ -273,7 +273,7 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// CLOB
-	queryResults.query = "select TO_CLOB(:1) from dual"
+	queryResults.query = "select to_clob(:1) from dual"
 	queryResults.queryResults = queryResultStrings1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStrings2000
@@ -282,7 +282,7 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// NCLOB
-	queryResults.query = "select TO_NCLOB(:1) from dual"
+	queryResults.query = "select to_nclob(:1) from dual"
 	queryResults.queryResults = queryResultStrings1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStrings2000
@@ -360,6 +360,10 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{"ab\tcd\tefxyz"}},
 		},
 		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00efxyz"}},
+		},
+		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 100)},
 			results: [][]interface{}{[]interface{}{strings.Repeat("a", 100) + "xyz"}},
 		},
@@ -406,6 +410,18 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 989) + "xyz"}},
 		},
 		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"ab\ncd\nef" + strings.Repeat(" ", 992) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"ab\tcd\tef" + strings.Repeat(" ", 992) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00ef" + strings.Repeat(" ", 992) + "xyz"}},
+		},
+		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
 			results: [][]interface{}{[]interface{}{strings.Repeat("a", 10) + strings.Repeat(" ", 990) + "xyz"}},
 		},
@@ -439,6 +455,18 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{"    abc    "},
 			results: [][]interface{}{[]interface{}{"    abc    " + strings.Repeat(" ", 1989) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"ab\ncd\nef" + strings.Repeat(" ", 1992) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"ab\tcd\tef" + strings.Repeat(" ", 1992) + "xyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"ab\x00cd\x00ef" + strings.Repeat(" ", 1992) + "xyz"}},
 		},
 		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
@@ -505,7 +533,7 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// CLOB
-	queryResults.query = "select TO_CLOB(:1) || 'xyz' from dual"
+	queryResults.query = "select to_clob(:1) || 'xyz' from dual"
 	queryResults.queryResults = queryResultStringsAddEnd1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStringsAddEnd2000
@@ -514,7 +542,7 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// NCLOB
-	queryResults.query = "select TO_NCLOB(:1) || 'xyz' from dual"
+	queryResults.query = "select to_nclob(:1) || 'xyz' from dual"
 	queryResults.queryResults = queryResultStringsAddEnd1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStringsAddEnd2000
@@ -573,6 +601,10 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{"xyzab\tcd\tef"}},
 		},
 		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"xyzab\x00cd\x00ef"}},
+		},
+		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 100)},
 			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 100)}},
 		},
@@ -619,6 +651,18 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{"xyz    abc    " + strings.Repeat(" ", 989)}},
 		},
 		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"xyzab\ncd\nef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"xyzab\tcd\tef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"xyzab\x00cd\x00ef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
 			results: [][]interface{}{[]interface{}{"xyz" + strings.Repeat("a", 10) + strings.Repeat(" ", 990)}},
 		},
@@ -652,6 +696,18 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{"    abc    "},
 			results: [][]interface{}{[]interface{}{"xyz    abc    " + strings.Repeat(" ", 1989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"xyzab\ncd\nef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"xyzab\tcd\tef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"xyzab\x00cd\x00ef" + strings.Repeat(" ", 1992)}},
 		},
 		testQueryResult{
 			args:    []interface{}{strings.Repeat("a", 10)},
@@ -718,7 +774,7 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// CLOB
-	queryResults.query = "select 'xyz' || TO_CLOB(:1) from dual"
+	queryResults.query = "select 'xyz' || to_clob(:1) from dual"
 	queryResults.queryResults = queryResultStringsAddFront1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStringsAddFront2000
@@ -727,13 +783,219 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	// NCLOB
-	queryResults.query = "select 'xyz' || TO_NCLOB(:1) from dual"
+	queryResults.query = "select 'xyz' || to_nclob(:1) from dual"
 	queryResults.queryResults = queryResultStringsAddFront1
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStringsAddFront2000
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStringsAddFront4000
 	testRunQueryResults(t, queryResults)
+
+	// test strings remove from front
+
+	queryResultStringsRemoveFront2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"c    "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"  abc"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"  abc    "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123"},
+			results: [][]interface{}{[]interface{}{"3"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"123.456"},
+			results: [][]interface{}{[]interface{}{"3.456"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abcdefghijklmnopqrstuvwxyz"},
+			results: [][]interface{}{[]interface{}{"cdefghijklmnopqrstuvwxyz"}},
+		},
+		testQueryResult{
+			args:    []interface{}{" a b c d e f g h i j k l m n o p q r s t u v w x y z "},
+			results: [][]interface{}{[]interface{}{" b c d e f g h i j k l m n o p q r s t u v w x y z "}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"\ncd\nef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"\tcd\tef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"\x00cd\x00ef"}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 98)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 998)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 999)}},
+		},
+	}
+
+	queryResultStringsRemoveFront4000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 2000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 1999)}},
+		},
+		testQueryResult{
+			args:    []interface{}{testString1},
+			results: [][]interface{}{[]interface{}{testString1[2:]}},
+		},
+	}
+
+	queryResultStringsRemoveFrontFix1000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{nil}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{strings.Repeat(" ", 998)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"c    " + strings.Repeat(" ", 993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"  abc" + strings.Repeat(" ", 993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"  abc    " + strings.Repeat(" ", 989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"\ncd\nef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"\tcd\tef" + strings.Repeat(" ", 992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"\x00cd\x00ef" + strings.Repeat(" ", 992)}},
+		},
+
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 8) + strings.Repeat(" ", 990)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 98) + strings.Repeat(" ", 900)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 998)}},
+		},
+	}
+
+	queryResultStringsRemoveFrontFix2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{""},
+			results: [][]interface{}{[]interface{}{nil}},
+		},
+		testQueryResult{
+			args:    []interface{}{"a"},
+			results: [][]interface{}{[]interface{}{strings.Repeat(" ", 1998)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"abc    "},
+			results: [][]interface{}{[]interface{}{"c    " + strings.Repeat(" ", 1993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc"},
+			results: [][]interface{}{[]interface{}{"  abc" + strings.Repeat(" ", 1993)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"    abc    "},
+			results: [][]interface{}{[]interface{}{"  abc    " + strings.Repeat(" ", 1989)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\ncd\nef"},
+			results: [][]interface{}{[]interface{}{"\ncd\nef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\tcd\tef"},
+			results: [][]interface{}{[]interface{}{"\tcd\tef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{"ab\x00cd\x00ef"},
+			results: [][]interface{}{[]interface{}{"\x00cd\x00ef" + strings.Repeat(" ", 1992)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 10)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 8) + strings.Repeat(" ", 1990)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 100)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 98) + strings.Repeat(" ", 1900)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("a", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 998) + strings.Repeat(" ", 1000)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("ab", 1000)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 999)}},
+		},
+	}
+
+	// VARCHAR2(4000)
+	queryResults.query = "select substr(cast (:1 as VARCHAR2(4000)), 3) from dual"
+	queryResults.queryResults = queryResultStringsRemoveFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsRemoveFront4000
+	testRunQueryResults(t, queryResults)
+
+	// NVARCHAR2(2000)
+	queryResults.query = "select substr(cast (:1 as NVARCHAR2(2000)), 3) from dual"
+	queryResults.queryResults = queryResultStringsRemoveFront2000
+	testRunQueryResults(t, queryResults)
+
+	// CHAR(2000)
+	queryResults.query = "select substr(cast (:1 as CHAR(2000)), 3) from dual"
+	queryResults.queryResults = queryResultStringsRemoveFrontFix2000
+	testRunQueryResults(t, queryResults)
+
+	// NCHAR(1000)
+	queryResults.query = "select substr(cast (:1 as NCHAR(1000)), 3) from dual"
+	queryResults.queryResults = queryResultStringsRemoveFrontFix1000
+	testRunQueryResults(t, queryResults)
+
+	// CLOB
+	queryResults.query = "select substr(to_clob(:1), 3) from dual"
+	queryResults.queryResults = queryResultStringsRemoveFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsRemoveFront4000
+	testRunQueryResults(t, queryResults)
+
+	// NCLOB
+	queryResults.query = "select substr(to_nclob(:1), 3) from dual"
+	queryResults.queryResults = queryResultStringsAddFront1
+	queryResults.queryResults = queryResultStringsRemoveFront2000
+	testRunQueryResults(t, queryResults)
+	queryResults.queryResults = queryResultStringsRemoveFront4000
+	testRunQueryResults(t, queryResults)
+
+	// more test strings no change
 
 	// ROWID
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
@@ -786,8 +1048,6 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{float64(122)}},
 		},
 	}
-
-	// https://tour.golang.org/basics/11
 
 	// Go string
 	queryResults.query = "select :1 from dual"

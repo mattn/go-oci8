@@ -786,8 +786,6 @@ func TestDestructiveString(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// https://ss64.com/ora/syntax-datatypes.html
-
 	// VARCHAR2
 	tableName := "VARCHAR2_" + TestTimeString
 	err := testExec(t, "create table "+tableName+" ( A VARCHAR2(1), B VARCHAR2(2000), C VARCHAR2(4000) )", nil)
@@ -1063,6 +1061,54 @@ func TestDestructiveString(t *testing.T) {
 			testQueryResult{
 				results: [][]interface{}{
 					[]interface{}{"b", strings.Repeat("b", 100) + strings.Repeat(" ", 400), strings.Repeat("b", 200) + strings.Repeat(" ", 800)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// LONG
+	tableName = "LONG_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A VARCHAR2(1), B VARCHAR2(2000), C LONG )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
+					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "delete from "+tableName+" where A = :1", []interface{}{"a"})
+	if err != nil {
+		t.Error("delete error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName,
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
+					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
 				},
 			},
 		},

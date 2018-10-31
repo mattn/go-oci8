@@ -37,7 +37,7 @@ static retRowid WrapOCIAttrRowId(dvoid* ss, dvoid* st, ub4 hType, ub4 aType,
   OCIRowid* ptr;
   ub4 size;
   retRowid vvv;
-  vvv.rv = OCIDescriptorAlloc(ss, (dvoid*)&ptr, OCI_DTYPE_ROWID, 0, NULL);
+  vvv.rv = OCIDescriptorAlloc(ss, (dvoid**)&ptr, OCI_DTYPE_ROWID, 0, NULL);
   if (vvv.rv == OCI_SUCCESS) {
     vvv.rv = OCIAttrGet(st, hType, ptr, &size, aType, err);
     if (vvv.rv == OCI_SUCCESS) {
@@ -81,7 +81,7 @@ static ret2ptr WrapOCIDescriptorAlloc(dvoid* env, ub4 type, size_t extra) {
   } else {
     ptr = &vvv.extra;
   }
-  vvv.rv = OCIDescriptorAlloc(env, &vvv.ptr, type, extra, ptr);
+  vvv.rv = OCIDescriptorAlloc(env, &vvv.ptr, type, extra, (void**)ptr);
   return vvv;
 }
 
@@ -93,7 +93,7 @@ static ret2ptr WrapOCIHandleAlloc(dvoid* parrent, ub4 type, size_t extra) {
   } else {
     ptr = &vvv.extra;
   }
-  vvv.rv = OCIHandleAlloc(parrent, &vvv.ptr, type, extra, ptr);
+  vvv.rv = OCIHandleAlloc(parrent, &vvv.ptr, type, extra, (void**)ptr);
   return vvv;
 }
 
@@ -113,7 +113,7 @@ static ret2ptr WrapOCIEnvCreate(ub4 mode, size_t extra) {
   }
 
   vvv.rv = OCIEnvNlsCreate((OCIEnv**)(&vvv.ptr), mode, NULL, NULL, NULL, NULL,
-                           extra, ptr, charsetid, charsetid);
+                           extra, (void**)ptr, charsetid, charsetid);
   return vvv;
 }
 
@@ -213,5 +213,3 @@ typedef struct {
   sb2 ind;
   ub2 rlen;
 } indrlen;
-
-}

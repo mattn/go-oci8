@@ -84,6 +84,11 @@ func getError(result C.sword, errHandle *C.OCIError) error {
 		*/
 		case 28, 1012, 1033, 1034, 1089, 3113, 3114, 3135, 12528, 12537:
 			return driver.ErrBadConn
+		case 1405:
+			/*
+				调用存储过程,如果返回值其中存在一个为null/空字符串,忽略该错误
+			*/
+			return nil
 		}
 		return err
 	}

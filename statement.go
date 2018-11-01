@@ -665,7 +665,11 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		mode)
 	close(done)
 	if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
-		return nil, getError(rv, stmt.conn.err)
+		//return nil, getError(rv, stmt.conn.err)
+		err := getError(rv, stmt.conn.err)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	n, en := stmt.rowsAffected()

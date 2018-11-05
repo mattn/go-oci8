@@ -779,3 +779,86 @@ func TestDestructiveTransaction(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 }
+
+func BenchmarkSimpleInsert(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	// SIMPLE_INSERT
+	tableName := "SIMPLE_INSERT_" + TestTimeString
+	query := "create table " + tableName + " ( A INTEGER )"
+
+	// create table
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatalf("prepare error: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		b.Fatalf("exec error: %v", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		b.Errorf("stmt close error: %v", err)
+	}
+
+	// drop table
+	defer func() {
+		query := "drop table " + tableName
+		ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+		stmt, err := TestDB.PrepareContext(ctx, query)
+		cancel()
+		if err != nil {
+			b.Fatalf("prepare error: %v", err)
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			b.Fatalf("exec error: %v", err)
+		}
+
+		err = stmt.Close()
+		if err != nil {
+			b.Fatalf("stmt close error: %v", err)
+		}
+	}()
+
+	// insert into table
+	query = "insert into " + tableName + " ( A ) values (:1)"
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Errorf("prepare error: %v", err)
+		return
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx, n)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			b.Errorf("exec error: %v", err)
+			return
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		b.Errorf("stmt close error: %v", err)
+	}
+}

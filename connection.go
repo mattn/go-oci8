@@ -336,3 +336,65 @@ func (conn *OCI8Conn) ociAttrSet(
 
 	return conn.getError(result)
 }
+
+// ociDescriptorAlloc calls OCIDescriptorAlloc then returns
+// descriptor pointer to pointer, buffer pointer to pointer, and error
+func (conn *OCI8Conn) ociDescriptorAlloc(descriptorType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
+	var descriptorTemp unsafe.Pointer
+	descriptor := &descriptorTemp
+	var bufferTemp unsafe.Pointer
+	var buffer *unsafe.Pointer
+	if size > 0 {
+		buffer = &bufferTemp
+	}
+
+	result := C.OCIDescriptorAlloc(
+		unsafe.Pointer(conn.env), // An environment handle
+		descriptor,               // Returns a descriptor or LOB locator of desired type
+		descriptorType,           // Specifies the type of descriptor or LOB locator to be allocated
+		size,                     // Specifies an amount of user memory to be allocated for use by the application for the lifetime of the descriptor
+		buffer,                   // Returns a pointer to the user memory of size xtramem_sz allocated by the call for the user for the lifetime of the descriptor
+	)
+
+	err := conn.getError(result)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if size > 0 {
+		return descriptor, buffer, nil
+	}
+
+	return descriptor, nil, nil
+}
+
+// ociLobRead calls OCILobRead then returns lob bytes and error.
+func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byte, error) {
+	readBuffer := make([]byte, lobBufferSize)
+	buffer := make([]byte, 0)
+	result := (C.sword)(C.OCI_NEED_DATA)
+
+	for result == C.OCI_NEED_DATA {
+		readSize := (C.ub4)(lobBufferSize)
+
+		result = C.OCILobRead(
+			conn.svc,       // The service context handle
+			conn.errHandle, // An error handle
+			lobLocator,     // A LOB or BFILE locator that uniquely references the LOB or BFILE
+			&readSize,      // The amount in either bytes (BLOBs and BFILEs) or characters (CLOBs and NCLOBs)
+			1,              // The absolute offset from the beginning of the LOB value. The first position is 1. The subsequent polling calls the offset parameter is ignored.
+			unsafe.Pointer(&readBuffer[0]), // The pointer to a buffer into which the piece will be read.
+			lobBufferSize,                  // The length of the buffer in bytes/characters.
+			nil,                            // The context pointer for the callback function. Can be null.
+			nil,                            // If this is null, then OCI_NEED_DATA will be returned for each piece.
+			0,                              // If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value.
+			form,                           // The character set form of the buffer data: SQLCS_IMPLICIT or SQLCS_NCHAR
+		)
+
+		if result == C.OCI_SUCCESS || result == C.OCI_NEED_DATA {
+			buffer = append(buffer, readBuffer[:int(readSize)]...)
+		}
+	}
+
+	return buffer, conn.getError(result)
+}

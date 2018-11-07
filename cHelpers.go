@@ -42,20 +42,7 @@ func CStringN(s string, size int) *C.char {
 func freeDefines(defines []oci8Define) {
 	for _, define := range defines {
 		if define.pbuf != nil {
-			switch define.dataType {
-			case C.SQLT_CLOB, C.SQLT_BLOB:
-				freeDecriptor(define.pbuf, C.OCI_DTYPE_LOB)
-			case C.SQLT_TIMESTAMP:
-				freeDecriptor(define.pbuf, C.OCI_DTYPE_TIMESTAMP)
-			case C.SQLT_TIMESTAMP_TZ:
-				freeDecriptor(define.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
-			case C.SQLT_INTERVAL_DS:
-				freeDecriptor(define.pbuf, C.OCI_DTYPE_INTERVAL_DS)
-			case C.SQLT_INTERVAL_YM:
-				freeDecriptor(define.pbuf, C.OCI_DTYPE_INTERVAL_YM)
-			default:
-				C.free(define.pbuf)
-			}
+			freeBuffer(define.pbuf, define.dataType)
 			define.pbuf = nil
 		}
 		if define.length != nil {
@@ -74,22 +61,7 @@ func freeDefines(defines []oci8Define) {
 func freeBinds(binds []oci8Bind) {
 	for _, bind := range binds {
 		if bind.pbuf != nil {
-			switch bind.dataType {
-			case C.SQLT_CLOB, C.SQLT_BLOB:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_LOB)
-			case C.SQLT_TIMESTAMP:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP)
-			case C.SQLT_TIMESTAMP_TZ:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
-			case C.SQLT_TIMESTAMP_LTZ:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP_LTZ)
-			case C.SQLT_INTERVAL_DS:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_INTERVAL_DS)
-			case C.SQLT_INTERVAL_YM:
-				freeDecriptor(bind.pbuf, C.OCI_DTYPE_INTERVAL_YM)
-			default:
-				C.free(bind.pbuf)
-			}
+			freeBuffer(bind.pbuf, bind.dataType)
 			bind.pbuf = nil
 		}
 		if bind.length != nil {
@@ -104,8 +76,23 @@ func freeBinds(binds []oci8Bind) {
 	}
 }
 
-// freeDecriptor calles OCIDescriptorFree
-func freeDecriptor(p unsafe.Pointer, dtype C.ub4) {
-	tptr := *(*unsafe.Pointer)(p)
-	C.OCIDescriptorFree(unsafe.Pointer(tptr), dtype)
+// freeBuffer calles OCIDescriptorFree to free double pointer to buffer
+// or calles C free to free pointer to buffer
+func freeBuffer(buffer unsafe.Pointer, dataType C.ub2) {
+	switch dataType {
+	case C.SQLT_CLOB, C.SQLT_BLOB:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_LOB)
+	case C.SQLT_TIMESTAMP:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_TIMESTAMP)
+	case C.SQLT_TIMESTAMP_TZ:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_TIMESTAMP_TZ)
+	case C.SQLT_TIMESTAMP_LTZ:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_TIMESTAMP_LTZ)
+	case C.SQLT_INTERVAL_DS:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_INTERVAL_DS)
+	case C.SQLT_INTERVAL_YM:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_INTERVAL_YM)
+	default:
+		C.free(buffer)
+	}
 }

@@ -4,30 +4,6 @@
 #include <string.h>
 
 typedef struct {
-  int num;
-  sword rv;
-} retInt;
-
-static retInt WrapOCIAttrGetInt(dvoid* ss, ub4 hType, ub4 aType,
-                                OCIError* err) {
-  retInt vvv = {0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.num, NULL, aType, err);
-  return vvv;
-}
-
-typedef struct {
-  ub4 num;
-  sword rv;
-} retUb4;
-
-static retUb4 WrapOCIAttrGetUb4(dvoid* ss, ub4 hType, ub4 aType,
-                                OCIError* err) {
-  retUb4 vvv = {0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.num, NULL, aType, err);
-  return vvv;
-}
-
-typedef struct {
   OraText rowid[19];
   sword rv;
 } retRowid;
@@ -46,19 +22,6 @@ static retRowid WrapOCIAttrRowId(dvoid* ss, dvoid* st, ub4 hType, ub4 aType,
       vvv.rv = OCIRowidToChar(ptr, vvv.rowid, &idsize, err);
     }
   }
-  return vvv;
-}
-
-typedef struct {
-  char* ptr;
-  ub4 size;
-  sword rv;
-} retString;
-
-static retString WrapOCIAttrGetString(dvoid* ss, ub4 hType, ub4 aType,
-                                      OCIError* err) {
-  retString vvv = {NULL, 0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.ptr, &vvv.size, aType, err);
   return vvv;
 }
 

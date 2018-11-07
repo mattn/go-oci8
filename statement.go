@@ -31,11 +31,13 @@ func (stmt *OCI8Stmt) Close() error {
 
 // NumInput returns the number of input
 func (stmt *OCI8Stmt) NumInput() int {
-	r := C.WrapOCIAttrGetInt(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_BIND_COUNT, stmt.conn.errHandle)
-	if r.rv != C.OCI_SUCCESS {
+	var bindCount C.ub4 // number of bind position
+	_, err := stmt.ociAttrGet(unsafe.Pointer(&bindCount), C.OCI_ATTR_BIND_COUNT)
+	if err != nil {
 		return -1
 	}
-	return int(r.num)
+
+	return int(bindCount)
 }
 
 // bind binds the varables / arguments
@@ -353,7 +355,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		return nil, err
 	}
 
-	var paramCountUb4 C.ub4
+	var paramCountUb4 C.ub4 // number of columns in the select-list
 	_, err = stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
 	if err != nil {
 		return nil, err
@@ -378,18 +380,14 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			return nil, err
 		}
 
-		if nsr := C.WrapOCIAttrGetString(
-			unsafe.Pointer(param),
-			C.OCI_DTYPE_PARAM,
-			C.OCI_ATTR_NAME,
-			stmt.conn.errHandle,
-		); nsr.rv != C.OCI_SUCCESS {
+		var columnName *C.oratext // name of the column
+		var size C.ub4
+		size, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&columnName), C.OCI_ATTR_NAME)
+		if err != nil {
 			freeDefines(defines)
-			return nil, stmt.conn.getError(nsr.rv)
-		} else {
-			// the name of the column that is being loaded.
-			defines[i].name = string((*[1 << 30]byte)(unsafe.Pointer(nsr.ptr))[0:int(nsr.size)])
+			return nil, err
 		}
+		defines[i].name = CGoStringN(columnName, int(size))
 
 		var maxSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
 		_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&maxSize), C.OCI_ATTR_DATA_SIZE)
@@ -417,32 +415,20 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 
 		case C.SQLT_NUM:
-			var precision int
-			var scale int
-			if rv := C.WrapOCIAttrGetInt(
-				unsafe.Pointer(param),
-				C.OCI_DTYPE_PARAM,
-				C.OCI_ATTR_PRECISION,
-				stmt.conn.errHandle,
-			); rv.rv != C.OCI_SUCCESS {
+			var precision C.sb2 // the precision
+			_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&precision), C.OCI_ATTR_PRECISION)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(rv.rv)
-			} else {
-				// The precision of numeric type attributes.
-				precision = int(rv.num)
+				return nil, err
 			}
-			if rv := C.WrapOCIAttrGetInt(
-				unsafe.Pointer(param),
-				C.OCI_DTYPE_PARAM,
-				C.OCI_ATTR_SCALE,
-				stmt.conn.errHandle,
-			); rv.rv != C.OCI_SUCCESS {
+
+			var scale C.sb1 // the scale (number of digits to the right of the decimal point)
+			_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&scale), C.OCI_ATTR_SCALE)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(rv.rv)
-			} else {
-				// The scale of numeric type attributes.
-				scale = int(rv.num)
+				return nil, err
 			}
+
 			// The precision of numeric type attributes. If the precision is nonzero and scale is -127, then it is a FLOAT;
 			// otherwise, it is a NUMBER(precision, scale).
 			// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
@@ -608,11 +594,12 @@ func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
 
 // rowsAffected returns the number of rows affected
 func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
-	retUb4 := C.WrapOCIAttrGetUb4(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROW_COUNT, stmt.conn.errHandle)
-	if retUb4.rv != C.OCI_SUCCESS {
-		return 0, stmt.conn.getError(retUb4.rv)
+	var rowCount C.ub4 // Number of rows processed so far after SELECT statements. For INSERT, UPDATE, and DELETE statements, it is the number of rows processed by the most recent statement. The default value is 1.
+	_, err := stmt.ociAttrGet(unsafe.Pointer(&rowCount), C.OCI_ATTR_ROW_COUNT)
+	if err != nil {
+		return -1, err
 	}
-	return int64(retUb4.num), nil
+	return int64(rowCount), nil
 }
 
 // Exec runs an exec query

@@ -2976,29 +2976,3 @@ end;`
 	execResults.execResults = execResultRawRemoveFront32767
 	testRunExecResults(t, execResults)
 }
-
-func TestTemp(t *testing.T) {
-
-	var execResults testExecResults
-
-	execResultRaw2000 := []testExecResult{
-
-		testExecResult{
-			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
-			results: map[string]interface{}{"string1": []byte{10}},
-		},
-	}
-
-	// RAW
-	execResults.query = `
-declare
-function GET_STRING(p_string RAW) return RAW as
-begin
-	return p_string;
-end GET_STRING;
-begin
-:string1 := GET_STRING(:string1);
-end;`
-	execResults.execResults = execResultRaw2000
-	testRunExecResults(t, execResults)
-}

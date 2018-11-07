@@ -76,10 +76,23 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			*sbind.indicator = -1 // set to null
 
 		case []byte:
-			sbind.dataType = C.SQLT_BIN
-			sbind.pbuf = unsafe.Pointer(CByte(v))
-			sbind.maxSize = C.sb4(len(v))
-			*sbind.length = C.ub2(len(v))
+			if sbind.out != nil {
+
+				sbind.dataType = C.SQLT_BIN
+				sbind.pbuf = unsafe.Pointer(CByteN(v, 32768))
+				sbind.maxSize = 32767
+				if !outIn {
+					*sbind.indicator = -1 // set to null
+				} else {
+					*sbind.length = C.ub2(len(v))
+				}
+
+			} else {
+				sbind.dataType = C.SQLT_BIN
+				sbind.pbuf = unsafe.Pointer(CByte(v))
+				sbind.maxSize = C.sb4(len(v))
+				*sbind.length = C.ub2(len(v))
+			}
 
 		case time.Time:
 
@@ -185,7 +198,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 				sbind.dataType = C.SQLT_CHR
 				sbind.pbuf = unsafe.Pointer(CStringN(v, 32768))
-				sbind.maxSize = 32768
+				sbind.maxSize = 32767
 				if !outIn {
 					*sbind.indicator = -1 // set to null
 				} else {
@@ -726,7 +739,26 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 			case *bool:
 				buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
 				*v = buf[0] != 0
+
+			case *[]byte:
+				switch {
+				case *bind.indicator > 0: // indicator variable is the actual length before truncation
+					if int(*bind.indicator)-int(*bind.length) < 0 {
+						return fmt.Errorf("spaces less than 0 for column %v", i)
+					}
+					*v = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
+				case *bind.indicator == 0: // Normal
+					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+				case *bind.indicator == -1: // The selected value is null
+					*v = nil
+				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
+					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					// TODO: should this be an error?
+				default:
+					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
+				}
 			}
+
 		}
 	}
 

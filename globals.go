@@ -1,8 +1,8 @@
 package oci8
 
 /*
-#include "oci8.go.h"
 #cgo !noPkgConfig pkg-config: oci8
+#include "oci8.go.h"
 */
 import "C"
 
@@ -11,6 +11,7 @@ import "C"
 import (
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"io/ioutil"
 	"log"
 	"regexp"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	blobBufSize        = 4000
+	lobBufferSize      = 4000
 	useOCISessionBegin = true
 	sizeOfNilPointer   = unsafe.Sizeof(unsafe.Pointer(nil))
 )
@@ -57,7 +58,7 @@ type (
 		svc                  *C.OCISvcCtx
 		srv                  *C.OCIServer
 		env                  *C.OCIEnv
-		err                  *C.OCIError
+		errHandle            *C.OCIError
 		usrSession           *C.OCISession
 		prefetchRows         uint32
 		prefetchMemory       uint32
@@ -91,9 +92,7 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		bp     **C.OCIBind
-		defp   **C.OCIDefine
-		pbind  []oci8bind //bind params
+		pbind  []oci8Bind //bind params
 	}
 
 	// OCI8Result is Oracle result
@@ -105,35 +104,41 @@ type (
 		stmt  *OCI8Stmt
 	}
 
-	oci8col struct {
-		name string
-		kind C.ub2
-		size int
-		ind  *C.sb2
-		rlen *C.ub2
-		pbuf unsafe.Pointer
+	oci8Define struct {
+		name         string
+		dataType     C.ub2
+		pbuf         unsafe.Pointer
+		maxSize      C.sb4
+		length       *C.ub2
+		indicator    *C.sb2
+		defineHandle *C.OCIDefine
 	}
 
-	oci8bind struct {
-		kind C.ub2
-		pbuf unsafe.Pointer
-		clen C.sb4
-		out  interface{} // original binded data type
+	oci8Bind struct {
+		dataType   C.ub2
+		pbuf       unsafe.Pointer
+		maxSize    C.sb4
+		length     *C.ub2
+		indicator  *C.sb2
+		bindHandle *C.OCIBind
+		out        interface{} // original binded data type
 	}
 
 	// OCI8Rows is Oracle rows
 	OCI8Rows struct {
-		stmt       *OCI8Stmt
-		cols       []oci8col
-		e          bool
-		indrlenptr unsafe.Pointer
-		closed     bool
-		done       chan struct{}
-		cls        bool
+		stmt    *OCI8Stmt
+		defines []oci8Define
+		e       bool
+		closed  bool
+		done    chan struct{}
+		cls     bool
 	}
 )
 
 var (
+	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
+	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
+
 	phre = regexp.MustCompile(`\?`)
 
 	// OCI8Driver is the sql driver
@@ -145,3 +150,22 @@ var (
 func init() {
 	sql.Register("oci8", OCI8Driver)
 }
+
+/*
+OCI Documentation Notes
+
+Datatypes:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#CEGIEEJI
+
+Handle and Descriptor Attributes:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociaahan.htm#i442199
+
+OCI Function Server Round Trips:
+https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociacrou.htm#g430405
+
+OCI examples:
+https://github.com/alexeyvo/oracle_oci_examples
+
+Oracle datatypes:
+https://ss64.com/ora/syntax-datatypes.html
+*/

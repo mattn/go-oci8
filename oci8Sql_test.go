@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
@@ -16,6 +15,8 @@ import (
 
 // testGetDB connects to the test database and returns the database connection
 func testGetDB() *sql.DB {
+	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+
 	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
 
 	var openString string
@@ -331,8 +332,6 @@ func TestConnect(t *testing.T) {
 		t.SkipNow()
 	}
 
-	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
-
 	// invalid
 	db, err := sql.Open("oci8", TestHostInvalid)
 	if err != nil {
@@ -374,8 +373,6 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal("close error:", err)
 	}
-
-	OCI8Driver.Logger = log.New(ioutil.Discard, "", 0)
 }
 
 // TestSelectParallel checks parallel select from dual
@@ -780,5 +777,100 @@ func TestDestructiveTransaction(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+}
 
+// TestSelectDualNull checks nulls
+func TestSelectDualNull(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	queryResults := testQueryResults{
+		query: "select null from dual",
+		queryResults: []testQueryResult{testQueryResult{
+			results: [][]interface{}{[]interface{}{nil}}}}}
+	testRunQueryResults(t, queryResults)
+}
+
+func BenchmarkSimpleInsert(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	// SIMPLE_INSERT
+	tableName := "SIMPLE_INSERT_" + TestTimeString
+	query := "create table " + tableName + " ( A INTEGER )"
+
+	// create table
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatalf("prepare error: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		b.Fatalf("exec error: %v", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		b.Errorf("stmt close error: %v", err)
+	}
+
+	// drop table
+	defer func() {
+		query := "drop table " + tableName
+		ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+		stmt, err := TestDB.PrepareContext(ctx, query)
+		cancel()
+		if err != nil {
+			b.Fatalf("prepare error: %v", err)
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			b.Fatalf("exec error: %v", err)
+		}
+
+		err = stmt.Close()
+		if err != nil {
+			b.Fatalf("stmt close error: %v", err)
+		}
+	}()
+
+	// insert into table
+	query = "insert into " + tableName + " ( A ) values (:1)"
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Errorf("prepare error: %v", err)
+		return
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx, n)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			b.Errorf("exec error: %v", err)
+			return
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		b.Errorf("stmt close error: %v", err)
+	}
 }

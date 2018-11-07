@@ -4,9 +4,7 @@ package oci8
 import "C"
 
 import (
-	"bytes"
 	"database/sql/driver"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -131,9 +129,9 @@ func (tx *OCI8Tx) Commit() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransCommit(
 		tx.conn.svc,
-		tx.conn.err,
+		tx.conn.errHandle,
 		0); rv != C.OCI_SUCCESS {
-		return getError(rv, tx.conn.err)
+		return tx.conn.getError(rv)
 	}
 	return nil
 }
@@ -143,9 +141,9 @@ func (tx *OCI8Tx) Rollback() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransRollback(
 		tx.conn.svc,
-		tx.conn.err,
+		tx.conn.errHandle,
 		0); rv != C.OCI_SUCCESS {
-		return getError(rv, tx.conn.err)
+		return tx.conn.getError(rv)
 	}
 	return nil
 }
@@ -186,7 +184,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 		C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 		return
 	} else {
-		conn.err = (*C.OCIError)(rv.ptr)
+		conn.errHandle = (*C.OCIError)(rv.ptr)
 		// conn allocations: env, err
 	}
 
@@ -204,7 +202,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			0,
 		); rv.rv != C.OCI_SUCCESS {
 			err = errors.New("cant allocate server handle")
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		} else {
@@ -215,14 +213,14 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 		if dsn.externalauthentication {
 			C.WrapOCIServerAttach(
 				conn.srv,
-				conn.err,
+				conn.errHandle,
 				nil,
 				0,
 				C.OCI_DEFAULT)
 		} else {
 			C.WrapOCIServerAttach(
 				conn.srv,
-				conn.err,
+				conn.errHandle,
 				(*C.text)(unsafe.Pointer(phost)),
 				C.ub4(len(dsn.Connect)),
 				C.OCI_DEFAULT)
@@ -235,7 +233,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 		); rv.rv != C.OCI_SUCCESS {
 			err = errors.New("cant allocate service handle")
 			C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		} else {
@@ -249,12 +247,12 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			unsafe.Pointer(conn.srv),
 			0,
 			C.OCI_ATTR_SERVER,
-			conn.err,
+			conn.errHandle,
 		); rv != C.OCI_SUCCESS {
-			err = getError(rv, conn.err)
+			err = conn.getError(rv)
 			C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 			C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		}
@@ -268,7 +266,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			err = errors.New("cant allocate user session handle")
 			C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 			C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		} else {
@@ -284,13 +282,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 				(unsafe.Pointer(puser)),
 				C.ub4(len(dsn.Username)),
 				C.OCI_ATTR_USERNAME,
-				conn.err,
+				conn.errHandle,
 			); rv != C.OCI_SUCCESS {
-				err = getError(rv, conn.err)
+				err = conn.getError(rv)
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 				C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-				C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+				C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 				C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 				return
 			}
@@ -302,13 +300,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 				(unsafe.Pointer(ppass)),
 				C.ub4(len(dsn.Password)),
 				C.OCI_ATTR_PASSWORD,
-				conn.err,
+				conn.errHandle,
 			); rv != C.OCI_SUCCESS {
-				err = getError(rv, conn.err)
+				err = conn.getError(rv)
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 				C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-				C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+				C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 				C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 				return
 			}
@@ -316,7 +314,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			// begin the session
 			C.WrapOCISessionBegin(
 				conn.svc,
-				conn.err,
+				conn.errHandle,
 				conn.usrSession,
 				C.OCI_CRED_RDBMS,
 				conn.operationMode)
@@ -324,7 +322,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			// external authentication
 			C.WrapOCISessionBegin(
 				conn.svc,
-				conn.err,
+				conn.errHandle,
 				conn.usrSession,
 				C.OCI_CRED_EXT,
 				conn.operationMode)
@@ -337,13 +335,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			unsafe.Pointer(conn.usrSession),
 			0,
 			C.OCI_ATTR_SESSION,
-			conn.err,
+			conn.errHandle,
 		); rv != C.OCI_SUCCESS {
-			err = getError(rv, conn.err)
+			err = conn.getError(rv)
 			C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 			C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 			C.OCIHandleFree(unsafe.Pointer(conn.srv), C.OCI_HTYPE_SERVER)
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		}
@@ -351,7 +349,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 	} else {
 		if rv := C.WrapOCILogon(
 			conn.env,
-			conn.err,
+			conn.errHandle,
 			(*C.OraText)(unsafe.Pointer(puser)),
 			C.ub4(len(dsn.Username)),
 			(*C.OraText)(unsafe.Pointer(ppass)),
@@ -359,8 +357,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 			(*C.OraText)(unsafe.Pointer(phost)),
 			C.ub4(len(dsn.Connect)),
 		); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-			err = getError(rv.rv, conn.err)
-			C.OCIHandleFree(unsafe.Pointer(conn.err), C.OCI_HTYPE_ERROR)
+			err = conn.getError(rv.rv)
+			C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 			return
 		} else {
@@ -379,66 +377,6 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (connection driver.Co
 	connection = &conn
 
 	return
-}
-
-func outputBoundParameters(boundParameters []oci8bind) error {
-	for i, col := range boundParameters {
-		if col.pbuf != nil {
-			switch v := col.out.(type) {
-			case *string:
-				*v = C.GoString((*C.char)(col.pbuf))
-
-			case *int:
-				*v = int(getInt64(col.pbuf))
-			case *int64:
-				*v = getInt64(col.pbuf)
-			case *int32:
-				*v = int32(getInt64(col.pbuf))
-			case *int16:
-				*v = int16(getInt64(col.pbuf))
-			case *int8:
-				*v = int8(getInt64(col.pbuf))
-
-			case *uint:
-				*v = uint(getUint64(col.pbuf))
-			case *uint64:
-				*v = getUint64(col.pbuf)
-			case *uint32:
-				*v = uint32(getUint64(col.pbuf))
-			case *uint16:
-				*v = uint16(getUint64(col.pbuf))
-			case *uint8:
-				*v = uint8(getUint64(col.pbuf))
-			case *uintptr:
-				*v = uintptr(getUint64(col.pbuf))
-
-			case *float64:
-				buf := (*[8]byte)(col.pbuf)[0:8]
-				var data float64
-				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-				if err != nil {
-					return fmt.Errorf("binary read for column %v - error: %v", i, err)
-				}
-				*v = data
-			case *float32:
-				// statment is using SQLT_BDOUBLE to bind
-				// need to read as float64 because of the 8 bits
-				buf := (*[8]byte)(col.pbuf)[0:8]
-				var data float64
-				err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-				if err != nil {
-					return fmt.Errorf("binary read for column %v - error: %v", i, err)
-				}
-				*v = float32(data)
-
-			case *bool:
-				buf := (*[1 << 30]byte)(col.pbuf)[0:1]
-				*v = buf[0] != 0
-			}
-		}
-	}
-
-	return nil
 }
 
 // GetLastInsertId retuns last inserted ID

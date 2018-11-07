@@ -97,37 +97,30 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			}
 
 		case time.Time:
+			sbind.dataType = C.SQLT_TIMESTAMP_TZ
+			sbind.maxSize = C.sb4(sizeOfNilPointer)
+			*sbind.length = C.ub2(sizeOfNilPointer)
 
-			var pt unsafe.Pointer
-			var zp unsafe.Pointer
+			// TODO: wrap up date time construction into Go function
+
+			var timestampP *unsafe.Pointer
+			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+			if err != nil {
+				freeBinds(binds)
+				return nil, err
+			}
+			pt := unsafe.Pointer(timestampP)
 
 			zone, offset := v.Zone()
-
 			size := len(zone)
-			if size < 8 {
-				size = 8
+			if size < 16 {
+				size = 16
 			}
-			size += int(sizeOfNilPointer)
-			if ret := C.WrapOCIDescriptorAlloc(
-				unsafe.Pointer(stmt.conn.env),
-				C.OCI_DTYPE_TIMESTAMP_TZ,
-				C.size_t(size),
-			); ret.rv != C.OCI_SUCCESS {
-				binds = append(binds, sbind)
-				freeBinds(binds)
-				return nil, stmt.conn.getError(ret.rv)
-			} else {
-				sbind.dataType = C.SQLT_TIMESTAMP_TZ
-				sbind.maxSize = C.sb4(unsafe.Sizeof(pt))
-				*sbind.length = C.ub2(unsafe.Sizeof(pt))
-				pt = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
-				zp = unsafe.Pointer(uintptr(ret.extra) + sizeOfNilPointer)
-			}
+			zoneText := CStringN(zone, size)
+			defer C.free(unsafe.Pointer(zoneText))
 
 			tryagain := false
 
-			copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
 			rv := C.OCIDateTimeConstruct(
 				unsafe.Pointer(stmt.conn.env),
 				stmt.conn.errHandle,
@@ -139,7 +132,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				C.ub1(v.Minute()),
 				C.ub1(v.Second()),
 				C.ub4(v.Nanosecond()),
-				(*C.OraText)(zp),
+				zoneText,
 				C.size_t(len(zone)),
 			)
 			if rv != C.OCI_SUCCESS {
@@ -170,8 +163,14 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				offset /= 60
 				// oracle accept zones "[+-]hh:mm", try second time
 				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
+				if size < len(zone) {
+					size = len(zone)
+					zoneText = CStringN(zone, size)
+					defer C.free(unsafe.Pointer(zoneText))
+				} else {
+					copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
+				}
 
-				copy((*[1 << 30]byte)(zp)[0:len(zone)], zone)
 				rv := C.OCIDateTimeConstruct(
 					unsafe.Pointer(stmt.conn.env),
 					stmt.conn.errHandle,
@@ -183,7 +182,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 					C.ub1(v.Minute()),
 					C.ub1(v.Second()),
 					C.ub4(v.Nanosecond()),
-					(*C.OraText)(zp),
+					zoneText,
 					C.size_t(len(zone)),
 				)
 				if rv != C.OCI_SUCCESS {
@@ -471,68 +470,48 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			defines[i].pbuf = unsafe.Pointer(lobP)
 
 		case C.SQLT_TIMESTAMP, C.SQLT_DAT:
-			if ret := C.WrapOCIDescriptorAlloc(
-				unsafe.Pointer(stmt.conn.env),
-				C.OCI_DTYPE_TIMESTAMP,
-				C.size_t(sizeOfNilPointer),
-			); ret.rv != C.OCI_SUCCESS {
+			defines[i].dataType = C.SQLT_TIMESTAMP
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var timestampP *unsafe.Pointer
+			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP, 0)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(ret.rv)
-			} else {
-
-				defines[i].dataType = C.SQLT_TIMESTAMP
-				defines[i].maxSize = C.sb4(sizeOfNilPointer)
-				defines[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
+				return nil, err
 			}
+			defines[i].pbuf = unsafe.Pointer(timestampP)
 
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			if ret := C.WrapOCIDescriptorAlloc(
-				unsafe.Pointer(stmt.conn.env),
-				C.OCI_DTYPE_TIMESTAMP_TZ,
-				C.size_t(sizeOfNilPointer),
-			); ret.rv != C.OCI_SUCCESS {
+			defines[i].dataType = C.SQLT_TIMESTAMP_TZ
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var timestampP *unsafe.Pointer
+			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(ret.rv)
-			} else {
-
-				defines[i].dataType = C.SQLT_TIMESTAMP_TZ
-				defines[i].maxSize = C.sb4(sizeOfNilPointer)
-				defines[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
+				return nil, err
 			}
+			defines[i].pbuf = unsafe.Pointer(timestampP)
 
 		case C.SQLT_INTERVAL_DS:
-			if ret := C.WrapOCIDescriptorAlloc(
-				unsafe.Pointer(stmt.conn.env),
-				C.OCI_DTYPE_INTERVAL_DS,
-				C.size_t(sizeOfNilPointer),
-			); ret.rv != C.OCI_SUCCESS {
+			defines[i].dataType = C.SQLT_INTERVAL_DS
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var intervalP *unsafe.Pointer
+			intervalP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_INTERVAL_DS, 0)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(ret.rv)
-			} else {
-
-				defines[i].dataType = C.SQLT_INTERVAL_DS
-				defines[i].maxSize = C.sb4(sizeOfNilPointer)
-				defines[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
+				return nil, err
 			}
+			defines[i].pbuf = unsafe.Pointer(intervalP)
 
 		case C.SQLT_INTERVAL_YM:
-			if ret := C.WrapOCIDescriptorAlloc(
-				unsafe.Pointer(stmt.conn.env),
-				C.OCI_DTYPE_INTERVAL_YM,
-				C.size_t(sizeOfNilPointer),
-			); ret.rv != C.OCI_SUCCESS {
+			defines[i].dataType = C.SQLT_INTERVAL_YM
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var intervalP *unsafe.Pointer
+			intervalP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_INTERVAL_YM, 0)
+			if err != nil {
 				freeDefines(defines)
-				return nil, stmt.conn.getError(ret.rv)
-			} else {
-
-				defines[i].dataType = C.SQLT_INTERVAL_YM
-				defines[i].maxSize = C.sb4(sizeOfNilPointer)
-				defines[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
+				return nil, err
 			}
+			defines[i].pbuf = unsafe.Pointer(intervalP)
 
 		case C.SQLT_RDD: // rowid
 			defines[i].dataType = C.SQLT_AFC

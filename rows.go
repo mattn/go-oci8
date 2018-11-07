@@ -19,42 +19,26 @@ func (rows *OCI8Rows) Close() error {
 	if rows.closed {
 		return nil
 	}
-	rows.closed = true
 
+	rows.closed = true
 	close(rows.done)
 
 	if rows.cls {
 		rows.stmt.Close()
 	}
 
-	C.free(rows.indrlenptr)
-	for _, col := range rows.cols {
-		switch col.kind {
-		case C.SQLT_CLOB, C.SQLT_BLOB:
-			freeDecriptor(col.pbuf, C.OCI_DTYPE_LOB)
-		case C.SQLT_TIMESTAMP:
-			freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP)
-		case C.SQLT_TIMESTAMP_TZ:
-			freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
-		case C.SQLT_INTERVAL_DS:
-			freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_DS)
-		case C.SQLT_INTERVAL_YM:
-			freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_YM)
-		default:
-			C.free(col.pbuf)
-		}
-		col.pbuf = nil
-	}
+	freeDefines(rows.defines)
+
 	return nil
 }
 
-// Columns returns columns
+// Columns returns column names
 func (rows *OCI8Rows) Columns() []string {
-	cols := make([]string, len(rows.cols))
-	for i, col := range rows.cols {
-		cols[i] = col.name
+	names := make([]string, len(rows.defines))
+	for i, define := range rows.defines {
+		names[i] = define.name
 	}
-	return cols
+	return names
 }
 
 // Next gets next row
@@ -63,33 +47,32 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		return nil
 	}
 
-	rv := C.OCIStmtFetch2(
+	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,
 		1,
 		C.OCI_FETCH_NEXT,
 		0,
 		C.OCI_DEFAULT)
-	if rv == C.OCI_NO_DATA {
+	if result == C.OCI_NO_DATA {
 		return io.EOF
-	} else if rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
-		return rows.stmt.conn.getError(rv)
+	} else if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
+		return rows.stmt.conn.getError(result)
 	}
 
 	for i := range dest {
-		// TODO: switch rows.cols[i].ind
-		if *rows.cols[i].ind == -1 { // Null
+		if *rows.defines[i].indicator == -1 { // Null
 			dest[i] = nil
 			continue
-		} else if *rows.cols[i].ind != 0 {
-			return fmt.Errorf("Unknown column indicator: %d, col %s", rows.cols[i].ind, rows.cols[i].name)
+		} else if *rows.defines[i].indicator != 0 {
+			return fmt.Errorf("unknown indicator %d for column %s", *rows.defines[i].indicator, rows.defines[i].name)
 		}
 
-		switch rows.cols[i].kind {
+		switch rows.defines[i].dataType {
 
 		// SQLT_DAT
 		case C.SQLT_DAT: // for test, date are return as timestamp
-			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			// TODO: Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			// TODO: Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			dest[i] = time.Date(
@@ -104,92 +87,74 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:
-			// get character set form
-			csfrm := C.ub1(C.SQLCS_IMPLICIT)
-			rv = C.OCILobCharSetForm(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				*(**C.OCILobLocator)(rows.cols[i].pbuf),
-				&csfrm,
+			lobLocator := (**C.OCILobLocator)(rows.defines[i].pbuf)
+
+			// set character set form
+			form := C.ub1(C.SQLCS_IMPLICIT)
+			result = C.OCILobCharSetForm(
+				rows.stmt.conn.env,       // environment handle
+				rows.stmt.conn.errHandle, // error handle
+				*lobLocator,              // LOB locator
+				&form,                    // character set form
 			)
-			if rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv)
+			if result != C.OCI_SUCCESS {
+				return rows.stmt.conn.getError(result)
 			}
 
-			ptmp := unsafe.Pointer(uintptr(rows.cols[i].pbuf) + sizeOfNilPointer)
-			bamt := (*C.ub4)(ptmp)
-			ptmp = unsafe.Pointer(uintptr(rows.cols[i].pbuf) + unsafe.Sizeof(C.ub4(0)) + sizeOfNilPointer)
-			b := (*[1 << 30]byte)(ptmp)[0:lobBufferSize]
-			var buf []byte
-
-			// get lob
-			for {
-				// read lob while OCI_NEED_DATA
-				*bamt = 0
-				rv = C.OCILobRead(
-					rows.stmt.conn.svc,
-					rows.stmt.conn.errHandle,
-					*(**C.OCILobLocator)(rows.cols[i].pbuf),
-					bamt,                 // The amount/length in bytes/characters
-					1,                    // The absolute offset from the beginning of the LOB value. The subsequent polling calls the offset parameter is ignored.
-					ptmp,                 // The pointer to a buffer into which the piece will be read
-					C.ub4(lobBufferSize), // The length of the buffer in octets, in bytes/characters.
-					nil,                  // The context pointer for the callback function. Can be null.
-					nil,                  // If this is null, then OCI_NEED_DATA will be returned for each piece.
-					0,                    // If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value.
-					csfrm,                // The character set form of the buffer data: SQLCS_IMPLICIT or SQLCS_NCHAR
-				)
-				if rv == C.OCI_NEED_DATA {
-					buf = append(buf, b[:int(*bamt)]...)
-				} else {
-					break
-				}
-			}
-			if rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv)
+			buffer, err := rows.stmt.conn.ociLobRead(*lobLocator, form)
+			if err != nil {
+				return err
 			}
 
 			// set dest to buffer
-			if rows.cols[i].kind == C.SQLT_BLOB {
-				dest[i] = append(buf, b[:int(*bamt)]...)
+			if rows.defines[i].dataType == C.SQLT_BLOB {
+				dest[i] = buffer
 			} else {
-				dest[i] = string(append(buf, b[:int(*bamt)]...))
+				dest[i] = string(buffer)
 			}
 
-		// SQLT_CHR, SQLT_STR, SQLT_AFC, and SQLT_AVC
-		case C.SQLT_CHR, C.SQLT_STR, C.SQLT_AFC, C.SQLT_AVC:
-			switch {
-			case *rows.cols[i].ind > 0: // indicator variable is the actual length before truncation
-				dest[i] = C.GoStringN((*C.char)(rows.cols[i].pbuf), C.int(*rows.cols[i].ind))
-			case *rows.cols[i].ind == 0: // Normal
-				dest[i] = C.GoStringN((*C.char)(rows.cols[i].pbuf), C.int(*rows.cols[i].rlen))
-			case *rows.cols[i].ind == -1: // The selected value is null
-				dest[i] = "" // best attempt at Go nil string
-			case *rows.cols[i].ind == -2: // 	Item is greater than the length of the output variable; the item has been truncated.
-				dest[i] = C.GoStringN((*C.char)(rows.cols[i].pbuf), C.int(*rows.cols[i].rlen))
-				// TODO: should we error on this?
-			default:
-				return fmt.Errorf("unknown column indicator: %d", rows.cols[i].ind)
-			}
+		// SQLT_CHR, SQLT_STR, SQLT_AFC, SQLT_AVC, and SQLT_LNG
+		case C.SQLT_CHR, C.SQLT_STR, C.SQLT_AFC, C.SQLT_AVC, C.SQLT_LNG:
+			dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
+
+			/*
+				switch {
+				case *rows.defines[i].indicator > 0: // indicator variable is the actual length before truncation
+					spaces := int(C.int(*rows.defines[i].indicator) - C.int(*rows.defines[i].length))
+					if spaces < 0 {
+						return fmt.Errorf("spaces less than 0 for column %v", i)
+					}
+					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length)) + strings.Repeat(" ", spaces)
+				case *rows.defines[i].indicator == 0: // Normal
+					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
+				case *rows.defines[i].indicator == -1: // The selected value is null
+					dest[i] = "" // best attempt at Go nil string
+				case *rows.defines[i].indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
+					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
+					// TODO: should this be an error?
+				default:
+					return fmt.Errorf("unknown indicator %d for column %v", rows.defines[i].indicator, i)
+				}
+			*/
 
 		// SQLT_BIN
 		case C.SQLT_BIN: // RAW
-			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			dest[i] = buf
 
 		// SQLT_NUM
 		case C.SQLT_NUM: // NUMBER
-			buf := (*[21]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[21]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			dest[i] = buf
 
 		// SQLT_VNU
 		case C.SQLT_VNU: // VARNUM
-			buf := (*[22]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[22]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			dest[i] = buf
 
 		// SQLT_INT
 		case C.SQLT_INT: // INT
-			buf := (*[8]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[8]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			var data int64
 			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
 			if err != nil {
@@ -199,7 +164,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_BDOUBLE
 		case C.SQLT_BDOUBLE: // native double
-			buf := (*[8]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
+			buf := (*[8]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			var data float64
 			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
 			if err != nil {
@@ -207,17 +172,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			}
 			dest[i] = data
 
-		// SQLT_LNG
-		case C.SQLT_LNG: // LONG
-			buf := (*[1 << 30]byte)(rows.cols[i].pbuf)[0:*rows.cols[i].rlen]
-			dest[i] = buf
-
 		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:
 			if rv := C.WrapOCIDateTimeGetDateTime(
 				rows.stmt.conn.env,
 				rows.stmt.conn.errHandle,
-				*(**C.OCIDateTime)(rows.cols[i].pbuf),
+				*(**C.OCIDateTime)(rows.defines[i].pbuf),
 			); rv.rv != C.OCI_SUCCESS {
 				return rows.stmt.conn.getError(rv.rv)
 			} else {
@@ -235,7 +195,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_TIMESTAMP_TZ and SQLT_TIMESTAMP_LTZ
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			tptr := *(**C.OCIDateTime)(rows.cols[i].pbuf)
+			tptr := *(**C.OCIDateTime)(rows.defines[i].pbuf)
 			rv := C.WrapOCIDateTimeGetDateTime(
 				rows.stmt.conn.env,
 				rows.stmt.conn.errHandle,
@@ -268,7 +228,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_INTERVAL_DS
 		case C.SQLT_INTERVAL_DS:
-			iptr := *(**C.OCIInterval)(rows.cols[i].pbuf)
+			iptr := *(**C.OCIInterval)(rows.defines[i].pbuf)
 			rv := C.WrapOCIIntervalGetDaySecond(
 				rows.stmt.conn.env,
 				rows.stmt.conn.errHandle,
@@ -280,7 +240,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_INTERVAL_YM
 		case C.SQLT_INTERVAL_YM:
-			iptr := *(**C.OCIInterval)(rows.cols[i].pbuf)
+			iptr := *(**C.OCIInterval)(rows.defines[i].pbuf)
 			rv := C.WrapOCIIntervalGetYearMonth(
 				rows.stmt.conn.env,
 				rows.stmt.conn.errHandle,
@@ -292,7 +252,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// default
 		default:
-			return fmt.Errorf("Unhandled column type: %d", rows.cols[i].kind)
+			return fmt.Errorf("Unhandled column type: %d", rows.defines[i].dataType)
 
 		}
 

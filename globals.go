@@ -1,8 +1,8 @@
 package oci8
 
 /*
-#include "oci8.go.h"
 #cgo !noPkgConfig pkg-config: oci8
+#include "oci8.go.h"
 */
 import "C"
 
@@ -92,8 +92,7 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		defp   **C.OCIDefine
-		pbind  []oci8bind //bind params
+		pbind  []oci8Bind //bind params
 	}
 
 	// OCI8Result is Oracle result
@@ -105,33 +104,34 @@ type (
 		stmt  *OCI8Stmt
 	}
 
-	oci8col struct {
-		name string
-		kind C.ub2
-		size int
-		ind  *C.sb2
-		rlen *C.ub2
-		pbuf unsafe.Pointer
+	oci8Define struct {
+		name         string
+		dataType     C.ub2
+		pbuf         unsafe.Pointer
+		maxSize      C.sb4
+		length       *C.ub2
+		indicator    *C.sb2
+		defineHandle *C.OCIDefine
 	}
 
-	oci8bind struct {
-		kind       C.ub2
+	oci8Bind struct {
+		dataType   C.ub2
 		pbuf       unsafe.Pointer
-		clen       C.sb4
-		indicator  C.sb2
+		maxSize    C.sb4
+		length     *C.ub2
+		indicator  *C.sb2
 		bindHandle *C.OCIBind
 		out        interface{} // original binded data type
 	}
 
 	// OCI8Rows is Oracle rows
 	OCI8Rows struct {
-		stmt       *OCI8Stmt
-		cols       []oci8col
-		e          bool
-		indrlenptr unsafe.Pointer
-		closed     bool
-		done       chan struct{}
-		cls        bool
+		stmt    *OCI8Stmt
+		defines []oci8Define
+		e       bool
+		closed  bool
+		done    chan struct{}
+		cls     bool
 	}
 )
 

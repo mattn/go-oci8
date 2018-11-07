@@ -38,29 +38,69 @@ func CStringN(s string, size int) *C.char {
 	return (*C.char)(p)
 }
 
-// freeBoundParameters frees bound parameters
-func freeBoundParameters(boundParameters []oci8bind) {
-	for _, col := range boundParameters {
-		if col.pbuf != nil {
-			switch col.kind {
+// freeDefines frees defines
+func freeDefines(defines []oci8Define) {
+	for _, define := range defines {
+		if define.pbuf != nil {
+			switch define.dataType {
 			case C.SQLT_CLOB, C.SQLT_BLOB:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_LOB)
+				freeDecriptor(define.pbuf, C.OCI_DTYPE_LOB)
 			case C.SQLT_TIMESTAMP:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP)
+				freeDecriptor(define.pbuf, C.OCI_DTYPE_TIMESTAMP)
 			case C.SQLT_TIMESTAMP_TZ:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
-			case C.SQLT_TIMESTAMP_LTZ:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_TIMESTAMP_LTZ)
+				freeDecriptor(define.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
 			case C.SQLT_INTERVAL_DS:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_DS)
+				freeDecriptor(define.pbuf, C.OCI_DTYPE_INTERVAL_DS)
 			case C.SQLT_INTERVAL_YM:
-				freeDecriptor(col.pbuf, C.OCI_DTYPE_INTERVAL_YM)
+				freeDecriptor(define.pbuf, C.OCI_DTYPE_INTERVAL_YM)
 			default:
-				C.free(col.pbuf)
+				C.free(define.pbuf)
 			}
-			col.pbuf = nil
-			col.bindHandle = nil
+			define.pbuf = nil
 		}
+		if define.length != nil {
+			C.free(unsafe.Pointer(define.length))
+			define.length = nil
+		}
+		if define.indicator != nil {
+			C.free(unsafe.Pointer(define.indicator))
+			define.indicator = nil
+		}
+		define.defineHandle = nil // should be freed by oci statment close
+	}
+}
+
+// freeBinds frees binds
+func freeBinds(binds []oci8Bind) {
+	for _, bind := range binds {
+		if bind.pbuf != nil {
+			switch bind.dataType {
+			case C.SQLT_CLOB, C.SQLT_BLOB:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_LOB)
+			case C.SQLT_TIMESTAMP:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP)
+			case C.SQLT_TIMESTAMP_TZ:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP_TZ)
+			case C.SQLT_TIMESTAMP_LTZ:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_TIMESTAMP_LTZ)
+			case C.SQLT_INTERVAL_DS:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_INTERVAL_DS)
+			case C.SQLT_INTERVAL_YM:
+				freeDecriptor(bind.pbuf, C.OCI_DTYPE_INTERVAL_YM)
+			default:
+				C.free(bind.pbuf)
+			}
+			bind.pbuf = nil
+		}
+		if bind.length != nil {
+			C.free(unsafe.Pointer(bind.length))
+			bind.length = nil
+		}
+		if bind.indicator != nil {
+			C.free(unsafe.Pointer(bind.indicator))
+			bind.indicator = nil
+		}
+		bind.bindHandle = nil // freed by oci statment close
 	}
 }
 

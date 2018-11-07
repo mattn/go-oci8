@@ -208,7 +208,7 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 	defer C.free(unsafe.Pointer(pquery))
 
 	var stmt *C.OCIStmt
-	var s, defp unsafe.Pointer
+	var s unsafe.Pointer
 	if rv := C.WrapOCIHandleAlloc(
 		unsafe.Pointer(conn.env),
 		C.OCI_HTYPE_STMT,
@@ -217,7 +217,6 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 		return nil, conn.getError(rv.rv)
 	} else {
 		stmt = (*C.OCIStmt)(rv.ptr)
-		defp = unsafe.Pointer(uintptr(rv.extra) + sizeOfNilPointer)
 	}
 
 	if rv := C.OCIStmtPrepare(
@@ -232,10 +231,10 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 		return nil, conn.getError(rv)
 	}
 
-	return &OCI8Stmt{conn: conn, stmt: stmt, defp: (**C.OCIDefine)(defp)}, nil
+	return &OCI8Stmt{conn: conn, stmt: stmt}, nil
 }
 
-// getError gets error from return value (sword) or OCIError
+// getError gets error from return result (sword) or OCIError
 func (conn *OCI8Conn) getError(result C.sword) error {
 	switch result {
 	case C.OCI_SUCCESS:

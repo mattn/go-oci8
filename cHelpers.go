@@ -17,15 +17,23 @@ func getUint64(p unsafe.Pointer) uint64 {
 	return uint64(*(*C.sb8)(p))
 }
 
-// CByte comverts byte slice to C char
-func CByte(b []byte) *C.char {
+// CByte comverts byte slice to OraText
+func CByte(b []byte) *C.OraText {
 	p := C.malloc(C.size_t(len(b)))
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], b)
-	return (*C.char)(p)
+	return (*C.OraText)(p)
 }
 
-// CStringN coverts string to C string with size
+// CByteN comverts byte slice to C OraText with size
+func CByteN(b []byte, size int) *C.OraText {
+	p := C.malloc(C.size_t(size))
+	pp := (*[1 << 30]byte)(p)
+	copy(pp[:], b)
+	return (*C.OraText)(p)
+}
+
+// CStringN coverts string to C char with size
 func CStringN(s string, size int) *C.char {
 	p := C.malloc(C.size_t(size))
 	pp := (*[1 << 30]byte)(p)

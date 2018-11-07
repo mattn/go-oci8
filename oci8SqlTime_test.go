@@ -5,6 +5,35 @@ import (
 	"time"
 )
 
+// TestSelectDualNullTime checks nulls
+func TestSelectDualNullTime(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	// TIMESTAMP(9)
+	queryResults := testQueryResults{
+		query:        "select cast (null as TIMESTAMP(9)) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// TIMESTAMP(9) WITH TIME ZONE
+	queryResults = testQueryResults{
+		query:        "select cast (null as TIMESTAMP(9) WITH TIME ZONE) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// TIMESTAMP(9) WITH LOCAL TIME ZONE
+	queryResults = testQueryResults{
+		query:        "select cast (null as TIMESTAMP(9) WITH LOCAL TIME ZONE) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+}
+
 // TestSelectDualTime checks select dual for time types
 func TestSelectDualTime(t *testing.T) {
 	if TestDisableDatabase {

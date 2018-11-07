@@ -6,6 +6,90 @@ import (
 	"testing"
 )
 
+// TestSelectDualNullNumber checks nulls
+func TestSelectDualNullNumber(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	// INTEGER
+	queryResults := testQueryResults{
+		query:        "select cast (null as INTEGER) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INT(
+	queryResults = testQueryResults{
+		query:        "select cast (null as INT) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// SMALLINT
+	queryResults = testQueryResults{
+		query:        "select cast (null as SMALLINT) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NUMBER(38,10)
+	queryResults = testQueryResults{
+		query:        "select cast (null as NUMBER(38,10)) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DEC(38,10)
+	queryResults = testQueryResults{
+		query:        "select cast (null as DEC(38,10)) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// DECIMAL(38,10)
+	queryResults = testQueryResults{
+		query:        "select cast (null as DECIMAL(38,10)) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// NUMERIC(38,10)
+	queryResults = testQueryResults{
+		query:        "select cast (null as NUMERIC(38,10)) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// FLOAT
+	queryResults = testQueryResults{
+		query:        "select cast (null as FLOAT) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// REAL
+	queryResults = testQueryResults{
+		query:        "select cast (null as REAL) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_FLOAT
+	queryResults = testQueryResults{
+		query:        "select cast (null as BINARY_FLOAT) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// BINARY_DOUBLE
+	queryResults = testQueryResults{
+		query:        "select cast (null as BINARY_DOUBLE) from dual",
+		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+}
+
 // TestSelectDualNumber checks select dual for number types
 func TestSelectDualNumber(t *testing.T) {
 	if TestDisableDatabase {

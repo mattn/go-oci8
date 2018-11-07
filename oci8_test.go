@@ -44,8 +44,11 @@ var (
 	TestTypeTime      = reflect.TypeOf(time.Time{})
 	TestTypeByteSlice = reflect.TypeOf([]byte{})
 
-	testString1    string
-	testByteSlice1 []byte
+	testString1        string
+	testByteSlice2000  []byte
+	testByteSlice4000  []byte
+	testByteSlice16383 []byte
+	testByteSlice32767 []byte
 
 	testTimeLocUTC *time.Location
 	testTimeLocGMT *time.Location
@@ -132,9 +135,21 @@ func setupForTesting() int {
 	}
 	testString1 = buffer.String()
 
-	testByteSlice1 = make([]byte, 2000)
+	testByteSlice2000 = make([]byte, 2000)
 	for i = 0; i < 2000; i++ {
-		testByteSlice1[i] = byte(i)
+		testByteSlice2000[i] = byte(i)
+	}
+	testByteSlice4000 = make([]byte, 4000)
+	for i = 0; i < 4000; i++ {
+		testByteSlice4000[i] = byte(i)
+	}
+	testByteSlice16383 = make([]byte, 16383)
+	for i = 0; i < 16383; i++ {
+		testByteSlice16383[i] = byte(i)
+	}
+	testByteSlice32767 = make([]byte, 32767)
+	for i = 0; i < 32767; i++ {
+		testByteSlice32767[i] = byte(i)
 	}
 
 	testTimeLocUTC, _ = time.LoadLocation("UTC")

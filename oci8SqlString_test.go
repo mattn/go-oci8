@@ -294,40 +294,6 @@ func TestSelectDualString(t *testing.T) {
 		},
 	}
 
-	queryResultRaw1 := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{[]byte{}},
-			results: [][]interface{}{[]interface{}{nil}},
-		},
-		testQueryResult{
-			args:    []interface{}{[]byte{10}},
-			results: [][]interface{}{[]interface{}{[]byte{10}}},
-		},
-		testQueryResult{
-			args:    []interface{}{[]byte{0}},
-			results: [][]interface{}{[]interface{}{[]byte{0}}},
-		},
-	}
-
-	queryResultRaw2000 := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
-			results: [][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
-		},
-		testQueryResult{
-			args:    []interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
-			results: [][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
-		},
-		testQueryResult{
-			args:    []interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
-			results: [][]interface{}{[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}}},
-		},
-		testQueryResult{
-			args:    []interface{}{testByteSlice1},
-			results: [][]interface{}{[]interface{}{testByteSlice1}},
-		},
-	}
-
 	// VARCHAR2(1)
 	queryResults.query = "select cast (:1 as VARCHAR2(1)) from dual"
 	queryResults.queryResults = queryResultStrings1
@@ -391,6 +357,44 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStrings4000
 	testRunQueryResults(t, queryResults)
+
+	queryResultRaw1 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{[]byte(nil)},
+			results: [][]interface{}{[]interface{}{nil}},
+		},
+		testQueryResult{
+			args:    []interface{}{[]byte{}},
+			results: [][]interface{}{[]interface{}{nil}},
+		},
+		testQueryResult{
+			args:    []interface{}{[]byte{10}},
+			results: [][]interface{}{[]interface{}{[]byte{10}}},
+		},
+		testQueryResult{
+			args:    []interface{}{[]byte{0}},
+			results: [][]interface{}{[]interface{}{[]byte{0}}},
+		},
+	}
+
+	queryResultRaw2000 := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+			results: [][]interface{}{[]interface{}{[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
+		},
+		testQueryResult{
+			args:    []interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+			results: [][]interface{}{[]interface{}{[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}},
+		},
+		testQueryResult{
+			args:    []interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+			results: [][]interface{}{[]interface{}{[]byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}}},
+		},
+		testQueryResult{
+			args:    []interface{}{testByteSlice2000},
+			results: [][]interface{}{[]interface{}{testByteSlice2000}},
+		},
+	}
 
 	// RAW(1)
 	queryResults.query = "select cast (:1 as RAW(1)) from dual"
@@ -1572,7 +1576,7 @@ func TestDestructiveString(t *testing.T) {
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{[]byte{}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
-			[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice1},
+			[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice2000},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1583,7 +1587,7 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			testQueryResult{
 				results: [][]interface{}{
-					[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice1},
+					[]interface{}{[]byte{10}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, testByteSlice2000},
 					[]interface{}{nil, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
 				},
 			},
@@ -1881,23 +1885,6 @@ func TestFunctionCallString(t *testing.T) {
 		},
 	}
 
-	/*
-		execResultRaw1 := []testExecResult{
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
-				results: map[string]interface{}{"string1": []byte{}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
-				results: map[string]interface{}{"string1": []byte{10}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
-				results: map[string]interface{}{"string1": []byte{0}},
-			},
-		}
-	*/
-
 	// VARCHAR2
 	execResults.query = `
 declare
@@ -2008,11 +1995,95 @@ end;`
 	execResults.execResults = execResultStrings16383
 	testRunExecResults(t, execResults)
 
+	execResultRaw2000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte(nil), In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
+			results: map[string]interface{}{"string1": []byte{10}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
+			results: map[string]interface{}{"string1": []byte{0}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, In: true}},
+			results: map[string]interface{}{"string1": []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, In: true}},
+			results: map[string]interface{}{"string1": []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice2000, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice2000},
+		},
+	}
+
+	execResultRaw4000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice4000, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice4000},
+		},
+	}
+
+	execResultRaw16383 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice16383, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice16383},
+		},
+	}
+
+	execResultRaw32767 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice32767, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice32767},
+		},
+	}
+
 	// RAW
-	// TODO: RAW
+	execResults.query = `
+declare
+	function GET_STRING(p_string RAW) return RAW as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRaw2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw32767
+	testRunExecResults(t, execResults)
 
 	// BLOB
-	// TODO: BLOB
+	execResults.query = `
+declare
+	function GET_STRING(p_string BLOB) return BLOB as
+	begin
+		return p_string;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRaw2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw32767
+	testRunExecResults(t, execResults)
 
 	// test strings add to end
 
@@ -2104,23 +2175,6 @@ end;`
 		},
 	}
 
-	/*
-		execResultRaw1 := []testExecResult{
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
-				results: map[string]interface{}{"string1": []byte{}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
-				results: map[string]interface{}{"string1": []byte{10}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
-				results: map[string]interface{}{"string1": []byte{0}},
-			},
-		}
-	*/
-
 	// VARCHAR2
 	execResults.query = `
 declare
@@ -2231,11 +2285,102 @@ end;`
 	execResults.execResults = execResultStringsAddEnd16383
 	testRunExecResults(t, execResults)
 
+	execResultRawAddEnd2000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte(nil), In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
+			results: map[string]interface{}{"string1": []byte{10, 120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
+			results: map[string]interface{}{"string1": []byte{0, 120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, In: true}},
+			results: map[string]interface{}{"string1": []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, In: true}},
+			results: map[string]interface{}{"string1": []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice2000[:1997], In: true}},
+			results: map[string]interface{}{"string1": append(testByteSlice2000[:1997], []byte{120, 121, 122}...)},
+		},
+	}
+
+	execResultRawAddEnd4000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice4000[:3997], In: true}},
+			results: map[string]interface{}{"string1": append(testByteSlice4000[:3997], []byte{120, 121, 122}...)},
+		},
+	}
+
+	execResultRawAddEnd16383 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice16383[:16380], In: true}},
+			results: map[string]interface{}{"string1": append(testByteSlice16383[:16380], []byte{120, 121, 122}...)},
+		},
+	}
+
+	execResultRawAddEnd32767 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice32767[:32764], In: true}},
+			results: map[string]interface{}{"string1": append(testByteSlice32767[:32764], []byte{120, 121, 122}...)},
+		},
+	}
+
 	// RAW
-	// TODO: RAW
+	execResults.query = `
+declare
+	function GET_STRING(p_string RAW) return RAW as
+	begin
+		return UTL_RAW.CONCAT(p_string, UTL_RAW.CAST_TO_RAW('xyz'));
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawAddEnd2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd32767
+	testRunExecResults(t, execResults)
 
 	// BLOB
-	// TODO: BLOB
+	execResults.query = `
+declare
+	function GET_STRING(p_string BLOB) return BLOB as
+		l_blob BLOB;
+	begin
+		if p_string is null then
+			l_blob := UTL_RAW.CAST_TO_RAW('xyz');
+			return l_blob;
+		end if;
+		l_blob := p_string;
+		DBMS_LOB.APPEND(l_blob, UTL_RAW.CAST_TO_RAW('xyz'));
+		return l_blob;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawAddEnd2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddEnd32767
+	testRunExecResults(t, execResults)
 
 	// test strings add to front
 
@@ -2327,23 +2472,6 @@ end;`
 		},
 	}
 
-	/*
-		execResultRaw1 := []testExecResult{
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
-				results: map[string]interface{}{"string1": []byte{}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
-				results: map[string]interface{}{"string1": []byte{10}},
-			},
-			testExecResult{
-				args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
-				results: map[string]interface{}{"string1": []byte{0}},
-			},
-		}
-	*/
-
 	// VARCHAR2
 	execResults.query = `
 declare
@@ -2454,11 +2582,102 @@ end;`
 	execResults.execResults = execResultStringsAddFront16383
 	testRunExecResults(t, execResults)
 
+	execResultRawAddFront2000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte(nil), In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122, 10}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122, 0}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, In: true}},
+			results: map[string]interface{}{"string1": []byte{120, 121, 122, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice2000[:1997], In: true}},
+			results: map[string]interface{}{"string1": append([]byte{120, 121, 122}, testByteSlice2000[:1997]...)},
+		},
+	}
+
+	execResultRawAddFront4000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice4000[:3997], In: true}},
+			results: map[string]interface{}{"string1": append([]byte{120, 121, 122}, testByteSlice4000[:3997]...)},
+		},
+	}
+
+	execResultRawAddFront16383 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice16383[:16380], In: true}},
+			results: map[string]interface{}{"string1": append([]byte{120, 121, 122}, testByteSlice16383[:16380]...)},
+		},
+	}
+
+	execResultRawAddFront32767 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice32767[:32764], In: true}},
+			results: map[string]interface{}{"string1": append([]byte{120, 121, 122}, testByteSlice32767[:32764]...)},
+		},
+	}
+
 	// RAW
-	// TODO: RAW
+	execResults.query = `
+declare
+	function GET_STRING(p_string RAW) return RAW as
+	begin
+		return UTL_RAW.CONCAT(UTL_RAW.CAST_TO_RAW('xyz'), p_string);
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawAddFront2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront32767
+	testRunExecResults(t, execResults)
 
 	// BLOB
-	// TODO: BLOB
+	execResults.query = `
+declare
+	function GET_STRING(p_string BLOB) return BLOB as
+		l_blob BLOB;
+	begin
+		if p_string is null then
+			l_blob := UTL_RAW.CAST_TO_RAW('xyz');
+			return l_blob;
+		end if;
+		l_blob := UTL_RAW.CAST_TO_RAW('xyz');
+		DBMS_LOB.APPEND(l_blob, p_string);
+		return l_blob;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawAddFront2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawAddFront32767
+	testRunExecResults(t, execResults)
 
 	// test strings remove from front
 
@@ -2664,10 +2883,122 @@ end;`
 	execResults.execResults = execResultStringsRemoveFront16383
 	testRunExecResults(t, execResults)
 
+	execResultRawRemoveFront2000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte(nil), In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{}, In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0}, In: true}},
+			results: map[string]interface{}{"string1": []byte(nil)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, In: true}},
+			results: map[string]interface{}{"string1": []byte{2, 3, 4, 5, 6, 7, 8, 9}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}, In: true}},
+			results: map[string]interface{}{"string1": []byte{247, 248, 249, 250, 251, 252, 253, 254, 255}},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice2000, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice2000[2:]},
+		},
+	}
+
+	execResultRawRemoveFront4000 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice4000, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice4000[2:]},
+		},
+	}
+
+	execResultRawRemoveFront16383 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice16383, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice16383[2:]},
+		},
+	}
+
+	execResultRawRemoveFront32767 := []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: testByteSlice32767, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice32767[2:]},
+		},
+	}
+
 	// RAW
-	// TODO: RAW
+	execResults.query = `
+declare
+	function GET_STRING(p_string RAW) return RAW as
+	begin
+		if p_string is null or UTL_RAW.LENGTH(p_string) < 3 then
+			return null;
+		end if;
+		return UTL_RAW.SUBSTR(p_string, 3);
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawRemoveFront2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront32767
+	testRunExecResults(t, execResults)
 
 	// BLOB
-	// TODO: BLOB
+	execResults.query = `
+declare
+	function GET_STRING(p_string BLOB) return BLOB as
+	begin
+		return DBMS_LOB.SUBSTR(p_string, 32767, 3);
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRawRemoveFront2000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront4000
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront16383
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRawRemoveFront32767
+	testRunExecResults(t, execResults)
+}
 
+func TestTemp(t *testing.T) {
+
+	var execResults testExecResults
+
+	execResultRaw2000 := []testExecResult{
+
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: []byte{10}, In: true}},
+			results: map[string]interface{}{"string1": []byte{10}},
+		},
+	}
+
+	// RAW
+	execResults.query = `
+declare
+function GET_STRING(p_string RAW) return RAW as
+begin
+	return p_string;
+end GET_STRING;
+begin
+:string1 := GET_STRING(:string1);
+end;`
+	execResults.execResults = execResultRaw2000
+	testRunExecResults(t, execResults)
 }

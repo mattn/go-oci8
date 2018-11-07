@@ -36,18 +36,6 @@ typedef struct {
   sword rv;
 } ret2ptr;
 
-static ret2ptr WrapOCIDescriptorAlloc(dvoid* env, ub4 type, size_t extra) {
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  vvv.rv = OCIDescriptorAlloc(env, &vvv.ptr, type, extra, (void**)ptr);
-  return vvv;
-}
-
 static ret2ptr WrapOCIHandleAlloc(dvoid* parrent, ub4 type, size_t extra) {
   ret2ptr vvv = {NULL, NULL, 0};
   void* ptr;
@@ -171,8 +159,3 @@ static sword WrapOCIAttrSetUb4(dvoid* h, ub4 type, ub4 value, ub4 attrtype,
                                OCIError* err) {
   return OCIAttrSet(h, type, &value, 0, attrtype, err);
 }
-
-typedef struct {
-  sb2 ind;
-  ub2 rlen;
-} indrlen;

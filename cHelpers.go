@@ -25,6 +25,19 @@ func CByte(b []byte) *C.char {
 	return (*C.char)(p)
 }
 
+// CStringN coverts string to C string with size
+func CStringN(s string, size int) *C.char {
+	p := C.malloc(C.size_t(size))
+	pp := (*[1 << 30]byte)(p)
+	copy(pp[:], s)
+	if len(s) < size {
+		pp[len(s)] = 0
+	} else {
+		pp[size-1] = 0
+	}
+	return (*C.char)(p)
+}
+
 // freeBoundParameters frees bound parameters
 func freeBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {

@@ -777,7 +777,19 @@ func TestDestructiveTransaction(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+}
 
+// TestSelectDualNull checks nulls
+func TestSelectDualNull(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	queryResults := testQueryResults{
+		query: "select null from dual",
+		queryResults: []testQueryResult{testQueryResult{
+			results: [][]interface{}{[]interface{}{nil}}}}}
+	testRunQueryResults(t, queryResults)
 }
 
 func BenchmarkSimpleInsert(b *testing.B) {

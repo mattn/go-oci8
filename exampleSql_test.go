@@ -102,3 +102,61 @@ func Example_sqlSelect() {
 
 	// output: 1
 }
+
+func Example_sqlFunction() {
+	// Example shows how to do a function call with binds
+
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+
+	var openString string
+	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	if len(oci8.TestUsername) > 0 {
+		if len(oci8.TestPassword) > 0 {
+			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
+		} else {
+			openString = oci8.TestUsername + "@"
+		}
+	}
+	openString += oci8.TestHostValid
+
+	// A normal simple Open to localhost would look like:
+	// db, err := sql.Open("oci8", "127.0.0.1")
+	// For testing, need to use additional variables
+	db, err := sql.Open("oci8", openString)
+	if err != nil {
+		fmt.Printf("Open error is not nil: %v", err)
+		return
+	}
+	if db == nil {
+		fmt.Println("db is nil")
+		return
+	}
+
+	number := int64(2)
+	query := `
+declare
+	function ADD_ONE(p_number INTEGER) return INTEGER as
+	begin
+		return p_number + 1;
+	end ADD_ONE;
+begin
+	:num1 := ADD_ONE(:num1);
+end;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, query, sql.Out{Dest: &number, In: true})
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	if number != 3 {
+		fmt.Println("number != 3")
+		return
+	}
+
+	fmt.Println(number)
+
+	// output: 3
+}

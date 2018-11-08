@@ -108,28 +108,29 @@ func (conn *OCI8Conn) Begin() (driver.Tx, error) {
 
 func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
-		var th unsafe.Pointer
-		if rv := C.WrapOCIHandleAlloc(
-			unsafe.Pointer(conn.env),
-			C.OCI_HTYPE_TRANS,
-			0,
-		); rv.rv != C.OCI_SUCCESS {
-			return nil, errors.New("can't allocate handle")
-		} else {
-			th = rv.ptr
+		// transaction handle
+		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+		if err != nil {
+			return nil, fmt.Errorf("allocate transaction handle error: %v", err)
 		}
 
+		// sets the transaction context attribute of the service context.
 		if rv := C.OCIAttrSet(
 			unsafe.Pointer(conn.svc),
 			C.OCI_HTYPE_SVCCTX,
-			th,
+			*trans,
 			0,
 			C.OCI_ATTR_TRANS,
 			conn.errHandle,
 		); rv != C.OCI_SUCCESS {
-			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
-			return nil, conn.getError(rv)
+			err = conn.getError(rv)
+			C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
+			return nil, err
 		}
+
+		// transaction handle should be freed by something once attached to the service context
+		// but I cannot find anything in the documentation explicitly calling this out
+		// going by examples: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci17msc006.htm#i428845
 
 		if rv := C.OCITransStart(
 			conn.svc,
@@ -137,13 +138,13 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 			0,
 			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
 		); rv != C.OCI_SUCCESS {
-			C.OCIHandleFree(th, C.OCI_HTYPE_TRANS)
 			return nil, conn.getError(rv)
 		}
-		// TOFIX: memory leak: th needs to be saved into OCI8Tx so OCIHandleFree can be called on it
 
 	}
+
 	conn.inTransaction = true
+
 	return &OCI8Tx{conn}, nil
 }
 
@@ -207,31 +208,25 @@ func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, e
 	pquery := C.CString(query)
 	defer C.free(unsafe.Pointer(pquery))
 
-	var stmt *C.OCIStmt
-	var s unsafe.Pointer
-	if rv := C.WrapOCIHandleAlloc(
-		unsafe.Pointer(conn.env),
-		C.OCI_HTYPE_STMT,
-		(C.size_t)(unsafe.Sizeof(s)*2),
-	); rv.rv != C.OCI_SUCCESS {
-		return nil, conn.getError(rv.rv)
-	} else {
-		stmt = (*C.OCIStmt)(rv.ptr)
+	// statement handle
+	stmt, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
+	if err != nil {
+		return nil, fmt.Errorf("allocate statement handle error: %v", err)
 	}
 
 	if rv := C.OCIStmtPrepare(
-		stmt,
+		(*C.OCIStmt)(*stmt),
 		conn.errHandle,
 		(*C.OraText)(unsafe.Pointer(pquery)),
 		C.ub4(C.strlen(pquery)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT),
 	); rv != C.OCI_SUCCESS {
-		C.OCIHandleFree(s, C.OCI_HTYPE_STMT)
+		C.OCIHandleFree(*stmt, C.OCI_HTYPE_STMT)
 		return nil, conn.getError(rv)
 	}
 
-	return &OCI8Stmt{conn: conn, stmt: stmt}, nil
+	return &OCI8Stmt{conn: conn, stmt: (*C.OCIStmt)(*stmt)}, nil
 }
 
 // getError gets error from return result (sword) or OCIError
@@ -334,6 +329,37 @@ func (conn *OCI8Conn) ociAttrSet(
 	)
 
 	return conn.getError(result)
+}
+
+// ociHandleAlloc calls OCIHandleAlloc then returns
+// handle pointer to pointer, buffer pointer to pointer, and error
+func (conn *OCI8Conn) ociHandleAlloc(handleType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
+	var handleTemp unsafe.Pointer
+	handle := &handleTemp
+	var bufferTemp unsafe.Pointer
+	var buffer *unsafe.Pointer
+	if size > 0 {
+		buffer = &bufferTemp
+	}
+
+	result := C.OCIHandleAlloc(
+		unsafe.Pointer(conn.env), // An environment handle
+		handle,     // Returns a handle
+		handleType, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
+		size,       // amount of user memory to be allocated
+		buffer,     // Returns a pointer to the user memory
+	)
+
+	err := conn.getError(result)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if size > 0 {
+		return handle, buffer, nil
+	}
+
+	return handle, nil, nil
 }
 
 // ociDescriptorAlloc calls OCIDescriptorAlloc then returns

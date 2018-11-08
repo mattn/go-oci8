@@ -36,18 +36,6 @@ typedef struct {
   sword rv;
 } ret2ptr;
 
-static ret2ptr WrapOCIHandleAlloc(dvoid* parrent, ub4 type, size_t extra) {
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  vvv.rv = OCIHandleAlloc(parrent, &vvv.ptr, type, extra, (void**)ptr);
-  return vvv;
-}
-
 static ret2ptr WrapOCIEnvCreate(ub4 mode, size_t extra) {
   OCIEnv* env;
   ub2 charsetid = 0;

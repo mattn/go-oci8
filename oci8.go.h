@@ -4,30 +4,6 @@
 #include <string.h>
 
 typedef struct {
-  int num;
-  sword rv;
-} retInt;
-
-static retInt WrapOCIAttrGetInt(dvoid* ss, ub4 hType, ub4 aType,
-                                OCIError* err) {
-  retInt vvv = {0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.num, NULL, aType, err);
-  return vvv;
-}
-
-typedef struct {
-  ub4 num;
-  sword rv;
-} retUb4;
-
-static retUb4 WrapOCIAttrGetUb4(dvoid* ss, ub4 hType, ub4 aType,
-                                OCIError* err) {
-  retUb4 vvv = {0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.num, NULL, aType, err);
-  return vvv;
-}
-
-typedef struct {
   OraText rowid[19];
   sword rv;
 } retRowid;
@@ -50,19 +26,6 @@ static retRowid WrapOCIAttrRowId(dvoid* ss, dvoid* st, ub4 hType, ub4 aType,
 }
 
 typedef struct {
-  char* ptr;
-  ub4 size;
-  sword rv;
-} retString;
-
-static retString WrapOCIAttrGetString(dvoid* ss, ub4 hType, ub4 aType,
-                                      OCIError* err) {
-  retString vvv = {NULL, 0, 0};
-  vvv.rv = OCIAttrGet(ss, hType, &vvv.ptr, &vvv.size, aType, err);
-  return vvv;
-}
-
-typedef struct {
   dvoid* ptr;
   sword rv;
 } ret1ptr;
@@ -72,18 +35,6 @@ typedef struct {
   dvoid* extra;
   sword rv;
 } ret2ptr;
-
-static ret2ptr WrapOCIDescriptorAlloc(dvoid* env, ub4 type, size_t extra) {
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  vvv.rv = OCIDescriptorAlloc(env, &vvv.ptr, type, extra, (void**)ptr);
-  return vvv;
-}
 
 static ret2ptr WrapOCIHandleAlloc(dvoid* parrent, ub4 type, size_t extra) {
   ret2ptr vvv = {NULL, NULL, 0};
@@ -208,8 +159,3 @@ static sword WrapOCIAttrSetUb4(dvoid* h, ub4 type, ub4 value, ub4 attrtype,
                                OCIError* err) {
   return OCIAttrSet(h, type, &value, 0, attrtype, err);
 }
-
-typedef struct {
-  sb2 ind;
-  ub2 rlen;
-} indrlen;

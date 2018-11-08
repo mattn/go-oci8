@@ -236,7 +236,7 @@ func testRunExecResult(t *testing.T, execResult testExecResult, query string, st
 		result = rv.Interface()
 
 		// check if value matches result
-		if result != value {
+		if !reflect.DeepEqual(result, value) {
 			t.Errorf("arg: %v - received: %T, %v - expected: %T, %v - query: %v",
 				key, result, result, value, value, query)
 		}

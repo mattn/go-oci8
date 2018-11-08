@@ -373,11 +373,12 @@ func (rows *OCI8Rows) ColumnTypePrecisionScale(i int) (precision, scale int64, o
 
 // ColumnTypeNullable implement RowsColumnTypeNullable.
 func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
-	retUb4 := C.WrapOCIAttrGetUb4(unsafe.Pointer(rows.stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_IS_NULL, rows.stmt.conn.errHandle)
-	if retUb4.rv != C.OCI_SUCCESS {
+	var isNull C.ub1 // returns 0 if null values are not permitted for the column
+	_, err := rows.stmt.ociAttrGet(unsafe.Pointer(&isNull), C.OCI_ATTR_IS_NULL)
+	if err != nil {
 		return false, false
 	}
-	return retUb4.num != 0, true
+	return isNull != 0, true
 }
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.

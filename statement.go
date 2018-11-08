@@ -379,7 +379,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			return nil, err
 		}
 
-		var columnName *C.oratext // name of the column
+		var columnName *C.OraText // name of the column
 		var size C.ub4
 		size, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&columnName), C.OCI_ATTR_NAME)
 		if err != nil {

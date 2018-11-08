@@ -17,37 +17,37 @@ func getUint64(p unsafe.Pointer) uint64 {
 	return uint64(*(*C.sb8)(p))
 }
 
-// CByte comverts byte slice to oratext.
+// CByte comverts byte slice to OraText.
 // must be freed
-func CByte(b []byte) *C.oratext {
+func CByte(b []byte) *C.OraText {
 	p := C.malloc(C.size_t(len(b)))
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], b)
-	return (*C.oratext)(p)
+	return (*C.OraText)(p)
 }
 
-// CByteN comverts byte slice to C oratext with size.
+// CByteN comverts byte slice to C OraText with size.
 // must be freed
-func CByteN(b []byte, size int) *C.oratext {
+func CByteN(b []byte, size int) *C.OraText {
 	p := C.malloc(C.size_t(size))
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], b)
-	return (*C.oratext)(p)
+	return (*C.OraText)(p)
 }
 
-// CString coverts string to C oratext.
+// CString coverts string to C OraText.
 // must be freed
-func CString(s string) *C.oratext {
+func CString(s string) *C.OraText {
 	p := C.malloc(C.size_t(len(s) + 1))
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], s)
 	pp[len(s)] = 0
-	return (*C.oratext)(p)
+	return (*C.OraText)(p)
 }
 
-// CStringN coverts string to C oratext with size.
+// CStringN coverts string to C OraText with size.
 // must be freed
-func CStringN(s string, size int) *C.oratext {
+func CStringN(s string, size int) *C.OraText {
 	p := C.malloc(C.size_t(size))
 	pp := (*[1 << 30]byte)(p)
 	copy(pp[:], s)
@@ -56,11 +56,11 @@ func CStringN(s string, size int) *C.oratext {
 	} else {
 		pp[size-1] = 0
 	}
-	return (*C.oratext)(p)
+	return (*C.OraText)(p)
 }
 
-// CGoStringN coverts C oratext to Go string
-func CGoStringN(s *C.oratext, size int) string {
+// CGoStringN coverts C OraText to Go string
+func CGoStringN(s *C.OraText, size int) string {
 	if size == 0 {
 		return ""
 	}

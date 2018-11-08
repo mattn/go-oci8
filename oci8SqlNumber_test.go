@@ -1,6 +1,7 @@
 package oci8
 
 import (
+	"context"
 	"database/sql"
 	"math"
 	"testing"
@@ -2858,6 +2859,148 @@ func TestDestructiveNumberSequence(t *testing.T) {
 			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
 			results: map[string]interface{}{"num1": int64(15032385536)},
 		},
+	}
+
+}
+
+// TestDestructiveNumberRowsAffected checks insert RowsAffected
+func TestDestructiveNumberRowsAffected(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "rows_affected_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) values (:1)")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result sql.Result
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 1)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	var count int64
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected := int64(1)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) select :1 from dual union all select :2 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 2, 3)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(2)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) select :1 from dual union all select :2 from dual union all select :3 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 4, 5, 6)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(3)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "update "+tableName+" set A = :1 where A = :2")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 2, 1)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(1)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 3, 2)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(2)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 4, 3)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(3)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
 	}
 
 }

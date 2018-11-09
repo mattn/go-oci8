@@ -166,16 +166,51 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		conn.logger = log.New(ioutil.Discard, "", 0)
 	}
 
-	// environment handle
-	if rv := C.WrapOCIEnvCreate(
-		C.OCI_DEFAULT|C.OCI_THREADED,
-		0,
-	); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-		// TODO: error handle not yet allocated, how to get string error from oracle?
-		return nil, errors.New("OCIEnvCreate error")
-	} else {
-		conn.env = (*C.OCIEnv)(rv.ptr)
+	// get NLS_LANG character set ID from environment variable
+	var charset C.ub2
+	result := C.OCINlsEnvironmentVariableGet(
+		unsafe.Pointer(&charset), // Returns a value of a globalization support environment variable such as the NLS_LANG character set ID or the NLS_NCHAR character set ID.
+		0,                    // Specifies the size of the given output value, which is applicable only to string data.
+		C.OCI_NLS_CHARSET_ID, // Specifies one of the following values to get from the globalization support environment variable: OCI_NLS_CHARSET_ID: NLS_LANG character set ID in ub2 datatype. OCI_NLS_NCHARSET_ID: NLS_NCHAR character set ID in ub2 datatype.
+		0,                    // Specifies the character set ID for retrieved string data.
+		nil,                  // The length of the return value in bytes.
+	)
+	if result != C.OCI_SUCCESS {
+		return nil, errors.New("OCINlsEnvironmentVariableGet NLS_LANG error")
 	}
+
+	// get NLS_NCHAR character set ID from environment variable
+	var ncharset C.ub2
+	result = C.OCINlsEnvironmentVariableGet(
+		unsafe.Pointer(&ncharset), // Returns a value of a globalization support environment variable such as the NLS_LANG character set ID or the NLS_NCHAR character set ID.
+		0, // Specifies the size of the given output value, which is applicable only to string data.
+		C.OCI_NLS_NCHARSET_ID, // Specifies one of the following values to get from the globalization support environment variable: OCI_NLS_CHARSET_ID: NLS_LANG character set ID in ub2 datatype. OCI_NLS_NCHARSET_ID: NLS_NCHAR character set ID in ub2 datatype.
+		0,   // Specifies the character set ID for retrieved string data.
+		nil, // The length of the return value in bytes.
+	)
+	if result != C.OCI_SUCCESS {
+		return nil, errors.New("OCINlsEnvironmentVariableGet NLS_NCHAR error")
+	}
+
+	// environment handle
+	var envP *C.OCIEnv
+	envPP := &envP
+	result = C.OCIEnvNlsCreate(
+		envPP,          // pointer to a handle to the environment
+		C.OCI_THREADED, // environment mode: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87683
+		nil,            // Specifies the user-defined context for the memory callback routines.
+		nil,            // Specifies the user-defined memory allocation function. If mode is OCI_THREADED, this memory allocation routine must be thread-safe.
+		nil,            // Specifies the user-defined memory re-allocation function. If the mode is OCI_THREADED, this memory allocation routine must be thread safe.
+		nil,            // Specifies the user-defined memory free function. If mode is OCI_THREADED, this memory free routine must be thread-safe.
+		0,              // Specifies the amount of user memory to be allocated for the duration of the environment.
+		nil,            // Returns a pointer to the user memory of size xtramemsz allocated by the call for the user.
+		charset,        // The client-side character set for the current environment handle. If it is 0, the NLS_LANG setting is used. OCI_UTF16ID is a valid setting; it is used by the metadata and the CHAR data.
+		ncharset,       // The client-side national character set for the current environment handle. If it is 0, NLS_NCHAR setting is used. OCI_UTF16ID is a valid setting; it is used by the NCHAR data.
+	)
+	if result != C.OCI_SUCCESS {
+		return nil, errors.New("OCIEnvNlsCreate error")
+	}
+	conn.env = *envPP
 
 	// defer on error handle free
 	defer func(errP *error) {
@@ -203,7 +238,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	// error handle
 	var handleTemp unsafe.Pointer
 	handle := &handleTemp
-	result := C.OCIHandleAlloc(
+	result = C.OCIHandleAlloc(
 		unsafe.Pointer(conn.env), // An environment handle
 		handle,            // Returns a handle
 		C.OCI_HTYPE_ERROR, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581

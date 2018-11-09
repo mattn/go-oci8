@@ -30,32 +30,6 @@ typedef struct {
   sword rv;
 } ret1ptr;
 
-typedef struct {
-  dvoid* ptr;
-  dvoid* extra;
-  sword rv;
-} ret2ptr;
-
-static ret2ptr WrapOCIEnvCreate(ub4 mode, size_t extra) {
-  OCIEnv* env;
-  ub2 charsetid = 0;
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  if (getenv("NLS_LANG") == NULL && !OCIEnvInit(&env, OCI_DEFAULT, 0, NULL)) {
-    charsetid = OCINlsCharSetNameToId(env, (const oratext*)"AL32UTF8");
-    OCIHandleFree(env, OCI_HTYPE_ENV);
-  }
-
-  vvv.rv = OCIEnvNlsCreate((OCIEnv**)(&vvv.ptr), mode, NULL, NULL, NULL, NULL,
-                           extra, (void**)ptr, charsetid, charsetid);
-  return vvv;
-}
-
 static ret1ptr WrapOCILogon(OCIEnv* env, OCIError* err, OraText* u, ub4 ulen,
                             OraText* p, ub4 plen, OraText* h, ub4 hlen) {
   ret1ptr vvv = {NULL, 0};

@@ -96,13 +96,13 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid prefetch_rows: %v", v[0])
 			}
-			dsn.prefetchRows = uint32(z)
+			dsn.prefetchRows = C.ub4(z)
 		case "prefetch_memory":
 			z, err := strconv.ParseUint(v[0], 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("invalid prefetch_memory: %v", v[0])
 			}
-			dsn.prefetchMemory = uint32(z)
+			dsn.prefetchMemory = C.ub4(z)
 		case "as":
 			switch v[0] {
 			case "SYSDBA", "sysdba":
@@ -256,15 +256,10 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		}
 		conn.svc = (*C.OCISvcCtx)(*handle)
 
-		if rv := C.OCIAttrSet(
-			unsafe.Pointer(conn.svc),
-			C.OCI_HTYPE_SVCCTX,
-			unsafe.Pointer(conn.srv),
-			0,
-			C.OCI_ATTR_SERVER,
-			conn.errHandle,
-		); rv != C.OCI_SUCCESS {
-			return nil, conn.getError(rv)
+		// sets the server context attribute of the service context
+		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.srv), 0, C.OCI_ATTR_SERVER)
+		if err != nil {
+			return nil, err
 		}
 
 		// user session handle
@@ -276,28 +271,16 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		conn.usrSession = (*C.OCISession)(*handle)
 
 		if !dsn.externalauthentication {
-			//  set username attribute in user session handle
-			if rv := C.OCIAttrSet(
-				unsafe.Pointer(conn.usrSession),
-				C.OCI_HTYPE_SESSION,
-				(unsafe.Pointer(puser)),
-				C.ub4(len(dsn.Username)),
-				C.OCI_ATTR_USERNAME,
-				conn.errHandle,
-			); rv != C.OCI_SUCCESS {
-				return nil, conn.getError(rv)
+			// specifies a username to use for authentication
+			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(puser), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
+			if err != nil {
+				return nil, err
 			}
 
-			// set password attribute in the user session handle
-			if rv := C.OCIAttrSet(
-				unsafe.Pointer(conn.usrSession),
-				C.OCI_HTYPE_SESSION,
-				(unsafe.Pointer(ppass)),
-				C.ub4(len(dsn.Password)),
-				C.OCI_ATTR_PASSWORD,
-				conn.errHandle,
-			); rv != C.OCI_SUCCESS {
-				return nil, conn.getError(rv)
+			// specifies a password to use for authentication
+			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(ppass), C.ub4(len(dsn.Password)), C.OCI_ATTR_PASSWORD)
+			if err != nil {
+				return nil, err
 			}
 
 			// begin the session
@@ -317,16 +300,10 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 				conn.operationMode)
 		}
 
-		// set the user session attribute in the service context handle
-		if rv := C.OCIAttrSet(
-			unsafe.Pointer(conn.svc),
-			C.OCI_HTYPE_SVCCTX,
-			unsafe.Pointer(conn.usrSession),
-			0,
-			C.OCI_ATTR_SESSION,
-			conn.errHandle,
-		); rv != C.OCI_SUCCESS {
-			return nil, conn.getError(rv)
+		// sets the authentication context attribute of the service context
+		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.usrSession), 0, C.OCI_ATTR_SESSION)
+		if err != nil {
+			return nil, err
 		}
 
 	} else {

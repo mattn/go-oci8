@@ -142,8 +142,3 @@ static retIntervalYM WrapOCIIntervalGetYearMonth(OCIEnv* env, OCIError* err,
   vvv.rv = OCIIntervalGetYearMonth(env, err, &vvv.y, &vvv.m, ptr);
   return vvv;
 }
-
-static sword WrapOCIAttrSetUb4(dvoid* h, ub4 type, ub4 value, ub4 attrtype,
-                               OCIError* err) {
-  return OCIAttrSet(h, type, &value, 0, attrtype, err);
-}

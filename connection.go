@@ -114,16 +114,9 @@ func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
 			return nil, fmt.Errorf("allocate transaction handle error: %v", err)
 		}
 
-		// sets the transaction context attribute of the service context.
-		if rv := C.OCIAttrSet(
-			unsafe.Pointer(conn.svc),
-			C.OCI_HTYPE_SVCCTX,
-			*trans,
-			0,
-			C.OCI_ATTR_TRANS,
-			conn.errHandle,
-		); rv != C.OCI_SUCCESS {
-			err = conn.getError(rv)
+		// sets the transaction context attribute of the service context
+		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
+		if err != nil {
 			C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
 			return nil, err
 		}

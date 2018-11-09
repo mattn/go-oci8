@@ -31,8 +31,8 @@ type (
 		Connect                string
 		Username               string
 		Password               string
-		prefetchRows           uint32
-		prefetchMemory         uint32
+		prefetchRows           C.ub4
+		prefetchMemory         C.ub4
 		Location               *time.Location
 		transactionMode        C.ub4
 		enableQMPlaceholders   bool
@@ -60,8 +60,8 @@ type (
 		env                  *C.OCIEnv
 		errHandle            *C.OCIError
 		usrSession           *C.OCISession
-		prefetchRows         uint32
-		prefetchMemory       uint32
+		prefetchRows         C.ub4
+		prefetchMemory       C.ub4
 		location             *time.Location
 		transactionMode      C.ub4
 		operationMode        C.ub4

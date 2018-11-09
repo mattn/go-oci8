@@ -30,44 +30,6 @@ typedef struct {
   sword rv;
 } ret1ptr;
 
-typedef struct {
-  dvoid* ptr;
-  dvoid* extra;
-  sword rv;
-} ret2ptr;
-
-static ret2ptr WrapOCIHandleAlloc(dvoid* parrent, ub4 type, size_t extra) {
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  vvv.rv = OCIHandleAlloc(parrent, &vvv.ptr, type, extra, (void**)ptr);
-  return vvv;
-}
-
-static ret2ptr WrapOCIEnvCreate(ub4 mode, size_t extra) {
-  OCIEnv* env;
-  ub2 charsetid = 0;
-  ret2ptr vvv = {NULL, NULL, 0};
-  void* ptr;
-  if (extra == 0) {
-    ptr = NULL;
-  } else {
-    ptr = &vvv.extra;
-  }
-  if (getenv("NLS_LANG") == NULL && !OCIEnvInit(&env, OCI_DEFAULT, 0, NULL)) {
-    charsetid = OCINlsCharSetNameToId(env, (const oratext*)"AL32UTF8");
-    OCIHandleFree(env, OCI_HTYPE_ENV);
-  }
-
-  vvv.rv = OCIEnvNlsCreate((OCIEnv**)(&vvv.ptr), mode, NULL, NULL, NULL, NULL,
-                           extra, (void**)ptr, charsetid, charsetid);
-  return vvv;
-}
-
 static ret1ptr WrapOCILogon(OCIEnv* env, OCIError* err, OraText* u, ub4 ulen,
                             OraText* p, ub4 plen, OraText* h, ub4 hlen) {
   ret1ptr vvv = {NULL, 0};
@@ -153,9 +115,4 @@ static retIntervalYM WrapOCIIntervalGetYearMonth(OCIEnv* env, OCIError* err,
   retIntervalYM vvv;
   vvv.rv = OCIIntervalGetYearMonth(env, err, &vvv.y, &vvv.m, ptr);
   return vvv;
-}
-
-static sword WrapOCIAttrSetUb4(dvoid* h, ub4 type, ub4 value, ub4 attrtype,
-                               OCIError* err) {
-  return OCIAttrSet(h, type, &value, 0, attrtype, err);
 }

@@ -314,30 +314,22 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		iter = 0
 	}
 
-	// set the row prefetch.  Only one extra row per fetch will be returned unless this is set.
 	if stmt.conn.prefetchRows > 0 {
-		if rv := C.WrapOCIAttrSetUb4(
-			unsafe.Pointer(stmt.stmt),
-			C.OCI_HTYPE_STMT,
-			C.ub4(stmt.conn.prefetchRows),
-			C.OCI_ATTR_PREFETCH_ROWS,
-			stmt.conn.errHandle,
-		); rv != C.OCI_SUCCESS {
-			return nil, stmt.conn.getError(rv)
+		// Sets the number of top level rows to be prefetched. The default value is 1 row.
+		prefetchRows := stmt.conn.prefetchRows
+		err = stmt.conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetchRows), 0, C.OCI_ATTR_PREFETCH_ROWS)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// if non-zero, oci will fetch rows until the memory limit or row prefetch limit is hit.
-	// useful for memory constrained systems
 	if stmt.conn.prefetchMemory > 0 {
-		if rv := C.WrapOCIAttrSetUb4(
-			unsafe.Pointer(stmt.stmt),
-			C.OCI_HTYPE_STMT,
-			C.ub4(stmt.conn.prefetchMemory),
-			C.OCI_ATTR_PREFETCH_MEMORY,
-			stmt.conn.errHandle,
-		); rv != C.OCI_SUCCESS {
-			return nil, stmt.conn.getError(rv)
+		// Sets the memory level for top level rows to be prefetched. Rows up to the specified top level row count are fetched if it occupies no more than the specified memory usage limit.
+		// The default value is 0, which means that memory size is not included in computing the number of rows to prefetch.
+		prefetchMemory := stmt.conn.prefetchMemory
+		err = stmt.conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetchMemory), 0, C.OCI_ATTR_PREFETCH_MEMORY)
+		if err != nil {
+			return nil, err
 		}
 	}
 

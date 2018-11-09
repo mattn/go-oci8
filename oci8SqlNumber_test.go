@@ -1,6 +1,7 @@
 package oci8
 
 import (
+	"context"
 	"database/sql"
 	"math"
 	"testing"
@@ -735,8 +736,6 @@ func TestDestructiveNumber(t *testing.T) {
 	if TestDisableDatabase || TestDisableDestructive {
 		t.SkipNow()
 	}
-
-	// https://ss64.com/ora/syntax-datatypes.html
 
 	// NUMBER negative
 	tableName := "NUMBER_" + TestTimeString
@@ -2677,4 +2676,331 @@ end;`
 	// testRunExecResults(t, execResults)
 	execResults.execResults = execResultFloat32
 	testRunExecResults(t, execResults)
+}
+
+// TestDestructiveNumberSequence checks insert sequence
+func TestDestructiveNumberSequence(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	// test sequence from dual
+
+	sequenceName := "S_A_" + TestTimeString
+	err := testExec(t, "create sequence "+sequenceName+" increment by 1 start with 2147483646", nil)
+	if err != nil {
+		t.Fatal("create sequence error:", err)
+	}
+
+	defer testExecQuery(t, "drop sequence "+sequenceName, nil)
+
+	queryResults := testQueryResults{
+		query: "select " + sequenceName + ".NEXTVAL from dual",
+		queryResults: []testQueryResult{
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(2147483646)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(2147483647)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(2147483648)}}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 4294967294", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select " + sequenceName + ".NEXTVAL from dual",
+		queryResults: []testQueryResult{
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(6442450942)}}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 1", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select " + sequenceName + ".NEXTVAL from dual",
+		queryResults: []testQueryResult{
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(6442450943)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(6442450944)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(6442450945)}}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 8589934588", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select " + sequenceName + ".NEXTVAL from dual",
+		queryResults: []testQueryResult{
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(15032385533)}}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 1", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select " + sequenceName + ".NEXTVAL from dual",
+		queryResults: []testQueryResult{
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(15032385534)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(15032385535)}}},
+			testQueryResult{results: [][]interface{}{[]interface{}{float64(15032385536)}}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// test sequence insert into table
+
+	sequenceName = "S_B_" + TestTimeString
+	err = testExec(t, "create sequence "+sequenceName+" increment by 1 start with 2147483646", nil)
+	if err != nil {
+		t.Fatal("create sequence error:", err)
+	}
+
+	defer testExecQuery(t, "drop sequence "+sequenceName, nil)
+
+	tableName := "sequence_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	execResults := testExecResults{
+		query: "insert into " + tableName + " ( A ) values (" + sequenceName + ".NEXTVAL) returning A into :num1",
+		execResults: []testExecResult{
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+				results: map[string]interface{}{"num1": int64(2147483646)},
+			},
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+				results: map[string]interface{}{"num1": int64(2147483647)},
+			},
+			testExecResult{
+				args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+				results: map[string]interface{}{"num1": int64(2147483648)},
+			},
+		},
+	}
+	testRunExecResults(t, execResults)
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 4294967294", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	execResults.execResults = []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(6442450942)},
+		},
+	}
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 1", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	execResults.execResults = []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(6442450943)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(6442450944)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(6442450945)},
+		},
+	}
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 8589934588", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	execResults.execResults = []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(15032385533)},
+		},
+	}
+
+	err = testExec(t, "alter sequence "+sequenceName+" increment by 1", nil)
+	if err != nil {
+		t.Fatal("alter sequence error:", err)
+	}
+
+	execResults.execResults = []testExecResult{
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(15032385534)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(15032385535)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"num1": sql.Out{Dest: int64(0)}},
+			results: map[string]interface{}{"num1": int64(15032385536)},
+		},
+	}
+
+}
+
+// TestDestructiveNumberRowsAffected checks insert RowsAffected
+func TestDestructiveNumberRowsAffected(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "rows_affected_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) values (:1)")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result sql.Result
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 1)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	var count int64
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected := int64(1)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) select :1 from dual union all select :2 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 2, 3)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(2)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "insert into "+tableName+" ( A ) select :1 from dual union all select :2 from dual union all select :3 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 4, 5, 6)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(3)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "update "+tableName+" set A = :1 where A = :2")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 2, 1)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(1)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 3, 2)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(2)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 4, 3)
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	expected = int64(3)
+	if count != expected {
+		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
 }

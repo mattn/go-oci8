@@ -58,6 +58,13 @@ func testDropTable(t *testing.T, tableName string) {
 	}
 }
 
+func testExecQuery(t *testing.T, query string, args []interface{}) {
+	err := testExec(t, query, args)
+	if err != nil {
+		t.Errorf("query %v error: %v", query, err)
+	}
+}
+
 // testGetRows runs a statment and returns the rows as [][]interface{}
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
@@ -483,16 +490,10 @@ func TestDestructiveTransaction(t *testing.T) {
 	err := testExec(t, "create table TRANSACTION_"+TestTimeString+
 		" ( A INT, B INT, C INT )", nil)
 	if err != nil {
-		t.Error("create table error:", err)
-		return
+		t.Fatal("create table error:", err)
 	}
 
-	defer func() {
-		err = testExec(t, "drop table TRANSACTION_"+TestTimeString, nil)
-		if err != nil {
-			t.Error("drop table error:", err)
-		}
-	}()
+	defer testExecQuery(t, "drop table TRANSACTION_"+TestTimeString, nil)
 
 	err = testExecRows(t, "insert into TRANSACTION_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
@@ -501,8 +502,7 @@ func TestDestructiveTransaction(t *testing.T) {
 			[]interface{}{6, 7, 8},
 		})
 	if err != nil {
-		t.Error("insert error:", err)
-		return
+		t.Fatal("insert error:", err)
 	}
 
 	// TODO: How should context work? Probably should have more context create and cancel.
@@ -513,13 +513,11 @@ func TestDestructiveTransaction(t *testing.T) {
 	defer cancel()
 	tx1, err = TestDB.BeginTx(ctx, nil)
 	if err != nil {
-		t.Error("begin tx error:", err)
-		return
+		t.Fatal("begin tx error:", err)
 	}
 	tx2, err = TestDB.BeginTx(ctx, nil)
 	if err != nil {
-		t.Error("begin tx error:", err)
-		return
+		t.Fatal("begin tx error:", err)
 	}
 
 	queryResults := testQueryResults{
@@ -536,15 +534,32 @@ func TestDestructiveTransaction(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	_, err = tx1.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{22, 1}...)
+	var result sql.Result
+	result, err = tx1.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{22, 1}...)
 	if err != nil {
-		t.Error("exec error:", err)
-		return
+		t.Fatal("exec error:", err)
 	}
-	_, err = tx2.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{55, 4}...)
+
+	var count int64
+	count, err = result.RowsAffected()
 	if err != nil {
-		t.Error("exec error:", err)
-		return
+		t.Fatal("rows affected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("rows affected %v not equal to 1", count)
+	}
+
+	result, err = tx2.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{55, 4}...)
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("rows affected %v not equal to 1", count)
 	}
 
 	queryResults = testQueryResults{
@@ -565,203 +580,163 @@ func TestDestructiveTransaction(t *testing.T) {
 	var stmt *sql.Stmt
 	stmt, err = tx1.PrepareContext(ctx, "select A, B, C from TRANSACTION_"+TestTimeString+" where A = :1")
 	if err != nil {
-		t.Error("prepare error:", err)
-		return
+		t.Fatal("prepare error:", err)
 	}
-	var result [][]interface{}
-	result, err = testGetRows(t, stmt, []interface{}{1})
+	var rows [][]interface{}
+	rows, err = testGetRows(t, stmt, []interface{}{1})
 	if result == nil {
-		t.Error("result is nil")
-		return
+		t.Fatal("rows is nil")
 	}
-	if len(result) != 1 {
-		t.Error("len result not equal to 1")
-		return
+	if len(rows) != 1 {
+		t.Fatal("len rows not equal to 1")
 	}
-	if len(result[0]) != 3 {
-		t.Error("len result[0] not equal to 3")
-		return
+	if len(rows[0]) != 3 {
+		t.Fatal("len rows[0] not equal to 3")
 	}
-	data, ok := result[0][0].(int64)
+	data, ok := rows[0][0].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected := int64(1)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][1].(int64)
+	data, ok = rows[0][1].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(22)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][2].(int64)
+	data, ok = rows[0][2].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(3)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
 
 	// tx1 with rows A = 4
-	result, err = testGetRows(t, stmt, []interface{}{4})
-	if result == nil {
-		t.Error("result is nil")
-		return
+	rows, err = testGetRows(t, stmt, []interface{}{4})
+	if rows == nil {
+		t.Fatal("rows is nil")
 	}
-	if len(result) != 1 {
-		t.Error("len result not equal to 1")
-		return
+	if len(rows) != 1 {
+		t.Fatal("len rows not equal to 1")
 	}
-	if len(result[0]) != 3 {
-		t.Error("len result[0] not equal to 3")
-		return
+	if len(rows[0]) != 3 {
+		t.Fatal("len rows[0] not equal to 3")
 	}
-	data, ok = result[0][0].(int64)
+	data, ok = rows[0][0].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(4)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][1].(int64)
+	data, ok = rows[0][1].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(5)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][2].(int64)
+	data, ok = rows[0][2].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(6)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
 
 	// tx2 with rows A = 1
 	stmt, err = tx2.PrepareContext(ctx, "select A, B, C from TRANSACTION_"+TestTimeString+" where A = :1")
 	if err != nil {
-		t.Error("prepare error:", err)
-		return
+		t.Fatal("prepare error:", err)
 	}
-	result, err = testGetRows(t, stmt, []interface{}{1})
-	if result == nil {
-		t.Error("result is nil")
-		return
+	rows, err = testGetRows(t, stmt, []interface{}{1})
+	if rows == nil {
+		t.Fatal("rows is nil")
 	}
-	if len(result) != 1 {
-		t.Error("len result not equal to 1")
-		return
+	if len(rows) != 1 {
+		t.Fatal("len rows not equal to 1")
 	}
-	if len(result[0]) != 3 {
-		t.Error("len result[0] not equal to 3")
-		return
+	if len(rows[0]) != 3 {
+		t.Fatal("len rows[0] not equal to 3")
 	}
-	data, ok = result[0][0].(int64)
+	data, ok = rows[0][0].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(1)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][1].(int64)
+	data, ok = rows[0][1].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(2)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][2].(int64)
+	data, ok = rows[0][2].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(3)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
 
 	// tx2 with rows A = 4
-	result, err = testGetRows(t, stmt, []interface{}{4})
+	rows, err = testGetRows(t, stmt, []interface{}{4})
 	if result == nil {
-		t.Error("result is nil")
-		return
+		t.Fatal("rows is nil")
 	}
-	if len(result) != 1 {
-		t.Error("len result not equal to 1")
-		return
+	if len(rows) != 1 {
+		t.Fatal("len rows not equal to 1")
 	}
-	if len(result[0]) != 3 {
-		t.Error("len result[0] not equal to 3")
-		return
+	if len(rows[0]) != 3 {
+		t.Fatal("len rows[0] not equal to 3")
 	}
-	data, ok = result[0][0].(int64)
+	data, ok = rows[0][0].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(4)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][1].(int64)
+	data, ok = rows[0][1].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(55)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
-	data, ok = result[0][2].(int64)
+	data, ok = rows[0][2].(int64)
 	if !ok {
-		t.Error("result not int64")
-		return
+		t.Fatal("rows not int64")
 	}
 	expected = int64(6)
 	if data != expected {
-		t.Error("result not equal to:", expected)
-		return
+		t.Fatal("rows not equal to:", expected)
 	}
 
 	err = tx1.Commit()
 	if err != nil {
-		t.Error("commit err:", err)
-		return
+		t.Fatal("commit err:", err)
 	}
 	err = tx2.Commit()
 	if err != nil {
-		t.Error("commit err:", err)
-		return
+		t.Fatal("commit err:", err)
 	}
 
 	queryResults = testQueryResults{
@@ -806,7 +781,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 	stmt, err := TestDB.PrepareContext(ctx, query)
 	cancel()
 	if err != nil {
-		b.Fatalf("prepare error: %v", err)
+		b.Fatal("prepare error:", err)
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
@@ -814,12 +789,12 @@ func BenchmarkSimpleInsert(b *testing.B) {
 	cancel()
 	if err != nil {
 		stmt.Close()
-		b.Fatalf("exec error: %v", err)
+		b.Fatal("exec error:", err)
 	}
 
 	err = stmt.Close()
 	if err != nil {
-		b.Errorf("stmt close error: %v", err)
+		b.Fatal("stmt close error:", err)
 	}
 
 	// drop table
@@ -829,7 +804,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 		stmt, err := TestDB.PrepareContext(ctx, query)
 		cancel()
 		if err != nil {
-			b.Fatalf("prepare error: %v", err)
+			b.Fatal("prepare error:", err)
 		}
 
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
@@ -837,12 +812,12 @@ func BenchmarkSimpleInsert(b *testing.B) {
 		cancel()
 		if err != nil {
 			stmt.Close()
-			b.Fatalf("exec error: %v", err)
+			b.Fatal("exec error:", err)
 		}
 
 		err = stmt.Close()
 		if err != nil {
-			b.Fatalf("stmt close error: %v", err)
+			b.Fatal("stmt close error:", err)
 		}
 	}()
 
@@ -852,8 +827,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 	stmt, err = TestDB.PrepareContext(ctx, query)
 	cancel()
 	if err != nil {
-		b.Errorf("prepare error: %v", err)
-		return
+		b.Fatal("prepare error:", err)
 	}
 
 	b.ResetTimer()
@@ -864,13 +838,12 @@ func BenchmarkSimpleInsert(b *testing.B) {
 		cancel()
 		if err != nil {
 			stmt.Close()
-			b.Errorf("exec error: %v", err)
-			return
+			b.Fatal("exec error:", err)
 		}
 	}
 
 	err = stmt.Close()
 	if err != nil {
-		b.Errorf("stmt close error: %v", err)
+		b.Fatal("stmt close error", err)
 	}
 }

@@ -8,13 +8,14 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
 
 // testGetDB connects to the test database and returns the database connection
-func testGetDB() *sql.DB {
+func testGetDB(params string) *sql.DB {
 	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
@@ -28,7 +29,7 @@ func testGetDB() *sql.DB {
 			openString = TestUsername + "@"
 		}
 	}
-	openString += TestHostValid
+	openString += TestHostValid + params
 
 	db, err := sql.Open("oci8", openString)
 	if err != nil {
@@ -846,4 +847,215 @@ func BenchmarkSimpleInsert(b *testing.B) {
 	if err != nil {
 		b.Fatal("stmt close error", err)
 	}
+}
+
+func benchmarkSelectSetup(b *testing.B) {
+	fmt.Println("benchmark select setup start")
+
+	benchmarkSelectTableName = "BM_SELECT_" + TestTimeString
+
+	// create table
+	tableName := benchmarkSelectTableName
+	query := "create table " + tableName + " ( A INTEGER )"
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		b.Fatal("exec error:", err)
+	}
+
+	// enable drop table in TestMain
+	benchmarkSelectTableCreated = true
+
+	err = stmt.Close()
+	if err != nil {
+		b.Fatal("stmt close error:", err)
+	}
+
+	// insert into table
+	query = "insert into " + tableName + " ( A ) select :1 from dual union all select :2 from dual union all select :3 from dual union all select :4 from dual union all select :5 from dual union all select :6 from dual union all select :7 from dual union all select :8 from dual union all select :9 from dual union all select :10 from dual"
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatal("prepare error:", err)
+	}
+
+	for i := 0; i < 20000; i += 10 {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx, i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			b.Fatal("exec error:", err)
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		b.Fatal("stmt close error", err)
+	}
+
+	// select from table to warm up database cache
+	query = "select A from " + tableName
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			b.Fatal("stmt close error", err)
+		}
+	}()
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), 20*TestContextTimeout)
+	defer cancel()
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		b.Fatal("exec error:", err)
+	}
+
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			b.Fatal("row close error:", err)
+		}
+	}()
+
+	var data int64
+	for rows.Next() {
+		err = rows.Scan(&data)
+		if err != nil {
+			b.Fatal("scan error:", err)
+		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		b.Fatal("err error:", err)
+	}
+
+	fmt.Println("benchmark select setup end")
+}
+
+func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory int64) {
+	b.StopTimer()
+
+	benchmarkSelectTableOnce.Do(func() { benchmarkSelectSetup(b) })
+
+	var err error
+
+	db := testGetDB("?prefetch_rows=" + strconv.FormatInt(prefetchRows, 10) + "&prefetch_memory=" + strconv.FormatInt(prefetchMemory, 10))
+	if db == nil {
+		b.Fatal("db is null")
+	}
+
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			b.Fatal("db close error:", err)
+		}
+	}()
+
+	var stmt *sql.Stmt
+	tableName := benchmarkSelectTableName
+	query := "select A from " + tableName
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = db.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		b.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			b.Fatal("stmt close error", err)
+		}
+	}()
+
+	b.StartTimer()
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), 20*TestContextTimeout)
+	defer cancel()
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		b.Fatal("exec error:", err)
+	}
+
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			b.Fatal("row close error:", err)
+		}
+	}()
+
+	var data int64
+	for rows.Next() {
+		err = rows.Scan(&data)
+		if err != nil {
+			b.Fatal("scan error:", err)
+		}
+	}
+
+	b.StopTimer()
+
+	err = rows.Err()
+	if err != nil {
+		b.Fatal("err error:", err)
+	}
+}
+
+func BenchmarkPrefetchR1000M32768(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 32768)
+}
+
+func BenchmarkPrefetchR1000M16384(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 16384)
+}
+
+func BenchmarkPrefetchR1000M8192(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 8192)
+}
+
+func BenchmarkPrefetchR1000M4096(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 4096)
+}
+
+func BenchmarkPrefetchR1000M2048(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 2048)
 }

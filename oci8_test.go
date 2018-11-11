@@ -2,11 +2,13 @@ package oci8
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -55,6 +57,10 @@ var (
 	testTimeLocEST *time.Location
 	testTimeLocMST *time.Location
 	testTimeLocNZ  *time.Location
+
+	benchmarkSelectTableName    string
+	benchmarkSelectTableOnce    sync.Once
+	benchmarkSelectTableCreated bool
 )
 
 // testExecResults is for testing an exec query with many sets of args
@@ -89,6 +95,36 @@ func TestMain(m *testing.M) {
 	}
 	code = m.Run()
 
+	// drop benchmark select table
+	if benchmarkSelectTableCreated {
+		func() {
+			tableName := benchmarkSelectTableName
+			query := "drop table " + tableName
+			ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+			stmt, err := TestDB.PrepareContext(ctx, query)
+			cancel()
+			if err != nil {
+				fmt.Println("prepare error:", err)
+				return
+			}
+
+			ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+			_, err = stmt.ExecContext(ctx)
+			cancel()
+			if err != nil {
+				stmt.Close()
+				fmt.Println("exec error:", err)
+				return
+			}
+
+			err = stmt.Close()
+			if err != nil {
+				fmt.Println("stmt close error:", err)
+				return
+			}
+		}()
+	}
+
 	if !TestDisableDatabase {
 		err := TestDB.Close()
 		if err != nil {
@@ -120,7 +156,7 @@ func setupForTesting() int {
 	}
 
 	if !TestDisableDatabase {
-		TestDB = testGetDB()
+		TestDB = testGetDB("")
 		if TestDB == nil {
 			return 6
 		}

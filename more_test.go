@@ -9,10 +9,7 @@ import (
 )
 
 type dbc interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	Prepare(query string) (*sql.Stmt, error)
 	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
 func sqlstest(d dbc, t *testing.T, sql string, p ...interface{}) map[string]interface{} {
@@ -53,19 +50,6 @@ func TestQuestionMark(t *testing.T) {
 	}
 	if fmt.Sprintf("%v", r["V3"]) != fmt.Sprintf("%v", c) {
 		t.Fatal(r["V3"], "!=", c)
-	}
-}
-
-func TestString3(t *testing.T) {
-	if TestDisableDatabase {
-		t.SkipNow()
-	}
-	//n := "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"
-	//this test depends of database charset !!!!
-	n := "здравейсвят"
-	r := sqlstest(TestDB, t, "select :0 as str from dual", n)
-	if n != r["STR"].(string) {
-		t.Fatal(r["STR"], "!=", n)
 	}
 }
 

@@ -18,8 +18,6 @@ import (
 func testGetDB(params string) *sql.DB {
 	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
-	os.Setenv("NLS_LANG", "American_America.AL32UTF8")
-
 	var openString string
 	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
 	if len(TestUsername) > 0 {

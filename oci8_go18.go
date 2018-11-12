@@ -1,5 +1,3 @@
-// +build go1.8
-
 package oci8
 
 import (
@@ -9,18 +7,8 @@ import (
 	"context"
 )
 
-// Ping implement Pinger.
-func (conn *OCI8Conn) Ping(ctx context.Context) error {
-	return conn.ping(ctx)
-}
-
 func toNamedValue(nv driver.NamedValue) namedValue {
 	mv := namedValue(nv)
-	// FIXME
-	// This is my fault that I've add code using sql.Out until next release.
-	//if out, ok := mv.Value.(sql.Out); ok {
-	//	mv.Value = outValue{Dest: out.Dest, In: out.In}
-	//}
 	return mv
 }
 
@@ -40,16 +28,6 @@ func (conn *OCI8Conn) ExecContext(ctx context.Context, query string, args []driv
 		list[i] = toNamedValue(nv)
 	}
 	return conn.exec(ctx, query, list)
-}
-
-// PrepareContext implement ConnPrepareContext.
-func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return conn.prepare(ctx, query)
-}
-
-// BeginTx implement ConnBeginTx.
-func (conn *OCI8Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return conn.begin(ctx)
 }
 
 // QueryContext implement QueryerContext.

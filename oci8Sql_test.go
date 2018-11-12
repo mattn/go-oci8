@@ -856,7 +856,7 @@ func benchmarkSelectSetup(b *testing.B) {
 
 	// create table
 	tableName := benchmarkSelectTableName
-	query := "create table " + tableName + " ( A INTEGER )"
+	query := "create table " + tableName + " ( A INTEGER, B INTEGER, C INTEGER, D INTEGER )"
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -881,7 +881,7 @@ func benchmarkSelectSetup(b *testing.B) {
 	}
 
 	// insert into table
-	query = "insert into " + tableName + " ( A ) select :1 from dual union all select :2 from dual union all select :3 from dual union all select :4 from dual union all select :5 from dual union all select :6 from dual union all select :7 from dual union all select :8 from dual union all select :9 from dual union all select :10 from dual"
+	query = "insert into " + tableName + " ( A, B, C, D ) select :1, :2, :3, :4 from dual union all select :5, :6, :7, :8 from dual union all select :9, :10, :11, :12 from dual union all select :13, :14, :15, :16 from dual union all select :17, :18, :19, :20 from dual union all select :21, :22, :23, :24 from dual union all select :25, :26, :27, :28 from dual union all select :29, :30, :31, :31 from dual union all select :33, :34, :35, :36 from dual union all select :37, :38, :39, :40 from dual"
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -891,7 +891,17 @@ func benchmarkSelectSetup(b *testing.B) {
 
 	for i := 0; i < 20000; i += 10 {
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
-		_, err = stmt.ExecContext(ctx, i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9)
+		_, err = stmt.ExecContext(ctx,
+			i, i+20000, i+40000, i+60000,
+			i+1, i+20001, i+40001, i+60001,
+			i+2, i+20002, i+40002, i+60002,
+			i+3, i+20003, i+40003, i+60003,
+			i+4, i+20004, i+40004, i+60004,
+			i+5, i+20005, i+40005, i+60005,
+			i+6, i+20006, i+40006, i+60006,
+			i+7, i+20007, i+40007, i+60007,
+			i+8, i+20008, i+40008, i+60008,
+			i+9, i+20009, i+40009, i+60009)
 		cancel()
 		if err != nil {
 			stmt.Close()
@@ -936,24 +946,27 @@ func benchmarkSelectSetup(b *testing.B) {
 	}()
 
 	var data int64
+	var count int64
 	for rows.Next() {
 		err = rows.Scan(&data)
 		if err != nil {
 			b.Fatal("scan error:", err)
 		}
+		count++
 	}
+	fmt.Printf("select data is %v bytes\n", count*4*8)
 
 	err = rows.Err()
 	if err != nil {
 		b.Fatal("err error:", err)
 	}
 
+	b.ResetTimer()
+
 	fmt.Println("benchmark select setup end")
 }
 
 func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory int64) {
-	b.StopTimer()
-
 	benchmarkSelectTableOnce.Do(func() { benchmarkSelectSetup(b) })
 
 	var err error
@@ -969,6 +982,8 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 			b.Fatal("db close error:", err)
 		}
 	}()
+
+	b.StartTimer()
 
 	var stmt *sql.Stmt
 	tableName := benchmarkSelectTableName
@@ -986,8 +1001,6 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 			b.Fatal("stmt close error", err)
 		}
 	}()
-
-	b.StartTimer()
 
 	var rows *sql.Rows
 	ctx, cancel = context.WithTimeout(context.Background(), 20*TestContextTimeout)
@@ -1021,6 +1034,8 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 }
 
 func BenchmarkPrefetchR1000M32768(b *testing.B) {
+	b.StopTimer()
+
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
@@ -1029,6 +1044,8 @@ func BenchmarkPrefetchR1000M32768(b *testing.B) {
 }
 
 func BenchmarkPrefetchR1000M16384(b *testing.B) {
+	b.StopTimer()
+
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
@@ -1037,6 +1054,8 @@ func BenchmarkPrefetchR1000M16384(b *testing.B) {
 }
 
 func BenchmarkPrefetchR1000M8192(b *testing.B) {
+	b.StopTimer()
+
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
@@ -1045,6 +1064,8 @@ func BenchmarkPrefetchR1000M8192(b *testing.B) {
 }
 
 func BenchmarkPrefetchR1000M4096(b *testing.B) {
+	b.StopTimer()
+
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
@@ -1053,9 +1074,31 @@ func BenchmarkPrefetchR1000M4096(b *testing.B) {
 }
 
 func BenchmarkPrefetchR1000M2048(b *testing.B) {
+	b.StopTimer()
+
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
 
 	benchmarkPrefetchSelect(b, 1000, 2048)
+}
+
+func BenchmarkPrefetchR1000M1024(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 1024)
+}
+
+func BenchmarkPrefetchR1000M512(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	benchmarkPrefetchSelect(b, 1000, 512)
 }

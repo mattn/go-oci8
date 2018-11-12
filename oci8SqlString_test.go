@@ -183,6 +183,18 @@ func TestSelectDualString(t *testing.T) {
 			args:    []interface{}{strings.Repeat("ab", 1000)},
 			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 1000)}},
 		},
+		testQueryResult{
+			args:    []interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"},
+			results: [][]interface{}{[]interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"здравейсвят"},
+			results: [][]interface{}{[]interface{}{"здравейсвят"}},
+		},
+		testQueryResult{
+			args:    []interface{}{"кодировка"},
+			results: [][]interface{}{[]interface{}{"кодировка"}},
+		},
 	}
 
 	queryResultStrings4000 := []testQueryResult{

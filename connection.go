@@ -25,7 +25,7 @@ func (conn *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, er
 }
 
 func (conn *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
-	s, err := conn.prepare(ctx, query)
+	s, err := conn.PrepareContext(ctx, query)
 	defer s.Close()
 	if err != nil {
 		return nil, err
@@ -37,40 +37,8 @@ func (conn *OCI8Conn) exec(ctx context.Context, query string, args []namedValue)
 	return res, nil
 }
 
-/*
-FIXME:
-Queryer is disabled because of incresing cursor numbers.
-See https://github.com/mattn/go-oci8/issues/151
-OCIStmtExecute doesn't return anything to close resource.
-This mean that OCI8Rows.Close can't close statement handle. For example,
-prepared statement is called twice like below.
-
-    stmt, _ := db.Prepare("...")
-    stmt.QueryRow().Scan(&x)
-    stmt.QueryRow().Scan(&x)
-
-If OCI8Rows close handle of statement, this fails.
-
-// Query implements Queryer.
-func (conn *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	list := make([]namedValue, len(args))
-	for i, v := range args {
-		list[i] = namedValue{
-			Ordinal: i + 1,
-			Value:   v,
-		}
-	}
-	rows, err := conn.query(context.Background(), query, list)
-	if err != nil {
-		return nil, err
-	}
-	rows.(*OCI8Rows).cls = true
-	return rows, err
-}
-*/
-
 func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
-	s, err := conn.prepare(ctx, query)
+	s, err := conn.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +50,10 @@ func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue
 	return rows, nil
 }
 
-func (conn *OCI8Conn) ping(ctx context.Context) error {
-	rv := C.OCIPing(
-		conn.svc,
-		conn.errHandle,
-		C.OCI_DEFAULT)
-	if rv == C.OCI_SUCCESS {
+// Ping database connection
+func (conn *OCI8Conn) Ping(ctx context.Context) error {
+	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
+	if result == C.OCI_SUCCESS {
 		return nil
 	}
 	errorCode, err := conn.ociGetError()
@@ -97,16 +63,18 @@ func (conn *OCI8Conn) ping(ctx context.Context) error {
 		// See https://github.com/rana/ora/issues/224
 		return nil
 	}
+
 	conn.logger.Print("Ping error: ", err)
 	return driver.ErrBadConn
 }
 
-// Begin a transaction
+// Begin starts a transaction
 func (conn *OCI8Conn) Begin() (driver.Tx, error) {
-	return conn.begin(context.Background())
+	return conn.BeginTx(context.Background(), driver.TxOptions{})
 }
 
-func (conn *OCI8Conn) begin(ctx context.Context) (driver.Tx, error) {
+// BeginTx starts a transaction
+func (conn *OCI8Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		// transaction handle
 		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
@@ -188,12 +156,13 @@ func (conn *OCI8Conn) Close() error {
 	return err
 }
 
-// Prepare a query
+// Prepare prepares a query
 func (conn *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
-	return conn.prepare(context.Background(), query)
+	return conn.PrepareContext(context.Background(), query)
 }
 
-func (conn *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, error) {
+// PrepareContext prepares a query
+func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if conn.enableQMPlaceholders {
 		query = placeholders(query)
 	}

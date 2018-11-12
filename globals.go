@@ -139,7 +139,8 @@ var (
 	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
 	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
 
-	phre = regexp.MustCompile(`\?`)
+	phre           = regexp.MustCompile(`\?`)
+	defaultCharset = C.ub2(0)
 
 	// OCI8Driver is the sql driver
 	OCI8Driver = &OCI8DriverStruct{
@@ -149,6 +150,19 @@ var (
 
 func init() {
 	sql.Register("oci8", OCI8Driver)
+
+	// set defaultCharset to AL32UTF8
+	var envP *C.OCIEnv
+	envPP := &envP
+	var result C.sword
+	result = C.OCIEnvCreate(envPP, C.OCI_DEFAULT, nil, nil, nil, nil, 0, nil)
+	if result != C.OCI_SUCCESS {
+		panic("OCIEnvCreate error")
+	}
+	nlsLang := CString("AL32UTF8")
+	defaultCharset = C.OCINlsCharSetNameToId(unsafe.Pointer(*envPP), (*C.oratext)(nlsLang))
+	C.free(unsafe.Pointer(nlsLang))
+	C.OCIHandleFree(unsafe.Pointer(*envPP), C.OCI_HTYPE_ENV)
 }
 
 /*

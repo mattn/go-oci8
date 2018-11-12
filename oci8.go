@@ -174,16 +174,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	charset := C.ub2(0)
 
 	if os.Getenv("NLS_LANG") == "" && os.Getenv("NLS_NCHAR") == "" {
-		// default to AL32UTF8
-		result = C.OCIEnvCreate(envPP, C.OCI_DEFAULT, nil, nil, nil, nil, 0, nil)
-		if result != C.OCI_SUCCESS {
-			return nil, errors.New("OCIEnvCreate error")
-		}
-		nlsLang := CString("AL32UTF8")
-		charset = C.OCINlsCharSetNameToId(unsafe.Pointer(*envPP), nlsLang)
-		C.free(unsafe.Pointer(nlsLang))
-		C.OCIHandleFree(unsafe.Pointer(*envPP), C.OCI_HTYPE_ENV)
-		*envPP = nil
+		charset = defaultCharset
 	}
 
 	result = C.OCIEnvNlsCreate(

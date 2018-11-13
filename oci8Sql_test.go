@@ -964,7 +964,7 @@ func benchmarkSelectSetup(b *testing.B) {
 	fmt.Println("benchmark select setup end")
 }
 
-func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory int64) {
+func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory int64, n *int) {
 	benchmarkSelectTableOnce.Do(func() { benchmarkSelectSetup(b) })
 
 	var err error
@@ -1016,7 +1016,7 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 	}()
 
 	var data int64
-	for rows.Next() {
+	for ; rows.Next() && *n < b.N; *n++ {
 		err = rows.Scan(&data)
 		if err != nil {
 			b.Fatal("scan error:", err)
@@ -1038,7 +1038,9 @@ func BenchmarkPrefetchR1000M32768(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 32768)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 32768, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M16384(b *testing.B) {
@@ -1048,7 +1050,9 @@ func BenchmarkPrefetchR1000M16384(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 16384)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 16384, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M8192(b *testing.B) {
@@ -1058,7 +1062,9 @@ func BenchmarkPrefetchR1000M8192(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 8192)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 8192, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M4096(b *testing.B) {
@@ -1068,7 +1074,9 @@ func BenchmarkPrefetchR1000M4096(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 4096)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 4096, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M2048(b *testing.B) {
@@ -1078,7 +1086,9 @@ func BenchmarkPrefetchR1000M2048(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 2048)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 2048, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M1024(b *testing.B) {
@@ -1088,7 +1098,9 @@ func BenchmarkPrefetchR1000M1024(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 1024)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 1024, &n)
+	}
 }
 
 func BenchmarkPrefetchR1000M512(b *testing.B) {
@@ -1098,5 +1110,19 @@ func BenchmarkPrefetchR1000M512(b *testing.B) {
 		b.SkipNow()
 	}
 
-	benchmarkPrefetchSelect(b, 1000, 512)
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 1000, 512, &n)
+	}
+}
+
+func BenchmarkPrefetchR10M0(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 10, 0, &n)
+	}
 }

@@ -17,17 +17,22 @@ import (
 )
 
 // ParseDSN parses a DSN used to connect to Oracle
+//
 // It expects to receive a string in the form:
+//
 // [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
 //
-// Currently the parameters supported is:
-// 1 'loc' which
-// sets the timezone to read times in as and to marshal to when writing times to
-// Oracle date,
-// 2 'isolation' =READONLY,SERIALIZABLE,DEFAULT
-// 3 'prefetch_rows'
-// 4 'prefetch_memory'
-// 5 'questionph' =YES,NO,TRUE,FALSE enable question-mark placeholders, default to false
+// Supported parameters are:
+//
+// loc - the time location for timezone when reading/writing Go time/Oracle date
+//
+// isolation - the isolation level that can be set to: READONLY, SERIALIZABLE, or DEFAULT
+//
+// prefetch_rows - the number of top level rows to be prefetched. Defaults to 10.
+//
+// prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 0. A 0 means unlimited memory.
+//
+// questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn = &DSN{Location: time.Local}
@@ -84,12 +89,8 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				return nil, fmt.Errorf("Invalid isolation: %v", v[0])
 			}
 		case "questionph":
-			switch v[0] {
-			case "YES", "TRUE":
-				dsn.enableQMPlaceholders = true
-			case "NO", "FALSE":
-				dsn.enableQMPlaceholders = false
-			default:
+			dsn.enableQMPlaceholders, err = strconv.ParseBool(v[0])
+			if err != nil {
 				return nil, fmt.Errorf("Invalid questionpm: %v", v[0])
 			}
 		case "prefetch_rows":

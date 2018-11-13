@@ -315,8 +315,8 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	}
 
 	if stmt.conn.prefetchRows >= 0 {
-		// Sets the number of top level rows to be prefetched. The default value is 1 row.
 		prefetchRows := stmt.conn.prefetchRows
+		// OCI_ATTR_PREFETCH_ROWS sets the number of top level rows to be prefetched. The default value is 1 row.
 		err = stmt.conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetchRows), 0, C.OCI_ATTR_PREFETCH_ROWS)
 		if err != nil {
 			return nil, err
@@ -324,9 +324,9 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	}
 
 	if stmt.conn.prefetchMemory > 0 {
-		// Sets the memory level for top level rows to be prefetched. Rows up to the specified top level row count are fetched if it occupies no more than the specified memory usage limit.
-		// The default value is 0, which means that memory size is not included in computing the number of rows to prefetch.
 		prefetchMemory := stmt.conn.prefetchMemory
+		// OCI_ATTR_PREFETCH_MEMORY sets the memory level for top level rows to be prefetched. Rows up to the specified top level row count are fetched if it occupies no more than the specified memory usage limit.
+		// The default value is 0, which means that memory size is not included in computing the number of rows to prefetch.
 		err = stmt.conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetchMemory), 0, C.OCI_ATTR_PREFETCH_MEMORY)
 		if err != nil {
 			return nil, err

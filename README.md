@@ -13,10 +13,12 @@ Install Oracle full client or Instant Client:
 
 https://www.oracle.com/technetwork/database/database-technologies/instant-client/downloads/index.html
 
+Install a C/C++ compiler
+
 Install pkg-config, edit your package config file oci8.pc (examples below), then set environment variable PKG_CONFIG_PATH to oci8.pc file location
 (Or can use Go tag noPkgConfig then setup environment variables CGO_CFLAGS and CGO_LDFLAGS)
 
-Go get with Go version 1.9 or higher 
+Go get with Go version 1.9 or higher
 
 ```
 go get github.com/mattn/go-oci8

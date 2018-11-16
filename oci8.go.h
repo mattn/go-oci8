@@ -4,28 +4,6 @@
 #include <string.h>
 
 typedef struct {
-  OraText rowid[19];
-  sword rv;
-} retRowid;
-
-static retRowid WrapOCIAttrRowId(dvoid* ss, dvoid* st, ub4 hType, ub4 aType,
-                                 OCIError* err) {
-  OCIRowid* ptr;
-  ub4 size;
-  retRowid vvv;
-  vvv.rv = OCIDescriptorAlloc(ss, (dvoid**)&ptr, OCI_DTYPE_ROWID, 0, NULL);
-  if (vvv.rv == OCI_SUCCESS) {
-    vvv.rv = OCIAttrGet(st, hType, ptr, &size, aType, err);
-    if (vvv.rv == OCI_SUCCESS) {
-      ub2 idsize = 18;
-      memset(vvv.rowid, 0, sizeof(vvv.rowid));
-      vvv.rv = OCIRowidToChar(ptr, vvv.rowid, &idsize, err);
-    }
-  }
-  return vvv;
-}
-
-typedef struct {
   dvoid* ptr;
   sword rv;
 } ret1ptr;

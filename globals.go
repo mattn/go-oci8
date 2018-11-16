@@ -97,11 +97,11 @@ type (
 
 	// OCI8Result is Oracle result
 	OCI8Result struct {
-		n     int64
-		errn  error
-		id    int64
-		errid error
-		stmt  *OCI8Stmt
+		rowsAffected    int64
+		rowsAffectedErr error
+		rowid           string
+		rowidErr        error
+		stmt            *OCI8Stmt
 	}
 
 	oci8Define struct {
@@ -138,6 +138,8 @@ type (
 var (
 	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
 	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
+	// ErrNoRowid is result has no rowid
+	ErrNoRowid = errors.New("result has no rowid")
 
 	phre           = regexp.MustCompile(`\?`)
 	defaultCharset = C.ub2(0)

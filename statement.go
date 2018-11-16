@@ -547,20 +547,29 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	return rows, nil
 }
 
-// lastInsertId returns the last inserted ID
-func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
-	// OCI_ATTR_ROWID must be get in handle -> alloc
-	// can be coverted to char, but not to int64
-	retRowid := C.WrapOCIAttrRowId(unsafe.Pointer(stmt.conn.env), unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.errHandle)
-	if retRowid.rv == C.OCI_SUCCESS {
-		bs := make([]byte, 18)
-		for i, b := range retRowid.rowid[:18] {
-			bs[i] = byte(b)
-		}
-		rowid := string(bs)
-		return int64(uintptr(unsafe.Pointer(&rowid))), nil
+// getRowid returns the rowid
+func (stmt *OCI8Stmt) getRowid() (string, error) {
+	rowidP, _, err := stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_ROWID, 0)
+	if err != nil {
+		return "", err
 	}
-	return int64(0), nil
+
+	// OCI_ATTR_ROWID returns the ROWID descriptor allocated with OCIDescriptorAlloc()
+	_, err = stmt.ociAttrGet(*rowidP, C.OCI_ATTR_ROWID)
+	if err != nil {
+		return "", err
+	}
+
+	rowid := CStringN("", 18)
+	defer C.free(unsafe.Pointer(rowid))
+	rowidLength := C.ub2(18)
+	result := C.OCIRowidToChar((*C.OCIRowid)(*rowidP), rowid, &rowidLength, stmt.conn.errHandle)
+	err = stmt.conn.getError(result)
+	if err != nil {
+		return "", err
+	}
+
+	return CGoStringN(rowid, int(rowidLength)), nil
 }
 
 // rowsAffected returns the number of rows affected
@@ -587,10 +596,7 @@ func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 
 // exec runs an exec query
 func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Result, error) {
-	var err error
-	var binds []oci8Bind
-
-	binds, err = stmt.bind(ctx, args)
+	binds, err := stmt.bind(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +616,13 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		return nil, err
 	}
 
-	n, en := stmt.rowsAffected()
-	var id int64
-	var ei error
-	if n > 0 {
-		id, ei = stmt.lastInsertId()
+	result := OCI8Result{stmt: stmt}
+
+	result.rowsAffected, result.rowsAffectedErr = stmt.rowsAffected()
+	if result.rowsAffectedErr != nil || result.rowsAffected < 1 {
+		result.rowidErr = ErrNoRowid
+	} else {
+		result.rowid, result.rowidErr = stmt.getRowid()
 	}
 
 	err = stmt.outputBoundParameters(binds)
@@ -622,7 +630,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		return nil, err
 	}
 
-	return &OCI8Result{stmt: stmt, n: n, errn: en, id: id, errid: ei}, nil
+	return &result, nil
 }
 
 // outputBoundParameters sets bound parameters

@@ -766,10 +766,144 @@ func TestSelectDualNull(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 }
 
+func TestInsertRowid(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	// INSERT_ROWID
+	tableName := "INSERT_ROWID_" + TestTimeString
+	query := "create table " + tableName + " ( A INTEGER )"
+
+	// create table
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("exec error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	// drop table
+	defer func() {
+		query = "drop table " + tableName
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		stmt, err = TestDB.PrepareContext(ctx, query)
+		cancel()
+		if err != nil {
+			t.Fatal("prepare error:", err)
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		_, err = stmt.ExecContext(ctx)
+		cancel()
+		if err != nil {
+			stmt.Close()
+			t.Fatal("exec error:", err)
+		}
+
+		err = stmt.Close()
+		if err != nil {
+			t.Fatal("stmt close error:", err)
+		}
+	}()
+
+	// insert into table
+	query = "insert into " + tableName + " ( A ) values (:1)"
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result sql.Result
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	result, err = stmt.ExecContext(ctx, 1)
+	cancel()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("exec error:", err)
+	}
+
+	var id int64
+	id, err = result.LastInsertId()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("exec error:", err)
+	}
+
+	rowid := GetLastInsertId(id)
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error", err)
+	}
+
+	query = "select rowid from " + tableName
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	defer cancel()
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		t.Fatal("query error:", err)
+	}
+
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			t.Fatal("row close error:", err)
+		}
+	}()
+
+	var data string
+	for rows.Next() {
+		err = rows.Scan(&data)
+		if err != nil {
+			t.Fatal("scan error:", err)
+		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		t.Fatal("err error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error", err)
+	}
+
+	if rowid != data {
+		t.Fatalf("rowid %v not equal to %v", rowid, data)
+	}
+}
+
 func BenchmarkSimpleInsert(b *testing.B) {
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()
 	}
+
+	b.StopTimer()
 
 	// SIMPLE_INSERT
 	tableName := "SIMPLE_INSERT_" + TestTimeString
@@ -798,9 +932,9 @@ func BenchmarkSimpleInsert(b *testing.B) {
 
 	// drop table
 	defer func() {
-		query := "drop table " + tableName
-		ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
-		stmt, err := TestDB.PrepareContext(ctx, query)
+		query = "drop table " + tableName
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		stmt, err = TestDB.PrepareContext(ctx, query)
 		cancel()
 		if err != nil {
 			b.Fatal("prepare error:", err)
@@ -830,6 +964,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	b.StartTimer()
 
 	for n := 0; n < b.N; n++ {
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)

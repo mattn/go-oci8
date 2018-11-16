@@ -14,6 +14,12 @@ import (
 func Example_sqlSelect() {
 	// Example shows how to do a basic select
 
+	// For testing, check if database tests are disabled
+	if oci8.TestDisableDatabase {
+		fmt.Println(1)
+		return
+	}
+
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
@@ -105,6 +111,12 @@ func Example_sqlSelect() {
 
 func Example_sqlFunction() {
 	// Example shows how to do a function call with binds
+
+	// For testing, check if database tests are disabled
+	if oci8.TestDisableDatabase {
+		fmt.Println(3)
+		return
+	}
 
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 

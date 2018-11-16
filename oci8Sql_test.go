@@ -821,7 +821,7 @@ func TestInsertRowid(t *testing.T) {
 	}()
 
 	// insert into table
-	query = "insert into " + tableName + " ( A ) values (:1)"
+	query = "insert into " + tableName + " ( A ) values (:1) returning rowid into :rowid2"
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -829,9 +829,10 @@ func TestInsertRowid(t *testing.T) {
 		t.Fatal("prepare error:", err)
 	}
 
+	rowids := make([]string, 3)
 	var result sql.Result
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
-	result, err = stmt.ExecContext(ctx, 1)
+	result, err = stmt.ExecContext(ctx, 1, sql.Named("rowid2", sql.Out{Dest: &rowids[0]}))
 	cancel()
 	if err != nil {
 		stmt.Close()
@@ -845,13 +846,14 @@ func TestInsertRowid(t *testing.T) {
 		t.Fatal("exec error:", err)
 	}
 
-	rowid := GetLastInsertId(id)
+	rowids[1] = GetLastInsertId(id)
 
 	err = stmt.Close()
 	if err != nil {
 		t.Fatal("stmt close error", err)
 	}
 
+	// get select rowid
 	query = "select rowid from " + tableName
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, query)
@@ -875,17 +877,21 @@ func TestInsertRowid(t *testing.T) {
 		}
 	}()
 
-	var data string
-	for rows.Next() {
-		err = rows.Scan(&data)
-		if err != nil {
-			t.Fatal("scan error:", err)
-		}
+	if !rows.Next() {
+		t.Fatal("expected row")
+	}
+	err = rows.Scan(&rowids[2])
+	if err != nil {
+		t.Fatal("scan error:", err)
+	}
+
+	if rows.Next() {
+		t.Fatal("more than one row")
 	}
 
 	err = rows.Err()
 	if err != nil {
-		t.Fatal("err error:", err)
+		t.Fatal("rows error:", err)
 	}
 
 	err = stmt.Close()
@@ -893,9 +899,58 @@ func TestInsertRowid(t *testing.T) {
 		t.Fatal("stmt close error", err)
 	}
 
-	if rowid != data {
-		t.Fatalf("rowid %v not equal to %v", rowid, data)
+	// select rowids
+	query = "select A from " + tableName + " where rowid = :1"
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
 	}
+
+	var data int64
+	for _, rowid := range rowids {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		defer cancel()
+		rows, err = stmt.QueryContext(ctx, rowid)
+		if err != nil {
+			t.Fatal("query error:", err)
+		}
+
+		defer func() {
+			err = rows.Close()
+			if err != nil {
+				t.Fatal("row close error:", err)
+			}
+		}()
+
+		if !rows.Next() {
+			t.Fatal("expected row")
+		}
+		err = rows.Scan(&data)
+		if err != nil {
+			t.Fatal("scan error:", err)
+		}
+
+		if data != 1 {
+			t.Fatal("row not equal to 1")
+		}
+
+		if rows.Next() {
+			t.Fatal("more than one row")
+		}
+
+		err = rows.Err()
+		if err != nil {
+			t.Fatal("rows error:", err)
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error", err)
+	}
+
 }
 
 func BenchmarkSimpleInsert(b *testing.B) {

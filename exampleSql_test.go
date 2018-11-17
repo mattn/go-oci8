@@ -172,3 +172,83 @@ end;`
 
 	// output: 3
 }
+
+func Example_sqlInsert() {
+	// Example shows how to do a single insert
+
+	// For testing, check if database tests are disabled
+	if oci8.TestDisableDatabase || oci8.TestDisableDestructive {
+		fmt.Println(1)
+		return
+	}
+
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+
+	var openString string
+	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	if len(oci8.TestUsername) > 0 {
+		if len(oci8.TestPassword) > 0 {
+			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
+		} else {
+			openString = oci8.TestUsername + "@"
+		}
+	}
+	openString += oci8.TestHostValid
+
+	// A normal simple Open to localhost would look like:
+	// db, err := sql.Open("oci8", "127.0.0.1")
+	// For testing, need to use additional variables
+	db, err := sql.Open("oci8", openString)
+	if err != nil {
+		fmt.Printf("Open error is not nil: %v", err)
+		return
+	}
+	if db == nil {
+		fmt.Println("db is nil")
+		return
+	}
+
+	// create table
+	tableName := "E_INSERT_" + oci8.TestTimeString
+	query := "create table " + tableName + " ( A INTEGER )"
+	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+	_, err = db.ExecContext(ctx, query)
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	// insert row
+	var result sql.Result
+	query = "insert into " + tableName + " ( A ) values (:1)"
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
+	result, err = db.ExecContext(ctx, query, 1)
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	// can see number of RowsAffected if wanted
+	var rowsAffected int64
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		fmt.Println("RowsAffected error is not nil:", err)
+		return
+	}
+
+	// drop table
+	query = "drop table " + tableName
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
+	_, err = db.ExecContext(ctx, query)
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	fmt.Println(rowsAffected)
+
+	// output: 1
+}

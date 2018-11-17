@@ -161,7 +161,7 @@ func init() {
 	if result != C.OCI_SUCCESS {
 		panic("OCIEnvCreate error")
 	}
-	nlsLang := CString("AL32UTF8")
+	nlsLang := cString("AL32UTF8")
 	defaultCharset = C.OCINlsCharSetNameToId(unsafe.Pointer(*envPP), (*C.oratext)(nlsLang))
 	C.free(unsafe.Pointer(nlsLang))
 	C.OCIHandleFree(unsafe.Pointer(*envPP), C.OCI_HTYPE_ENV)

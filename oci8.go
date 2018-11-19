@@ -352,19 +352,19 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	return &conn, nil
 }
 
-// GetLastInsertId retuns last inserted ID
+// GetLastInsertId retuns rowid from LastInsertId
 func GetLastInsertId(id int64) string {
 	return *(*string)(unsafe.Pointer(uintptr(id)))
 }
 
 // LastInsertId returns last inserted ID
-func (r *OCI8Result) LastInsertId() (int64, error) {
-	return r.id, r.errid
+func (result *OCI8Result) LastInsertId() (int64, error) {
+	return int64(uintptr(unsafe.Pointer(&result.rowid))), result.rowidErr
 }
 
 // RowsAffected returns rows affected
-func (r *OCI8Result) RowsAffected() (int64, error) {
-	return r.n, r.errn
+func (result *OCI8Result) RowsAffected() (int64, error) {
+	return result.rowsAffected, result.rowsAffectedErr
 }
 
 // converts "?" characters to  :1, :2, ... :n

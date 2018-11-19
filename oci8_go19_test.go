@@ -8,6 +8,10 @@ import (
 )
 
 func TestOutputBind(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
 	s1 := "-----------------------------"
 	s2 := 11
 	s3 := false

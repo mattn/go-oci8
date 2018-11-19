@@ -26,10 +26,10 @@ func (conn *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, er
 
 func (conn *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
 	s, err := conn.PrepareContext(ctx, query)
-	defer s.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
 	res, err := s.(*OCI8Stmt).exec(ctx, args)
 	if err != nil && err != driver.ErrSkip {
 		return nil, err

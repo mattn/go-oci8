@@ -81,7 +81,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			if sbind.out != nil {
 
 				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(CByteN(v, 32768))
+				sbind.pbuf = unsafe.Pointer(cByteN(v, 32768))
 				sbind.maxSize = 32767
 				if !outIn {
 					*sbind.indicator = -1 // set to null
@@ -91,7 +91,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 			} else {
 				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(CByte(v))
+				sbind.pbuf = unsafe.Pointer(cByte(v))
 				sbind.maxSize = C.sb4(len(v))
 				*sbind.length = C.ub2(len(v))
 			}
@@ -116,7 +116,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			if size < 16 {
 				size = 16
 			}
-			zoneText := CStringN(zone, size)
+			zoneText := cStringN(zone, size)
 			defer C.free(unsafe.Pointer(zoneText))
 
 			tryagain := false
@@ -165,7 +165,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
 				if size < len(zone) {
 					size = len(zone)
-					zoneText = CStringN(zone, size)
+					zoneText = cStringN(zone, size)
 					defer C.free(unsafe.Pointer(zoneText))
 				} else {
 					copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
@@ -198,7 +198,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			if sbind.out != nil {
 
 				sbind.dataType = C.SQLT_CHR
-				sbind.pbuf = unsafe.Pointer(CStringN(v, 32768))
+				sbind.pbuf = unsafe.Pointer(cStringN(v, 32768))
 				sbind.maxSize = 32767
 				if !outIn {
 					*sbind.indicator = -1 // set to null
@@ -220,7 +220,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_INT
-			sbind.pbuf = unsafe.Pointer(CByte(buffer.Bytes()))
+			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
 
@@ -231,16 +231,16 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_BDOUBLE
-			sbind.pbuf = unsafe.Pointer(CByte(buffer.Bytes()))
+			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
 
 		case bool: // oracle does not have bool, handle as 0/1 int
 			sbind.dataType = C.SQLT_INT
 			if v {
-				sbind.pbuf = unsafe.Pointer(CByte([]byte{1}))
+				sbind.pbuf = unsafe.Pointer(cByte([]byte{1}))
 			} else {
-				sbind.pbuf = unsafe.Pointer(CByte([]byte{0}))
+				sbind.pbuf = unsafe.Pointer(cByte([]byte{0}))
 			}
 			sbind.maxSize = 1
 			*sbind.length = 1
@@ -378,7 +378,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			freeDefines(defines)
 			return nil, err
 		}
-		defines[i].name = CGoStringN(columnName, int(size))
+		defines[i].name = cGoStringN(columnName, int(size))
 
 		var maxSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
 		_, err = stmt.conn.ociAttrGet(param, unsafe.Pointer(&maxSize), C.OCI_ATTR_DATA_SIZE)
@@ -547,20 +547,29 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 	return rows, nil
 }
 
-// lastInsertId returns the last inserted ID
-func (stmt *OCI8Stmt) lastInsertId() (int64, error) {
-	// OCI_ATTR_ROWID must be get in handle -> alloc
-	// can be coverted to char, but not to int64
-	retRowid := C.WrapOCIAttrRowId(unsafe.Pointer(stmt.conn.env), unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, C.OCI_ATTR_ROWID, stmt.conn.errHandle)
-	if retRowid.rv == C.OCI_SUCCESS {
-		bs := make([]byte, 18)
-		for i, b := range retRowid.rowid[:18] {
-			bs[i] = byte(b)
-		}
-		rowid := string(bs)
-		return int64(uintptr(unsafe.Pointer(&rowid))), nil
+// getRowid returns the rowid
+func (stmt *OCI8Stmt) getRowid() (string, error) {
+	rowidP, _, err := stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_ROWID, 0)
+	if err != nil {
+		return "", err
 	}
-	return int64(0), nil
+
+	// OCI_ATTR_ROWID returns the ROWID descriptor allocated with OCIDescriptorAlloc()
+	_, err = stmt.ociAttrGet(*rowidP, C.OCI_ATTR_ROWID)
+	if err != nil {
+		return "", err
+	}
+
+	rowid := cStringN("", 18)
+	defer C.free(unsafe.Pointer(rowid))
+	rowidLength := C.ub2(18)
+	result := C.OCIRowidToChar((*C.OCIRowid)(*rowidP), rowid, &rowidLength, stmt.conn.errHandle)
+	err = stmt.conn.getError(result)
+	if err != nil {
+		return "", err
+	}
+
+	return cGoStringN(rowid, int(rowidLength)), nil
 }
 
 // rowsAffected returns the number of rows affected
@@ -587,10 +596,7 @@ func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
 
 // exec runs an exec query
 func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Result, error) {
-	var err error
-	var binds []oci8Bind
-
-	binds, err = stmt.bind(ctx, args)
+	binds, err := stmt.bind(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +616,13 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		return nil, err
 	}
 
-	n, en := stmt.rowsAffected()
-	var id int64
-	var ei error
-	if n > 0 {
-		id, ei = stmt.lastInsertId()
+	result := OCI8Result{stmt: stmt}
+
+	result.rowsAffected, result.rowsAffectedErr = stmt.rowsAffected()
+	if result.rowsAffectedErr != nil || result.rowsAffected < 1 {
+		result.rowidErr = ErrNoRowid
+	} else {
+		result.rowid, result.rowidErr = stmt.getRowid()
 	}
 
 	err = stmt.outputBoundParameters(binds)
@@ -622,7 +630,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		return nil, err
 	}
 
-	return &OCI8Result{stmt: stmt, n: n, errn: en, id: id, errid: ei}, nil
+	return &result, nil
 }
 
 // outputBoundParameters sets bound parameters

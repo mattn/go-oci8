@@ -418,7 +418,7 @@ func Example_sqlRowid() {
 
 	// For testing, check if database tests are disabled
 	if oci8.TestDisableDatabase || oci8.TestDisableDestructive {
-		fmt.Println(1)
+		fmt.Println("done")
 		return
 	}
 

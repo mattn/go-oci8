@@ -23,13 +23,6 @@ static ret1ptr WrapOCIServerAttach(OCIServer* srv, OCIError* err, text* dblink,
   return vvv;
 }
 
-static ret1ptr WrapOCISessionBegin(OCISvcCtx* srv, OCIError* err,
-                                   OCISession* usr, ub4 credt, ub4 mode) {
-  ret1ptr vvv = {NULL, 0};
-  vvv.rv = OCISessionBegin(srv, err, usr, credt, mode);
-  return vvv;
-}
-
 typedef struct {
   ub4 ff;
   sb2 y;

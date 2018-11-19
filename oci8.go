@@ -288,6 +288,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		}
 		conn.usrSession = (*C.OCISession)(*handle)
 
+		credentialType := C.ub4(C.OCI_CRED_EXT)
 		if !dsn.externalauthentication {
 			// specifies a username to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(puser), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
@@ -301,21 +302,18 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 				return nil, err
 			}
 
-			// begin the session
-			C.WrapOCISessionBegin(
-				conn.svc,
-				conn.errHandle,
-				conn.usrSession,
-				C.OCI_CRED_RDBMS,
-				conn.operationMode)
-		} else {
-			// external authentication
-			C.WrapOCISessionBegin(
-				conn.svc,
-				conn.errHandle,
-				conn.usrSession,
-				C.OCI_CRED_EXT,
-				conn.operationMode)
+			credentialType = C.OCI_CRED_RDBMS
+		}
+
+		result = C.OCISessionBegin(
+			conn.svc,           // service context
+			conn.errHandle,     // error handle
+			conn.usrSession,    // user session context
+			credentialType,     // type of credentials to use for establishing the user session: OCI_CRED_RDBMS or OCI_CRED_EXT
+			conn.operationMode, // mode of operation. https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87690
+		)
+		if result != C.OCI_SUCCESS {
+			return nil, conn.getError(result)
 		}
 
 		// sets the authentication context attribute of the service context

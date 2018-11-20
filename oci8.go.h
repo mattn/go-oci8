@@ -2,18 +2,6 @@
 #include <stdlib.h>
 
 typedef struct {
-  dvoid* ptr;
-  sword rv;
-} ret1ptr;
-
-static ret1ptr WrapOCIServerAttach(OCIServer* srv, OCIError* err, text* dblink,
-                                   ub4 dblinklen, ub4 mode) {
-  ret1ptr vvv = {NULL, 0};
-  vvv.rv = OCIServerAttach(srv, err, dblink, dblinklen, mode);
-  return vvv;
-}
-
-typedef struct {
   ub4 ff;
   sb2 y;
   ub1 m, d, hh, mm, ss;

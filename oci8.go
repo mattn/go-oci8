@@ -252,19 +252,24 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		handle = nil
 
 		if dsn.externalauthentication {
-			C.WrapOCIServerAttach(
-				conn.srv,
-				conn.errHandle,
-				nil,
-				0,
-				C.OCI_DEFAULT)
+			result = C.OCIServerAttach(
+				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle, // error handle
+				nil,            // database server to use
+				0,              //  length of the database server
+				C.OCI_DEFAULT,  // mode of operation: OCI_DEFAULT or OCI_CPOOL
+			)
 		} else {
-			C.WrapOCIServerAttach(
-				conn.srv,
-				conn.errHandle,
-				host,
-				C.ub4(len(dsn.Connect)),
-				C.OCI_DEFAULT)
+			result = C.OCIServerAttach(
+				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle, // error handle
+				host,           // database server to use
+				C.sb4(len(dsn.Connect)), //  length of the database server
+				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
+			)
+		}
+		if result != C.OCI_SUCCESS {
+			return nil, conn.getError(result)
 		}
 
 		// service handle

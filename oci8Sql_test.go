@@ -3,7 +3,6 @@ package oci8
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 	"log"
 	"os"
@@ -350,8 +349,8 @@ func TestConnect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	err = db.PingContext(ctx)
 	cancel()
-	if err == nil || err != driver.ErrBadConn {
-		t.Fatalf("ping error - received: %v - expected: %v", err, driver.ErrBadConn)
+	if err == nil || len(err.Error()) < 4 || err.Error()[0:4] != "ORA-" {
+		t.Fatalf("ping error - received: %v - expected ORA- error", err)
 	}
 
 	err = db.Close()
@@ -371,8 +370,8 @@ func TestConnect(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	err = db.PingContext(ctx)
 	cancel()
-	if err == nil || err != driver.ErrBadConn {
-		t.Fatalf("ping error - received: %v - expected: %v", err, driver.ErrBadConn)
+	if err == nil || len(err.Error()) < 4 || err.Error()[0:4] != "ORA-" {
+		t.Fatalf("ping error - received: %v - expected ORA- error", err)
 	}
 
 	err = db.Close()

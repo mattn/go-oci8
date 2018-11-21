@@ -253,15 +253,20 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_INTERVAL_YM
 		case C.SQLT_INTERVAL_YM:
-			iptr := *(**C.OCIInterval)(rows.defines[i].pbuf)
-			rv := C.WrapOCIIntervalGetYearMonth(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				iptr)
-			if rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
+			var years C.sb4
+			var months C.sb4
+			interval := *(**C.OCIInterval)(rows.defines[i].pbuf)
+			result = C.OCIIntervalGetYearMonth(
+				unsafe.Pointer(rows.stmt.conn.env), // environment handle
+				rows.stmt.conn.errHandle,           // error handle
+				&years,   // year
+				&months,  // month
+				interval, // interval
+			)
+			if result != C.OCI_SUCCESS {
+				return rows.stmt.conn.getError(result)
 			}
-			dest[i] = int64(rv.y)*12 + int64(rv.m)
+			dest[i] = (int64(years) * 12) + int64(months)
 
 		// default
 		default:

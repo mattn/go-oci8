@@ -42,19 +42,6 @@ static retZone WrapOCIDateTimeGetTimeZoneNameOffset(OCIEnv* env, OCIError* err,
 }
 
 typedef struct {
-  sb4 d, hh, mm, ss, ff;
-  sword rv;
-} retIntervalDS;
-
-static retIntervalDS WrapOCIIntervalGetDaySecond(OCIEnv* env, OCIError* err,
-                                                 OCIInterval* ptr) {
-  retIntervalDS vvv;
-  vvv.rv = OCIIntervalGetDaySecond(env, err, &vvv.d, &vvv.hh, &vvv.mm, &vvv.ss,
-                                   &vvv.ff, ptr);
-  return vvv;
-}
-
-typedef struct {
   sb4 y, m;
   sword rv;
 } retIntervalYM;

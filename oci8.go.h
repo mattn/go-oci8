@@ -1,27 +1,5 @@
 #include <oci.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
-
-typedef struct {
-  dvoid* ptr;
-  sword rv;
-} ret1ptr;
-
-static ret1ptr WrapOCILogon(OCIEnv* env, OCIError* err, OraText* u, ub4 ulen,
-                            OraText* p, ub4 plen, OraText* h, ub4 hlen) {
-  ret1ptr vvv = {NULL, 0};
-  vvv.rv =
-      OCILogon(env, err, (OCISvcCtx**)(&vvv.ptr), u, ulen, p, plen, h, hlen);
-  return vvv;
-}
-
-static ret1ptr WrapOCIServerAttach(OCIServer* srv, OCIError* err, text* dblink,
-                                   ub4 dblinklen, ub4 mode) {
-  ret1ptr vvv = {NULL, 0};
-  vvv.rv = OCIServerAttach(srv, err, dblink, dblinklen, mode);
-  return vvv;
-}
 
 typedef struct {
   ub4 ff;

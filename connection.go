@@ -167,8 +167,8 @@ func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.
 		query = placeholders(query)
 	}
 
-	pquery := C.CString(query)
-	defer C.free(unsafe.Pointer(pquery))
+	queryP := cString(query)
+	defer C.free(unsafe.Pointer(queryP))
 
 	// statement handle
 	stmt, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
@@ -179,8 +179,8 @@ func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.
 	if rv := C.OCIStmtPrepare(
 		(*C.OCIStmt)(*stmt),
 		conn.errHandle,
-		(*C.OraText)(unsafe.Pointer(pquery)),
-		C.ub4(C.strlen(pquery)),
+		queryP,
+		C.ub4(len(query)),
 		C.ub4(C.OCI_NTV_SYNTAX),
 		C.ub4(C.OCI_DEFAULT),
 	); rv != C.OCI_SUCCESS {

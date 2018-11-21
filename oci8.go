@@ -233,46 +233,52 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		return nil, errors.New("allocate error handle error")
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
+	handle = nil
 
-	phost := C.CString(dsn.Connect)
-	defer C.free(unsafe.Pointer(phost))
-	puser := C.CString(dsn.Username)
-	defer C.free(unsafe.Pointer(puser))
-	ppass := C.CString(dsn.Password)
-	defer C.free(unsafe.Pointer(ppass))
+	host := cString(dsn.Connect)
+	defer C.free(unsafe.Pointer(host))
+	username := cString(dsn.Username)
+	defer C.free(unsafe.Pointer(username))
+	password := cString(dsn.Password)
+	defer C.free(unsafe.Pointer(password))
 
 	if useOCISessionBegin {
 		// server handle
-		handle = nil
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SERVER, 0)
 		if err != nil {
 			return nil, fmt.Errorf("allocate server handle error: %v", err)
 		}
 		conn.srv = (*C.OCIServer)(*handle)
+		handle = nil
 
 		if dsn.externalauthentication {
-			C.WrapOCIServerAttach(
-				conn.srv,
-				conn.errHandle,
-				nil,
-				0,
-				C.OCI_DEFAULT)
+			result = C.OCIServerAttach(
+				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle, // error handle
+				nil,            // database server to use
+				0,              //  length of the database server
+				C.OCI_DEFAULT,  // mode of operation: OCI_DEFAULT or OCI_CPOOL
+			)
 		} else {
-			C.WrapOCIServerAttach(
-				conn.srv,
-				conn.errHandle,
-				(*C.text)(unsafe.Pointer(phost)),
-				C.ub4(len(dsn.Connect)),
-				C.OCI_DEFAULT)
+			result = C.OCIServerAttach(
+				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle, // error handle
+				host,           // database server to use
+				C.sb4(len(dsn.Connect)), //  length of the database server
+				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
+			)
+		}
+		if result != C.OCI_SUCCESS {
+			return nil, conn.getError(result)
 		}
 
 		// service handle
-		handle = nil
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SVCCTX, 0)
 		if err != nil {
 			return nil, fmt.Errorf("allocate service handle error: %v", err)
 		}
 		conn.svc = (*C.OCISvcCtx)(*handle)
+		handle = nil
 
 		// sets the server context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.srv), 0, C.OCI_ATTR_SERVER)
@@ -281,23 +287,23 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		}
 
 		// user session handle
-		handle = nil
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SESSION, 0)
 		if err != nil {
 			return nil, fmt.Errorf("allocate user session handle error: %v", err)
 		}
 		conn.usrSession = (*C.OCISession)(*handle)
+		handle = nil
 
 		credentialType := C.ub4(C.OCI_CRED_EXT)
 		if !dsn.externalauthentication {
 			// specifies a username to use for authentication
-			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(puser), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
+			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {
 				return nil, err
 			}
 
 			// specifies a password to use for authentication
-			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(ppass), C.ub4(len(dsn.Password)), C.OCI_ATTR_PASSWORD)
+			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(password), C.ub4(len(dsn.Password)), C.OCI_ATTR_PASSWORD)
 			if err != nil {
 				return nil, err
 			}
@@ -324,20 +330,23 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 
 	} else {
 
-		if rv := C.WrapOCILogon(
-			conn.env,
-			conn.errHandle,
-			(*C.OraText)(unsafe.Pointer(puser)),
-			C.ub4(len(dsn.Username)),
-			(*C.OraText)(unsafe.Pointer(ppass)),
-			C.ub4(len(dsn.Password)),
-			(*C.OraText)(unsafe.Pointer(phost)),
-			C.ub4(len(dsn.Connect)),
-		); rv.rv != C.OCI_SUCCESS && rv.rv != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(rv.rv)
-		} else {
-			conn.svc = (*C.OCISvcCtx)(rv.ptr)
+		var svcCtxP *C.OCISvcCtx
+		svcCtxPP := &svcCtxP
+		result = C.OCILogon(
+			conn.env,                 // environment handle
+			conn.errHandle,           // error handle
+			svcCtxPP,                 // service context pointer
+			username,                 // user name. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Username)), // length of user name, in number of bytes, regardless of the encoding
+			password,                 // user's password. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Password)), // length of password, in number of bytes, regardless of the encoding.
+			host, // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Connect)), // length of dbname, in number of bytes, regardless of the encoding.
+		)
+		if result != C.OCI_SUCCESS {
+			return nil, conn.getError(result)
 		}
+		conn.svc = *svcCtxPP
 
 	}
 

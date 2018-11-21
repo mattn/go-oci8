@@ -1220,7 +1220,7 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 	}
 }
 
-func BenchmarkPrefetchR1000M32768(b *testing.B) {
+func BenchmarkPrefetchR0M32768(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1228,11 +1228,11 @@ func BenchmarkPrefetchR1000M32768(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 32768, &n)
+		benchmarkPrefetchSelect(b, 0, 32768, &n)
 	}
 }
 
-func BenchmarkPrefetchR1000M16384(b *testing.B) {
+func BenchmarkPrefetchR0M16384(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1240,11 +1240,11 @@ func BenchmarkPrefetchR1000M16384(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 16384, &n)
+		benchmarkPrefetchSelect(b, 0, 16384, &n)
 	}
 }
 
-func BenchmarkPrefetchR1000M8192(b *testing.B) {
+func BenchmarkPrefetchR0M8192(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1252,11 +1252,11 @@ func BenchmarkPrefetchR1000M8192(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 8192, &n)
+		benchmarkPrefetchSelect(b, 0, 8192, &n)
 	}
 }
 
-func BenchmarkPrefetchR1000M4096(b *testing.B) {
+func BenchmarkPrefetchR0M4096(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1264,11 +1264,11 @@ func BenchmarkPrefetchR1000M4096(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 4096, &n)
+		benchmarkPrefetchSelect(b, 0, 4096, &n)
 	}
 }
 
-func BenchmarkPrefetchR1000M2048(b *testing.B) {
+func BenchmarkPrefetchR0M2048(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1276,42 +1276,6 @@ func BenchmarkPrefetchR1000M2048(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 2048, &n)
-	}
-}
-
-func BenchmarkPrefetchR1000M1024(b *testing.B) {
-	b.StopTimer()
-
-	if TestDisableDatabase || TestDisableDestructive {
-		b.SkipNow()
-	}
-
-	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 1024, &n)
-	}
-}
-
-func BenchmarkPrefetchR1000M512(b *testing.B) {
-	b.StopTimer()
-
-	if TestDisableDatabase || TestDisableDestructive {
-		b.SkipNow()
-	}
-
-	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 1000, 512, &n)
-	}
-}
-
-func BenchmarkPrefetchR10M0(b *testing.B) {
-	b.StopTimer()
-
-	if TestDisableDatabase || TestDisableDestructive {
-		b.SkipNow()
-	}
-
-	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 10, 0, &n)
+		benchmarkPrefetchSelect(b, 0, 2048, &n)
 	}
 }

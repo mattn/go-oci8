@@ -316,7 +316,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 	if stmt.conn.prefetchRows != 1 {
 		prefetchRows := stmt.conn.prefetchRows
-		// OCI_ATTR_PREFETCH_ROWS sets the number of top level rows to be prefetched. The default value is 1 row.
+		// OCI_ATTR_PREFETCH_ROWS sets the number of top level rows to be prefetched. The default value is 1 row. Value of 0 seems to mean only prefetch memory size limits the number of rows to prefetch.
 		err = stmt.conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(&prefetchRows), 0, C.OCI_ATTR_PREFETCH_ROWS)
 		if err != nil {
 			return nil, err

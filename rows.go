@@ -228,27 +228,45 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_INTERVAL_DS
 		case C.SQLT_INTERVAL_DS:
-			iptr := *(**C.OCIInterval)(rows.defines[i].pbuf)
-			rv := C.WrapOCIIntervalGetDaySecond(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				iptr)
-			if rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
+			var days C.sb4
+			var hours C.sb4
+			var minutes C.sb4
+			var seconds C.sb4
+			var fracSeconds C.sb4
+			interval := *(**C.OCIInterval)(rows.defines[i].pbuf)
+			result = C.OCIIntervalGetDaySecond(
+				unsafe.Pointer(rows.stmt.conn.env), // environment handle
+				rows.stmt.conn.errHandle,           // error handle
+				&days,        // days
+				&hours,       // hours
+				&minutes,     // minutes
+				&seconds,     // seconds
+				&fracSeconds, // fractional seconds
+				interval,     // interval
+			)
+			if result != C.OCI_SUCCESS {
+				return rows.stmt.conn.getError(result)
 			}
-			dest[i] = int64(time.Duration(rv.d)*time.Hour*24 + time.Duration(rv.hh)*time.Hour + time.Duration(rv.mm)*time.Minute + time.Duration(rv.ss)*time.Second + time.Duration(rv.ff))
+
+			dest[i] = (int64(days) * 24 * int64(time.Hour)) + (int64(hours) * int64(time.Hour)) +
+				(int64(minutes) * int64(time.Minute)) + (int64(seconds) * int64(time.Second)) + int64(fracSeconds)
 
 		// SQLT_INTERVAL_YM
 		case C.SQLT_INTERVAL_YM:
-			iptr := *(**C.OCIInterval)(rows.defines[i].pbuf)
-			rv := C.WrapOCIIntervalGetYearMonth(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				iptr)
-			if rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
+			var years C.sb4
+			var months C.sb4
+			interval := *(**C.OCIInterval)(rows.defines[i].pbuf)
+			result = C.OCIIntervalGetYearMonth(
+				unsafe.Pointer(rows.stmt.conn.env), // environment handle
+				rows.stmt.conn.errHandle,           // error handle
+				&years,   // year
+				&months,  // month
+				interval, // interval
+			)
+			if result != C.OCI_SUCCESS {
+				return rows.stmt.conn.getError(result)
 			}
-			dest[i] = int64(rv.y)*12 + int64(rv.m)
+			dest[i] = (int64(years) * 12) + int64(months)
 
 		// default
 		default:

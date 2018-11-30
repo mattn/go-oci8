@@ -117,26 +117,6 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		case C.SQLT_CHR, C.SQLT_STR, C.SQLT_AFC, C.SQLT_AVC, C.SQLT_LNG:
 			dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
 
-			/*
-				switch {
-				case *rows.defines[i].indicator > 0: // indicator variable is the actual length before truncation
-					spaces := int(C.int(*rows.defines[i].indicator) - C.int(*rows.defines[i].length))
-					if spaces < 0 {
-						return fmt.Errorf("spaces less than 0 for column %v", i)
-					}
-					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length)) + strings.Repeat(" ", spaces)
-				case *rows.defines[i].indicator == 0: // Normal
-					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
-				case *rows.defines[i].indicator == -1: // The selected value is null
-					dest[i] = "" // best attempt at Go nil string
-				case *rows.defines[i].indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
-					dest[i] = C.GoStringN((*C.char)(rows.defines[i].pbuf), C.int(*rows.defines[i].length))
-					// TODO: should this be an error?
-				default:
-					return fmt.Errorf("unknown indicator %d for column %v", rows.defines[i].indicator, i)
-				}
-			*/
-
 		// SQLT_BIN
 		case C.SQLT_BIN: // RAW
 			buf := (*[1 << 30]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]

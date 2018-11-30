@@ -360,26 +360,34 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 	readBuffer := make([]byte, lobBufferSize)
 	buffer := make([]byte, 0)
 	result := (C.sword)(C.OCI_NEED_DATA)
+	piece := (C.ub1)(C.OCI_FIRST_PIECE)
 
 	for result == C.OCI_NEED_DATA {
-		readSize := (C.ub4)(lobBufferSize)
+		readBytes := (C.oraub8)(0)
 
-		result = C.OCILobRead(
-			conn.svc,       // The service context handle
-			conn.errHandle, // An error handle
-			lobLocator,     // A LOB or BFILE locator that uniquely references the LOB or BFILE
-			&readSize,      // The amount in either bytes (BLOBs and BFILEs) or characters (CLOBs and NCLOBs)
-			1,              // The absolute offset from the beginning of the LOB value. The first position is 1. The subsequent polling calls the offset parameter is ignored.
-			unsafe.Pointer(&readBuffer[0]), // The pointer to a buffer into which the piece will be read.
-			lobBufferSize,                  // The length of the buffer in bytes/characters.
-			nil,                            // The context pointer for the callback function. Can be null.
+		// If both byte_amtp and char_amtp are set to point to zero and OCI_FIRST_PIECE is passed then polling mode is assumed and data is read till the end of the LOB
+		result = C.OCILobRead2(
+			conn.svc,       // service context handle
+			conn.errHandle, // error handle
+			lobLocator,     // LOB or BFILE locator
+			&readBytes,     // number of bytes to read. Used for BLOB and BFILE always. For CLOB and NCLOB, it is used only when char_amtp is zero.
+			nil,            // number of characters to read
+			1,              // the offset in the first call and in subsequent polling calls the offset parameter is ignored
+			unsafe.Pointer(&readBuffer[0]), // pointer to a buffer into which the piece will be read
+			lobBufferSize,                  // length of the buffer
+			piece,                          // For polling, pass OCI_FIRST_PIECE the first time and OCI_NEXT_PIECE in subsequent calls.
+			nil,                            // context pointer for the callback function
 			nil,                            // If this is null, then OCI_NEED_DATA will be returned for each piece.
-			0,                              // If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value.
-			form,                           // The character set form of the buffer data: SQLCS_IMPLICIT or SQLCS_NCHAR
+			0,                              // character set ID of the buffer data. If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value, depending on the value of csfrm.
+			form,                           // character set form of the buffer data
 		)
 
+		if piece == C.OCI_FIRST_PIECE {
+			piece = C.OCI_NEXT_PIECE
+		}
+
 		if result == C.OCI_SUCCESS || result == C.OCI_NEED_DATA {
-			buffer = append(buffer, readBuffer[:int(readSize)]...)
+			buffer = append(buffer, readBuffer[:int(readBytes)]...)
 		}
 	}
 

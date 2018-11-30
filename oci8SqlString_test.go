@@ -208,6 +208,12 @@ func TestSelectDualString(t *testing.T) {
 		},
 	}
 
+	queryResultStringsRpad8000 := []testQueryResult{
+		testQueryResult{
+			results: [][]interface{}{[]interface{}{strings.Repeat("a", 4000) + strings.Repeat("b", 4000)}},
+		},
+	}
+
 	queryResultStringsFix1000 := []testQueryResult{
 		testQueryResult{
 			args:    []interface{}{""},
@@ -360,6 +366,9 @@ func TestSelectDualString(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStrings4000
 	testRunQueryResults(t, queryResults)
+	queryResults.query = "select to_clob(rpad('a', 4000, 'a')) || to_clob(rpad('b', 4000, 'b')) from dual"
+	queryResults.queryResults = queryResultStringsRpad8000
+	testRunQueryResults(t, queryResults)
 
 	// NCLOB
 	queryResults.query = "select to_nclob(:1) from dual"
@@ -368,6 +377,9 @@ func TestSelectDualString(t *testing.T) {
 	queryResults.queryResults = queryResultStrings2000
 	testRunQueryResults(t, queryResults)
 	queryResults.queryResults = queryResultStrings4000
+	testRunQueryResults(t, queryResults)
+	queryResults.query = "select to_nclob(rpad('a', 4000, 'a')) || to_nclob(rpad('b', 4000, 'b')) from dual"
+	queryResults.queryResults = queryResultStringsRpad8000
 	testRunQueryResults(t, queryResults)
 
 	queryResultRaw1 := []testQueryResult{
@@ -1666,7 +1678,8 @@ func TestDestructiveString(t *testing.T) {
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
-			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+			[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1678,7 +1691,8 @@ func TestDestructiveString(t *testing.T) {
 			testQueryResult{
 				results: [][]interface{}{
 					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
-					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+					[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 				},
 			},
 		},
@@ -1695,7 +1709,8 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			testQueryResult{
 				results: [][]interface{}{
-					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+					[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 				},
 			},
 		},
@@ -1714,7 +1729,8 @@ func TestDestructiveString(t *testing.T) {
 	err = testExecRows(t, "insert into "+tableName+"( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
 			[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
-			[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+			[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+			[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1726,7 +1742,8 @@ func TestDestructiveString(t *testing.T) {
 			testQueryResult{
 				results: [][]interface{}{
 					[]interface{}{"a", strings.Repeat("a", 2000), strings.Repeat("a", 4000)},
-					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+					[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 				},
 			},
 		},
@@ -1743,7 +1760,8 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			testQueryResult{
 				results: [][]interface{}{
-					[]interface{}{"b", strings.Repeat("b", 2000), strings.Repeat("b", 4000)},
+					[]interface{}{"b", strings.Repeat("b", 6000), strings.Repeat("b", 8000)},
+					[]interface{}{"c", strings.Repeat("c", 12000), strings.Repeat("c", 16000)},
 				},
 			},
 		},

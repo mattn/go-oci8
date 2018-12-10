@@ -4,9 +4,9 @@ package oci8
 import "C"
 
 import (
-	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"io/ioutil"
 	"log"
 	"os"
@@ -223,10 +223,10 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	handle := &handleTemp
 	result = C.OCIHandleAlloc(
 		unsafe.Pointer(conn.env), // An environment handle
-		handle,            // Returns a handle
-		C.OCI_HTYPE_ERROR, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
-		0,                 // amount of user memory to be allocated
-		nil,               // Returns a pointer to the user memory
+		handle,                   // Returns a handle
+		C.OCI_HTYPE_ERROR,        // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
+		0,                        // amount of user memory to be allocated
+		nil,                      // Returns a pointer to the user memory
 	)
 	if result != C.OCI_SUCCESS {
 		// TODO: error handle not yet allocated, how to get string error from oracle?
@@ -261,9 +261,9 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			)
 		} else {
 			result = C.OCIServerAttach(
-				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
-				conn.errHandle, // error handle
-				host,           // database server to use
+				conn.srv,                // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle,          // error handle
+				host,                    // database server to use
 				C.sb4(len(dsn.Connect)), //  length of the database server
 				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
@@ -340,8 +340,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			C.ub4(len(dsn.Username)), // length of user name, in number of bytes, regardless of the encoding
 			password,                 // user's password. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Password)), // length of password, in number of bytes, regardless of the encoding.
-			host, // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
-			C.ub4(len(dsn.Connect)), // length of dbname, in number of bytes, regardless of the encoding.
+			host,                     // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Connect)),  // length of dbname, in number of bytes, regardless of the encoding.
 		)
 		if result != C.OCI_SUCCESS {
 			return nil, conn.getError(result)

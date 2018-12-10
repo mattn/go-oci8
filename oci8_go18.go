@@ -2,7 +2,7 @@ package oci8
 
 import (
 	"database/sql"
-	"database/sql/driver"
+	"github.com/relloyd/go-sql/database/sql/driver"
 
 	"context"
 )

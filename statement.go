@@ -6,9 +6,9 @@ import "C"
 import (
 	"bytes"
 	"context"
-	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"strings"
 	"time"
 	"unsafe"
@@ -651,7 +651,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				case *bind.indicator == 0: // Normal
 					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = "" // best attempt at Go nil string
+					*v = ""                 // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
 					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 					// TODO: should this be an error?
@@ -742,7 +742,7 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 		C.OCI_HTYPE_STMT,                         // Handle type: OCI_HTYPE_STMT, for a statement handle
 		stmt.conn.errHandle,                      // An error handle
 		(*unsafe.Pointer)(unsafe.Pointer(param)), // A descriptor of the parameter at the position
-		position, // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
+		position,                                 // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
 	)
 
 	err := stmt.conn.getError(result)

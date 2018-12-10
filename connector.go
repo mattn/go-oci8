@@ -4,7 +4,7 @@ package oci8
 
 import (
 	"context"
-	"database/sql/driver"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"io/ioutil"
 	"log"
 )

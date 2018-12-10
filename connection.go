@@ -6,7 +6,7 @@ import "C"
 import (
 	"bytes"
 	"context"
-	"database/sql/driver"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"errors"
 	"fmt"
 	"unsafe"

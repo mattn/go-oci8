@@ -27,6 +27,8 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, vals []driver.Name
 		return nil
 	}
 
+	// stmt.pbind = make([]oci8Bind,0)
+
 	args := make([]namedValue, len(vals), len(vals))
 	for i, v := range vals {
 		args[i] = namedValue{
@@ -205,7 +207,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, vals []driver.Name
 			buffer := bytes.Buffer{}
 			err = binary.Write(&buffer, binary.LittleEndian, v)
 			if err != nil {
-				return fmt.Errorf("binary read for column %v - error: %v", i, err)
+				return fmt.Errorf("binary write for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_INT
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
@@ -216,7 +218,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, vals []driver.Name
 			buffer := bytes.Buffer{}
 			err = binary.Write(&buffer, binary.LittleEndian, v)
 			if err != nil {
-				return fmt.Errorf("binary read for column %v - error: %v", i, err)
+				return fmt.Errorf("binary write for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_BDOUBLE
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
@@ -292,6 +294,7 @@ func (stmt *OCI8Stmt) execBatch(ctx context.Context) (driver.Result, error) {
 	go stmt.ociBreak(ctx, done)
 	err = stmt.ociStmtExecute(C.ub4(len(stmt.pbind)), mode) // iters is the length of pbind.
 	fmt.Println("dump error after exec: ", err)
+	fmt.Println("Dump pbind ", stmt.pbind)
 	close(done)
 	if err != nil && err != ErrOCISuccessWithInfo { // if we executed unsuccessfully...
 		var numErrors C.ub4

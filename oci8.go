@@ -28,9 +28,9 @@ import (
 //
 // isolation - the isolation level that can be set to: READONLY, SERIALIZABLE, or DEFAULT
 //
-// prefetch_rows - the number of top level rows to be prefetched. Defaults to 10.
+// prefetch_rows - the number of top level rows to be prefetched. Defaults to 0. A 0 means unlimited rows.
 //
-// prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 0. A 0 means unlimited memory.
+// prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 4096. A 0 means unlimited memory.
 //
 // questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
@@ -64,8 +64,8 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	dsn.Connect = host
 
 	// set safe defaults
-	dsn.prefetchRows = 10
-	dsn.prefetchMemory = 0
+	dsn.prefetchRows = 0
+	dsn.prefetchMemory = 4096
 	dsn.operationMode = C.OCI_DEFAULT
 
 	qp, err := ParseQuery(params)

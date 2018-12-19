@@ -9,8 +9,8 @@ apt-get -qq -y install git pkg-config gcc 2>&1 > /dev/null
 echo "installing go"
 export PATH_SAVE=${PATH}
 cd /tmp/
-wget -nv https://dl.google.com/go/go1.11.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.10.4.linux-amd64.tar.gz
+wget -nv https://dl.google.com/go/go1.11.4.linux-amd64.tar.gz
+wget -nv https://dl.google.com/go/go1.10.7.linux-amd64.tar.gz
 wget -nv https://dl.google.com/go/go1.9.7.linux-amd64.tar.gz
 
 mkdir -p /usr/local/goFiles1.11.x

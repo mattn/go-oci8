@@ -184,16 +184,16 @@ func TestSelectDualString(t *testing.T) {
 			results: [][]interface{}{[]interface{}{strings.Repeat("ab", 1000)}},
 		},
 		testQueryResult{
-			args:    []interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"},
-			results: [][]interface{}{[]interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好здравейсвят"}},
+			args:    []interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好"},
+			results: [][]interface{}{[]interface{}{"こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好"}},
 		},
 		testQueryResult{
-			args:    []interface{}{"здравейсвят"},
-			results: [][]interface{}{[]interface{}{"здравейсвят"}},
+			args:    []interface{}{"здравейсвят кодировка"},
+			results: [][]interface{}{[]interface{}{"здравейсвят кодировка"}},
 		},
 		testQueryResult{
-			args:    []interface{}{"кодировка"},
-			results: [][]interface{}{[]interface{}{"кодировка"}},
+			args:    []interface{}{"一二三 提取的列值被截断"},
+			results: [][]interface{}{[]interface{}{"一二三 提取的列值被截断"}},
 		},
 	}
 
@@ -201,6 +201,10 @@ func TestSelectDualString(t *testing.T) {
 		testQueryResult{
 			args:    []interface{}{strings.Repeat("abcd", 1000)},
 			results: [][]interface{}{[]interface{}{strings.Repeat("abcd", 1000)}},
+		},
+		testQueryResult{
+			args:    []interface{}{strings.Repeat("提取", 500)},
+			results: [][]interface{}{[]interface{}{strings.Repeat("提取", 500)}},
 		},
 		testQueryResult{
 			args:    []interface{}{testString1},
@@ -1307,6 +1311,62 @@ func TestDestructiveString(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
+	err = testExec(t, "truncate table "+tableName, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好", "здравейсвят кодировка"},
+			[]interface{}{"b", "一二三 提取的列值被截断", "b"},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
+					[]interface{}{"a", "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好", "здравейсвят кодировка"},
+					[]interface{}{"b", "一二三 提取的列值被截断", "b"},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// VARCHAR2 char
+	tableName = "VARCHAR2_CHAR_" + TestTimeString
+	err = testExec(t, "create table "+tableName+" ( A VARCHAR2(1 CHAR), B VARCHAR2(100 CHAR), C VARCHAR2(1000 CHAR) )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			[]interface{}{"a", strings.Repeat("二三提取的列值被截断", 10), strings.Repeat("二三提取的列值被截断", 100)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			testQueryResult{
+				results: [][]interface{}{
+					[]interface{}{"a", strings.Repeat("二三提取的列值被截断", 10), strings.Repeat("二三提取的列值被截断", 100)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 	// NVARCHAR2
 	tableName = "NVARCHAR2_" + TestTimeString
 	err = testExec(t, "create table "+tableName+" ( A NVARCHAR2(1), B NVARCHAR2(1000), C NVARCHAR2(2000) )", nil)
@@ -1891,6 +1951,18 @@ func TestFunctionCallString(t *testing.T) {
 		testExecResult{
 			args:    map[string]sql.Out{"string1": sql.Out{Dest: strings.Repeat("ab", 1000), In: true}},
 			results: map[string]interface{}{"string1": strings.Repeat("ab", 1000)},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好", In: true}},
+			results: map[string]interface{}{"string1": "こんにちは 世界 Καλημέρα κόσμε こんにちは안녕하세요góðan dagGrüßgotthyvää päivääyá'át'ééhΓεια σαςВiтаюგამარჯობაनमस्ते你好"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "здравейсвят кодировка", In: true}},
+			results: map[string]interface{}{"string1": "здравейсвят кодировка"},
+		},
+		testExecResult{
+			args:    map[string]sql.Out{"string1": sql.Out{Dest: "一二三 提取的列值被截断", In: true}},
+			results: map[string]interface{}{"string1": "一二三 提取的列值被截断"},
 		},
 	}
 

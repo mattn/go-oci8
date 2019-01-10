@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1043,7 +1044,8 @@ func benchmarkSelectSetup(b *testing.B) {
 
 	// create table
 	tableName := benchmarkSelectTableName
-	query := "create table " + tableName + " ( A INTEGER, B INTEGER, C INTEGER, D INTEGER )"
+	query := "create table " + tableName +
+		"( A INTEGER, B INTEGER, C INTEGER, D INTEGER, E VARCHAR2(255), F VARCHAR2(255), G VARCHAR2(255), H VARCHAR2(255) )"
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -1068,7 +1070,17 @@ func benchmarkSelectSetup(b *testing.B) {
 	}
 
 	// insert into table
-	query = "insert into " + tableName + " ( A, B, C, D ) select :1, :2, :3, :4 from dual union all select :5, :6, :7, :8 from dual union all select :9, :10, :11, :12 from dual union all select :13, :14, :15, :16 from dual union all select :17, :18, :19, :20 from dual union all select :21, :22, :23, :24 from dual union all select :25, :26, :27, :28 from dual union all select :29, :30, :31, :31 from dual union all select :33, :34, :35, :36 from dual union all select :37, :38, :39, :40 from dual"
+	query = "insert into " + tableName + ` ( A, B, C, D, E, F, G, H )
+select :1, :2, :3, :4, :5, :6, :7, :8 from dual
+union all select :9, :10, :11, :12, :13, :14, :15, :16 from dual
+union all select :17, :18, :19, :20, :21, :22, :23, :24 from dual
+union all select :25, :26, :27, :28, :29, :30, :31, :32 from dual
+union all select :33, :34, :35, :36, :37, :38, :39, :40 from dual
+union all select :41, :42, :43, :44, :45, :46, :47, :48 from dual
+union all select :49, :50, :51, :52, :53, :54, :55, :56 from dual
+union all select :57, :58, :59, :60, :61, :62, :63, :64 from dual
+union all select :65, :66, :67, :68, :69, :70, :71, :72 from dual
+union all select :73, :74, :75, :76, :77, :78, :79, :80 from dual`
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -1076,19 +1088,20 @@ func benchmarkSelectSetup(b *testing.B) {
 		b.Fatal("prepare error:", err)
 	}
 
-	for i := 0; i < 20000; i += 10 {
+	insertString := strings.Repeat("a", 255)
+	for i := 0; i < 5000; i += 10 {
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 		_, err = stmt.ExecContext(ctx,
-			i, i+20000, i+40000, i+60000,
-			i+1, i+20001, i+40001, i+60001,
-			i+2, i+20002, i+40002, i+60002,
-			i+3, i+20003, i+40003, i+60003,
-			i+4, i+20004, i+40004, i+60004,
-			i+5, i+20005, i+40005, i+60005,
-			i+6, i+20006, i+40006, i+60006,
-			i+7, i+20007, i+40007, i+60007,
-			i+8, i+20008, i+40008, i+60008,
-			i+9, i+20009, i+40009, i+60009)
+			i, i+20000, i+40000, i+60000, insertString, insertString, insertString, insertString,
+			i+1, i+20001, i+40001, i+60001, insertString, insertString, insertString, insertString,
+			i+2, i+20002, i+40002, i+60002, insertString, insertString, insertString, insertString,
+			i+3, i+20003, i+40003, i+60003, insertString, insertString, insertString, insertString,
+			i+4, i+20004, i+40004, i+60004, insertString, insertString, insertString, insertString,
+			i+5, i+20005, i+40005, i+60005, insertString, insertString, insertString, insertString,
+			i+6, i+20006, i+40006, i+60006, insertString, insertString, insertString, insertString,
+			i+7, i+20007, i+40007, i+60007, insertString, insertString, insertString, insertString,
+			i+8, i+20008, i+40008, i+60008, insertString, insertString, insertString, insertString,
+			i+9, i+20009, i+40009, i+60009, insertString, insertString, insertString, insertString)
 		cancel()
 		if err != nil {
 			stmt.Close()
@@ -1102,7 +1115,7 @@ func benchmarkSelectSetup(b *testing.B) {
 	}
 
 	// select from table to warm up database cache
-	query = "select A from " + tableName
+	query = "select A, B, C, D, E, F, G, H from " + tableName
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, query)
 	cancel()
@@ -1132,16 +1145,23 @@ func benchmarkSelectSetup(b *testing.B) {
 		}
 	}()
 
-	var data int64
+	var data1 int64
+	var data2 int64
+	var data3 int64
+	var data4 int64
+	var data5 string
+	var data6 string
+	var data7 string
+	var data8 string
 	var count int64
 	for rows.Next() {
-		err = rows.Scan(&data)
+		err = rows.Scan(&data1, &data2, &data3, &data4, &data5, &data6, &data7, &data8)
 		if err != nil {
 			b.Fatal("scan error:", err)
 		}
 		count++
 	}
-	fmt.Printf("select data is %v bytes\n", count*4*8)
+	fmt.Printf("select data is %v bytes\n", (count*4*8)+(count*4*255))
 
 	err = rows.Err()
 	if err != nil {
@@ -1174,7 +1194,7 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 
 	var stmt *sql.Stmt
 	tableName := benchmarkSelectTableName
-	query := "select A from " + tableName
+	query := "select A, B, C, D, E, F, G, H from " + tableName
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = db.PrepareContext(ctx, query)
 	cancel()
@@ -1204,9 +1224,16 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 		}
 	}()
 
-	var data int64
+	var data1 int64
+	var data2 int64
+	var data3 int64
+	var data4 int64
+	var data5 string
+	var data6 string
+	var data7 string
+	var data8 string
 	for ; rows.Next() && *n < b.N; *n++ {
-		err = rows.Scan(&data)
+		err = rows.Scan(&data1, &data2, &data3, &data4, &data5, &data6, &data7, &data8)
 		if err != nil {
 			b.Fatal("scan error:", err)
 		}
@@ -1268,7 +1295,7 @@ func BenchmarkPrefetchR0M4096(b *testing.B) {
 	}
 }
 
-func BenchmarkPrefetchR0M2048(b *testing.B) {
+func BenchmarkPrefetchR1000M0(b *testing.B) {
 	b.StopTimer()
 
 	if TestDisableDatabase || TestDisableDestructive {
@@ -1276,6 +1303,6 @@ func BenchmarkPrefetchR0M2048(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; {
-		benchmarkPrefetchSelect(b, 0, 2048, &n)
+		benchmarkPrefetchSelect(b, 1000, 0, &n)
 	}
 }

@@ -397,7 +397,9 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 
 		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
 			defines[i].dataType = C.SQLT_AFC
-			defines[i].maxSize = C.sb4(maxSize)
+			// For a database with character set to ZHS16GBK the OCI C driver does not seem to report the correct max size, not sure exactly why.
+			// Doubling the max size of the buffer seems to fix the issue, not sure if there is a better fix.
+			defines[i].maxSize = C.sb4(maxSize * 2)
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 
 		case C.SQLT_BIN:

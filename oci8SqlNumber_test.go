@@ -3004,3 +3004,182 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	}
 
 }
+
+// TestNullNumber tests NullFloat64 and NullInt64
+func TestNullNumber(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	query := `
+declare
+	function GET_NUMBER(p_number1 NUMERIC) return NUMERIC as
+	begin
+		if p_number1 is not null then
+			return p_number1;
+		end if;
+		return 11;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var nullFloat1 sql.NullFloat64
+
+	nullFloat1.Float64 = 1
+	nullFloat1.Valid = false
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullFloat1.Valid {
+		t.Fatal("nullFloat1 not Valid")
+	}
+	if nullFloat1.Float64 != 11 {
+		t.Fatal("nullFloat1 not equal to 11")
+	}
+
+	nullFloat1.Float64 = 2
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullFloat1.Valid {
+		t.Fatal("nullFloat1 not Valid")
+	}
+	if nullFloat1.Float64 != 2 {
+		t.Fatal("nullFloat1 not equal to 2")
+	}
+
+	query = `
+declare
+	function GET_NUMBER(p_number1 NUMERIC) return NUMERIC as
+	begin
+		return null;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	nullFloat1.Float64 = 3
+	nullFloat1.Valid = true
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if nullFloat1.Valid {
+		t.Fatal("nullFloat1 is Valid")
+	}
+	if nullFloat1.Float64 != 0 {
+		t.Fatal("nullFloat1 not equal to 0")
+	}
+
+	query = `
+declare
+	function GET_NUMBER(p_number1 NUMERIC) return NUMERIC as
+	begin
+		if p_number1 is not null then
+			return p_number1;
+		end if;
+		return 11;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var nullInt1 sql.NullInt64
+
+	nullInt1.Int64 = 1
+	nullInt1.Valid = false
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullInt1.Valid {
+		t.Fatal("nullInt1 not Valid")
+	}
+	if nullInt1.Int64 != 11 {
+		t.Fatal("nullInt1 not equal to 11")
+	}
+
+	nullInt1.Int64 = 2
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullInt1.Valid {
+		t.Fatal("nullInt1 not Valid")
+	}
+	if nullInt1.Int64 != 2 {
+		t.Fatal("nullInt1 not equal to 2")
+	}
+
+	query = `
+declare
+	function GET_NUMBER(p_number1 NUMERIC) return NUMERIC as
+	begin
+		return null;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	nullInt1.Int64 = 3
+	nullInt1.Valid = true
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if nullInt1.Valid {
+		t.Fatal("nullInt1 is Valid")
+	}
+	if nullInt1.Int64 != 0 {
+		t.Fatal("nullInt1 not equal to 0")
+	}
+}

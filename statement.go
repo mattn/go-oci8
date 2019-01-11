@@ -59,6 +59,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 		argInterface := arg.Value
 		var isOut bool
+		var isNill bool
 		sbind.out, isOut = argInterface.(sql.Out)
 		if isOut {
 			argInterface, err = driver.DefaultParameterConverter.ConvertValue(sbind.out.Dest)
@@ -66,6 +67,21 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				binds = append(binds, sbind)
 				freeBinds(binds)
 				return nil, err
+			}
+			switch argInterface.(type) {
+			case nil:
+				isNill = true
+				argInterface = sbind.out.Dest
+				switch argInterface.(type) {
+				case *sql.NullBool:
+					argInterface = false
+				case *sql.NullFloat64:
+					argInterface = float64(0)
+				case *sql.NullInt64:
+					argInterface = int64(0)
+				case *sql.NullString:
+					argInterface = ""
+				}
 			}
 		}
 
@@ -83,7 +99,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				sbind.dataType = C.SQLT_BIN
 				sbind.pbuf = unsafe.Pointer(cByteN(argValue, 32768))
 				sbind.maxSize = 32767
-				if sbind.out.In {
+				if sbind.out.In && !isNill {
 					*sbind.length = C.ub2(len(argValue))
 				} else {
 					*sbind.indicator = -1 // set to null
@@ -201,7 +217,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				sbind.dataType = C.SQLT_CHR
 				sbind.pbuf = unsafe.Pointer(cStringN(argValue, 32768))
 				sbind.maxSize = 32767
-				if sbind.out.In {
+				if sbind.out.In && !isNill {
 					*sbind.length = C.ub2(len(argValue))
 				} else {
 					*sbind.indicator = -1 // set to null
@@ -224,6 +240,9 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		case float32, float64:
 			buffer := bytes.Buffer{}
@@ -235,6 +254,9 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		case bool: // oracle does not have bool, handle as 0/1 int
 			sbind.dataType = C.SQLT_INT
@@ -245,6 +267,9 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			}
 			sbind.maxSize = 1
 			*sbind.length = 1
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		default:
 			if isOut {
@@ -640,7 +665,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 
 	for i, bind := range binds {
 		if bind.pbuf != nil {
-			switch v := bind.out.Dest.(type) {
+			switch dest := bind.out.Dest.(type) {
 			case *string:
 				switch {
 				case *bind.indicator > 0: // indicator variable is the actual length before truncation
@@ -648,41 +673,71 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					if spaces < 0 {
 						return fmt.Errorf("spaces less than 0 for column %v", i)
 					}
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
 				case *bind.indicator == 0: // Normal
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = "" // best attempt at Go nil string
+					*dest = "" // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					// TODO: should this be an error?
+				default:
+					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
+				}
+			case *sql.NullString:
+				switch {
+				case *bind.indicator > 0: // indicator variable is the actual length before truncation
+					spaces := int(*bind.indicator) - int(*bind.length)
+					if spaces < 0 {
+						return fmt.Errorf("spaces less than 0 for column %v", i)
+					}
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
+					dest.Valid = true
+				case *bind.indicator == 0: // Normal
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					dest.Valid = true
+				case *bind.indicator == -1: // The selected value is null
+					dest.String = ""
+					dest.Valid = false
+				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					dest.Valid = true
 					// TODO: should this be an error?
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
 				}
 
 			case *int:
-				*v = int(getInt64(bind.pbuf))
+				*dest = int(getInt64(bind.pbuf))
 			case *int64:
-				*v = getInt64(bind.pbuf)
+				*dest = getInt64(bind.pbuf)
 			case *int32:
-				*v = int32(getInt64(bind.pbuf))
+				*dest = int32(getInt64(bind.pbuf))
 			case *int16:
-				*v = int16(getInt64(bind.pbuf))
+				*dest = int16(getInt64(bind.pbuf))
 			case *int8:
-				*v = int8(getInt64(bind.pbuf))
+				*dest = int8(getInt64(bind.pbuf))
+			case *sql.NullInt64:
+				if *bind.indicator == -1 {
+					dest.Int64 = 0
+					dest.Valid = false
+				} else {
+					dest.Int64 = getInt64(bind.pbuf)
+					dest.Valid = true
+				}
 
 			case *uint:
-				*v = uint(getUint64(bind.pbuf))
+				*dest = uint(getUint64(bind.pbuf))
 			case *uint64:
-				*v = getUint64(bind.pbuf)
+				*dest = getUint64(bind.pbuf)
 			case *uint32:
-				*v = uint32(getUint64(bind.pbuf))
+				*dest = uint32(getUint64(bind.pbuf))
 			case *uint16:
-				*v = uint16(getUint64(bind.pbuf))
+				*dest = uint16(getUint64(bind.pbuf))
 			case *uint8:
-				*v = uint8(getUint64(bind.pbuf))
+				*dest = uint8(getUint64(bind.pbuf))
 			case *uintptr:
-				*v = uintptr(getUint64(bind.pbuf))
+				*dest = uintptr(getUint64(bind.pbuf))
 
 			case *float64:
 				buf := (*[8]byte)(bind.pbuf)[0:8]
@@ -691,7 +746,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				if err != nil {
 					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-				*v = data
+				*dest = data
 			case *float32:
 				// statment is using SQLT_BDOUBLE to bind
 				// need to read as float64 because of the 8 bits
@@ -701,11 +756,34 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				if err != nil {
 					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-				*v = float32(data)
+				*dest = float32(data)
+			case *sql.NullFloat64:
+				if *bind.indicator == -1 {
+					dest.Float64 = 0
+					dest.Valid = false
+				} else {
+					buf := (*[8]byte)(bind.pbuf)[0:8]
+					var data float64
+					err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+					if err != nil {
+						return fmt.Errorf("binary read for column %v - error: %v", i, err)
+					}
+					dest.Float64 = data
+					dest.Valid = true
+				}
 
 			case *bool:
 				buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
-				*v = buf[0] != 0
+				*dest = buf[0] != 0
+			case *sql.NullBool:
+				if *bind.indicator == -1 {
+					dest.Bool = false
+					dest.Valid = false
+				} else {
+					buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
+					dest.Bool = buf[0] != 0
+					dest.Valid = true
+				}
 
 			case *[]byte:
 				switch {
@@ -713,13 +791,13 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					if int(*bind.indicator)-int(*bind.length) < 0 {
 						return fmt.Errorf("spaces less than 0 for column %v", i)
 					}
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
 				case *bind.indicator == 0: // Normal
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = nil
+					*dest = nil
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
 					// TODO: should this be an error?
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)

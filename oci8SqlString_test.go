@@ -3078,3 +3078,96 @@ end;`
 	execResults.execResults = execResultRawRemoveFront32767
 	testRunExecResults(t, execResults)
 }
+
+// TestNullString tests NullString
+func TestNullString(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	query := `
+declare
+	function GET_STRING(p_string1 VARCHAR2) return VARCHAR2 as
+	begin
+		if p_string1 is not null then
+			return p_string1;
+		end if;
+		return 'null';
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var nullString1 sql.NullString
+
+	nullString1.String = "a"
+	nullString1.Valid = false
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("string1", sql.Out{Dest: &nullString1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullString1.Valid {
+		t.Fatal("nullString1 not Valid")
+	}
+	if nullString1.String != "null" {
+		t.Fatal("nullString1 not equal to null")
+	}
+
+	nullString1.String = "b"
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("string1", sql.Out{Dest: &nullString1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullString1.Valid {
+		t.Fatal("nullString1 not Valid")
+	}
+	if nullString1.String != "b" {
+		t.Fatal("nullString1 not equal to b")
+	}
+
+	query = `
+declare
+	function GET_STRING(p_string1 VARCHAR2) return VARCHAR2 as
+	begin
+		return null;
+	end GET_STRING;
+begin
+	:string1 := GET_STRING(:string1);
+end;`
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	nullString1.String = "c"
+	nullString1.Valid = true
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("string1", sql.Out{Dest: &nullString1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if nullString1.Valid {
+		t.Fatal("nullString1 is Valid")
+	}
+	if nullString1.String != "" {
+		t.Fatal("nullString1 not empty")
+	}
+}

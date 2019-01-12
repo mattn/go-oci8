@@ -92,7 +92,7 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		pbind  []oci8Bind //bind params
+		pbind  []oci8Bind // bind params
 	}
 
 	// OCI8Result is Oracle result
@@ -121,7 +121,7 @@ type (
 		length     *C.ub2
 		indicator  *C.sb2
 		bindHandle *C.OCIBind
-		out        interface{} // original binded data type
+		out        sql.Out
 	}
 
 	// OCI8Rows is Oracle rows

@@ -6,6 +6,7 @@ import "C"
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
@@ -48,28 +49,43 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 	var binds []oci8Bind
 	var err error
-	var outIn bool
 
-	for i, uv := range args {
+	for i, arg := range args {
 		var sbind oci8Bind
 		sbind.length = (*C.ub2)(C.malloc(C.sizeof_ub2))
 		*sbind.length = 0
 		sbind.indicator = (*C.sb2)(C.malloc(C.sizeof_sb2))
 		*sbind.indicator = 0
 
-		vv := uv.Value
-		if out, ok := handleOutput(vv); ok {
-			sbind.out = out.Dest
-			outIn = out.In
-			vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
+		argInterface := arg.Value
+		var isOut bool
+		var isNill bool
+		sbind.out, isOut = argInterface.(sql.Out)
+		if isOut {
+			argInterface, err = driver.DefaultParameterConverter.ConvertValue(sbind.out.Dest)
 			if err != nil {
 				binds = append(binds, sbind)
 				freeBinds(binds)
 				return nil, err
 			}
+			switch argInterface.(type) {
+			case nil:
+				isNill = true
+				argInterface = sbind.out.Dest
+				switch argInterface.(type) {
+				case *sql.NullBool:
+					argInterface = false
+				case *sql.NullFloat64:
+					argInterface = float64(0)
+				case *sql.NullInt64:
+					argInterface = int64(0)
+				case *sql.NullString:
+					argInterface = ""
+				}
+			}
 		}
 
-		switch v := vv.(type) {
+		switch argValue := argInterface.(type) {
 
 		case nil:
 			sbind.dataType = C.SQLT_AFC
@@ -78,22 +94,22 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			*sbind.indicator = -1 // set to null
 
 		case []byte:
-			if sbind.out != nil {
+			if isOut {
 
 				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByteN(v, 32768))
+				sbind.pbuf = unsafe.Pointer(cByteN(argValue, 32768))
 				sbind.maxSize = 32767
-				if !outIn {
-					*sbind.indicator = -1 // set to null
+				if sbind.out.In && !isNill {
+					*sbind.length = C.ub2(len(argValue))
 				} else {
-					*sbind.length = C.ub2(len(v))
+					*sbind.indicator = -1 // set to null
 				}
 
 			} else {
 				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByte(v))
-				sbind.maxSize = C.sb4(len(v))
-				*sbind.length = C.ub2(len(v))
+				sbind.pbuf = unsafe.Pointer(cByte(argValue))
+				sbind.maxSize = C.sb4(len(argValue))
+				*sbind.length = C.ub2(len(argValue))
 			}
 
 		case time.Time:
@@ -106,12 +122,13 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			var timestampP *unsafe.Pointer
 			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
 			if err != nil {
+				binds = append(binds, sbind)
 				freeBinds(binds)
 				return nil, err
 			}
 			pt := unsafe.Pointer(timestampP)
 
-			zone, offset := v.Zone()
+			zone, offset := argValue.Zone()
 			size := len(zone)
 			if size < 16 {
 				size = 16
@@ -125,13 +142,13 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				unsafe.Pointer(stmt.conn.env),
 				stmt.conn.errHandle,
 				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-				C.sb2(v.Year()),
-				C.ub1(v.Month()),
-				C.ub1(v.Day()),
-				C.ub1(v.Hour()),
-				C.ub1(v.Minute()),
-				C.ub1(v.Second()),
-				C.ub4(v.Nanosecond()),
+				C.sb2(argValue.Year()),
+				C.ub1(argValue.Month()),
+				C.ub1(argValue.Day()),
+				C.ub1(argValue.Hour()),
+				C.ub1(argValue.Minute()),
+				C.ub1(argValue.Second()),
+				C.ub4(argValue.Nanosecond()),
 				zoneText,
 				C.size_t(len(zone)),
 			)
@@ -175,13 +192,13 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 					unsafe.Pointer(stmt.conn.env),
 					stmt.conn.errHandle,
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-					C.sb2(v.Year()),
-					C.ub1(v.Month()),
-					C.ub1(v.Day()),
-					C.ub1(v.Hour()),
-					C.ub1(v.Minute()),
-					C.ub1(v.Second()),
-					C.ub4(v.Nanosecond()),
+					C.sb2(argValue.Year()),
+					C.ub1(argValue.Month()),
+					C.ub1(argValue.Day()),
+					C.ub1(argValue.Hour()),
+					C.ub1(argValue.Minute()),
+					C.ub1(argValue.Second()),
+					C.ub4(argValue.Nanosecond()),
 					zoneText,
 					C.size_t(len(zone)),
 				)
@@ -195,27 +212,27 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
 		case string:
-			if sbind.out != nil {
+			if isOut {
 
 				sbind.dataType = C.SQLT_CHR
-				sbind.pbuf = unsafe.Pointer(cStringN(v, 32768))
+				sbind.pbuf = unsafe.Pointer(cStringN(argValue, 32768))
 				sbind.maxSize = 32767
-				if !outIn {
-					*sbind.indicator = -1 // set to null
+				if sbind.out.In && !isNill {
+					*sbind.length = C.ub2(len(argValue))
 				} else {
-					*sbind.length = C.ub2(len(v))
+					*sbind.indicator = -1 // set to null
 				}
 
 			} else {
 				sbind.dataType = C.SQLT_AFC
-				sbind.pbuf = unsafe.Pointer(C.CString(v))
-				sbind.maxSize = C.sb4(len(v))
-				*sbind.length = C.ub2(len(v))
+				sbind.pbuf = unsafe.Pointer(C.CString(argValue))
+				sbind.maxSize = C.sb4(len(argValue))
+				*sbind.length = C.ub2(len(argValue))
 			}
 
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
 			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, v)
+			err = binary.Write(&buffer, binary.LittleEndian, argValue)
 			if err != nil {
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
@@ -223,10 +240,13 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		case float32, float64:
 			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, v)
+			err = binary.Write(&buffer, binary.LittleEndian, argValue)
 			if err != nil {
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
@@ -234,19 +254,25 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
 			sbind.maxSize = C.sb4(buffer.Len())
 			*sbind.length = C.ub2(buffer.Len())
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		case bool: // oracle does not have bool, handle as 0/1 int
 			sbind.dataType = C.SQLT_INT
-			if v {
+			if argValue {
 				sbind.pbuf = unsafe.Pointer(cByte([]byte{1}))
 			} else {
 				sbind.pbuf = unsafe.Pointer(cByte([]byte{0}))
 			}
 			sbind.maxSize = 1
 			*sbind.length = 1
+			if isOut && sbind.out.In && isNill {
+				*sbind.indicator = -1 // set to null
+			}
 
 		default:
-			if sbind.out != nil {
+			if isOut {
 				// TODO: should this error instead of setting to null?
 				sbind.dataType = C.SQLT_AFC
 				sbind.pbuf = nil
@@ -254,7 +280,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				*sbind.length = 0
 				*sbind.indicator = -1 // set to null
 			} else {
-				d := fmt.Sprintf("%v", v)
+				d := fmt.Sprintf("%v", argValue)
 				sbind.dataType = C.SQLT_AFC
 				sbind.pbuf = unsafe.Pointer(C.CString(d))
 				sbind.maxSize = C.sb4(len(d))
@@ -265,8 +291,8 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 		// add to binds now so if error will be freed by freeBinds call
 		binds = append(binds, sbind)
 
-		if uv.Name != "" {
-			err = stmt.ociBindByName([]byte(":"+uv.Name), &sbind)
+		if arg.Name != "" {
+			err = stmt.ociBindByName([]byte(":"+arg.Name), &sbind)
 		} else {
 			err = stmt.ociBindByPos(C.ub4(i+1), &sbind)
 		}
@@ -639,7 +665,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 
 	for i, bind := range binds {
 		if bind.pbuf != nil {
-			switch v := bind.out.(type) {
+			switch dest := bind.out.Dest.(type) {
 			case *string:
 				switch {
 				case *bind.indicator > 0: // indicator variable is the actual length before truncation
@@ -647,41 +673,71 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					if spaces < 0 {
 						return fmt.Errorf("spaces less than 0 for column %v", i)
 					}
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
 				case *bind.indicator == 0: // Normal
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = "" // best attempt at Go nil string
+					*dest = "" // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
-					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					// TODO: should this be an error?
+				default:
+					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
+				}
+			case *sql.NullString:
+				switch {
+				case *bind.indicator > 0: // indicator variable is the actual length before truncation
+					spaces := int(*bind.indicator) - int(*bind.length)
+					if spaces < 0 {
+						return fmt.Errorf("spaces less than 0 for column %v", i)
+					}
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
+					dest.Valid = true
+				case *bind.indicator == 0: // Normal
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					dest.Valid = true
+				case *bind.indicator == -1: // The selected value is null
+					dest.String = ""
+					dest.Valid = false
+				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
+					dest.String = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					dest.Valid = true
 					// TODO: should this be an error?
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
 				}
 
 			case *int:
-				*v = int(getInt64(bind.pbuf))
+				*dest = int(getInt64(bind.pbuf))
 			case *int64:
-				*v = getInt64(bind.pbuf)
+				*dest = getInt64(bind.pbuf)
 			case *int32:
-				*v = int32(getInt64(bind.pbuf))
+				*dest = int32(getInt64(bind.pbuf))
 			case *int16:
-				*v = int16(getInt64(bind.pbuf))
+				*dest = int16(getInt64(bind.pbuf))
 			case *int8:
-				*v = int8(getInt64(bind.pbuf))
+				*dest = int8(getInt64(bind.pbuf))
+			case *sql.NullInt64:
+				if *bind.indicator == -1 {
+					dest.Int64 = 0
+					dest.Valid = false
+				} else {
+					dest.Int64 = getInt64(bind.pbuf)
+					dest.Valid = true
+				}
 
 			case *uint:
-				*v = uint(getUint64(bind.pbuf))
+				*dest = uint(getUint64(bind.pbuf))
 			case *uint64:
-				*v = getUint64(bind.pbuf)
+				*dest = getUint64(bind.pbuf)
 			case *uint32:
-				*v = uint32(getUint64(bind.pbuf))
+				*dest = uint32(getUint64(bind.pbuf))
 			case *uint16:
-				*v = uint16(getUint64(bind.pbuf))
+				*dest = uint16(getUint64(bind.pbuf))
 			case *uint8:
-				*v = uint8(getUint64(bind.pbuf))
+				*dest = uint8(getUint64(bind.pbuf))
 			case *uintptr:
-				*v = uintptr(getUint64(bind.pbuf))
+				*dest = uintptr(getUint64(bind.pbuf))
 
 			case *float64:
 				buf := (*[8]byte)(bind.pbuf)[0:8]
@@ -690,7 +746,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				if err != nil {
 					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-				*v = data
+				*dest = data
 			case *float32:
 				// statment is using SQLT_BDOUBLE to bind
 				// need to read as float64 because of the 8 bits
@@ -700,11 +756,34 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				if err != nil {
 					return fmt.Errorf("binary read for column %v - error: %v", i, err)
 				}
-				*v = float32(data)
+				*dest = float32(data)
+			case *sql.NullFloat64:
+				if *bind.indicator == -1 {
+					dest.Float64 = 0
+					dest.Valid = false
+				} else {
+					buf := (*[8]byte)(bind.pbuf)[0:8]
+					var data float64
+					err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+					if err != nil {
+						return fmt.Errorf("binary read for column %v - error: %v", i, err)
+					}
+					dest.Float64 = data
+					dest.Valid = true
+				}
 
 			case *bool:
 				buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
-				*v = buf[0] != 0
+				*dest = buf[0] != 0
+			case *sql.NullBool:
+				if *bind.indicator == -1 {
+					dest.Bool = false
+					dest.Valid = false
+				} else {
+					buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
+					dest.Bool = buf[0] != 0
+					dest.Valid = true
+				}
 
 			case *[]byte:
 				switch {
@@ -712,13 +791,13 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					if int(*bind.indicator)-int(*bind.length) < 0 {
 						return fmt.Errorf("spaces less than 0 for column %v", i)
 					}
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
 				case *bind.indicator == 0: // Normal
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = nil
+					*dest = nil
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
-					*v = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
 					// TODO: should this be an error?
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)

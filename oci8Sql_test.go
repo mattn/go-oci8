@@ -953,6 +953,100 @@ func TestInsertRowid(t *testing.T) {
 
 }
 
+// TestNullBool tests NullBool
+func TestNullBool(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	query := `
+declare
+	function GET_BOOL(p_bool1 NUMERIC) return NUMERIC as
+	begin
+		if p_bool1 is null then
+			return 1;
+		end if;
+		return 0;
+	end GET_BOOL;
+begin
+	:bool1 := GET_BOOL(:bool1);
+end;`
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var nullBool1 sql.NullBool
+
+	nullBool1.Bool = false
+	nullBool1.Valid = false
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("bool1", sql.Out{Dest: &nullBool1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullBool1.Valid {
+		t.Fatal("nullBool1 not Valid")
+	}
+	if !nullBool1.Bool {
+		t.Fatal("nullBool1 is false")
+	}
+
+	nullBool1.Bool = true
+	nullBool1.Valid = true
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("bool1", sql.Out{Dest: &nullBool1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !nullBool1.Valid {
+		t.Fatal("nullBool1 not Valid")
+	}
+	if nullBool1.Bool {
+		t.Fatal("nullBool1 is true")
+	}
+
+	query = `
+declare
+	function GET_BOOL(p_bool1 NUMERIC) return NUMERIC as
+	begin
+		return null;
+	end GET_BOOL;
+begin
+	:bool1 := GET_BOOL(:bool1);
+end;`
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	nullBool1.Bool = true
+	nullBool1.Valid = true
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err = stmt.ExecContext(ctx, sql.Named("bool1", sql.Out{Dest: &nullBool1, In: true}))
+	cancel()
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if nullBool1.Valid {
+		t.Fatal("nullBool1 is Valid")
+	}
+	if nullBool1.Bool {
+		t.Fatal("nullBool1 is true")
+	}
+}
+
 func BenchmarkSimpleInsert(b *testing.B) {
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()

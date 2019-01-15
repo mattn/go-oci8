@@ -15,18 +15,7 @@ import (
 
 // to run database tests
 // go test -v github.com/mattn/go-oci8 -args -disableDatabase=false -hostValid type_hostname_here -username type_username_here -password "type_password_here"
-// note minimum Go version for testing is 1.8
-
-/*
-note that testing needs an Oracle user and the following:
-
-create or replace function TYPE_USER_HERE.SLEEP_SECONDS (p_seconds number) return integer is
-begin
-  dbms_lock.sleep(p_seconds);
-  return 1;
-end SLEEP_SECONDS;
-/
-*/
+// look at test.sh for Oracle user setup example
 
 var (
 	TestDisableDatabase      bool

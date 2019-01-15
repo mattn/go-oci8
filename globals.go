@@ -171,13 +171,13 @@ func init() {
 OCI Documentation Notes
 
 Datatypes:
-https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#CEGIEEJI
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/data-types.html
 
 Handle and Descriptor Attributes:
-https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociaahan.htm#i442199
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/handle-and-descriptor-attributes.html
 
 OCI Function Server Round Trips:
-https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/ociacrou.htm#g430405
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
 
 OCI examples:
 https://github.com/alexeyvo/oracle_oci_examples

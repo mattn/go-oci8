@@ -33,6 +33,8 @@ import (
 // prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 4096. A 0 means unlimited memory.
 //
 // questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
+//
+// prefetch_lob_size - *For testing, use at your own risk* - When greater than 0 sets prefetch lob size to number provided (OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn = &DSN{Location: time.Local}
@@ -105,6 +107,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 				return nil, fmt.Errorf("invalid prefetch_memory: %v", v[0])
 			}
 			dsn.prefetchMemory = C.ub4(z)
+		case "prefetch_lob_size":
+			z, err := strconv.ParseUint(v[0], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefetch_lob_size: %v", v[0])
+			}
+			dsn.prefetchLobSize = C.ub4(z)
 		case "as":
 			switch v[0] {
 			case "SYSDBA", "sysdba":
@@ -309,6 +317,14 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			}
 
 			credentialType = C.OCI_CRED_RDBMS
+		}
+
+		if dsn.prefetchLobSize > 0 {
+			prefetchLobSize := dsn.prefetchLobSize
+			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(&prefetchLobSize), 0, C.OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		result = C.OCISessionBegin(

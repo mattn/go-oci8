@@ -33,6 +33,7 @@ type (
 		Password               string
 		prefetchRows           C.ub4
 		prefetchMemory         C.ub4
+		prefetchLobSize        C.ub4
 		Location               *time.Location
 		transactionMode        C.ub4
 		enableQMPlaceholders   bool

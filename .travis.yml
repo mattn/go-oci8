@@ -6,8 +6,8 @@ services:
 language: bash
 
 before_install:
-  - docker pull alexeiled/docker-oracle-xe-11g 2>&1 > /dev/null
-  - docker run -d -p 1521:1521 -p 8080:8080 alexeiled/docker-oracle-xe-11g
+  - docker pull wnameless/oracle-xe-11g
+  - docker run -d wnameless/oracle-xe-11g
 
 script:
-  - docker run --rm -i -e TESTDIR=$(pwd) -v $(pwd):$(pwd) alexeiled/docker-oracle-xe-11g /bin/bash < test.sh
+  - docker run --rm -i -e TESTDIR=$(pwd) -v $(pwd):$(pwd) wnameless/oracle-xe-11g /bin/bash < test.sh

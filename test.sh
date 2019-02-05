@@ -2,23 +2,22 @@
 set -e
 
 echo "installing build tools"
-apt-get -qq -y update 2>&1 > /dev/null
-apt-get -qq -y install git pkg-config gcc 2>&1 > /dev/null
+apt-get -qq -y update  2>&1 > /dev/null
+apt-get -qq -y install git pkg-config gcc wget  2>&1 > /dev/null
 
 
 echo "installing go"
-export PATH_SAVE=${PATH}
 cd /tmp/
-wget -nv https://dl.google.com/go/go1.11.4.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.10.7.linux-amd64.tar.gz
+wget -nv https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz
+wget -nv https://dl.google.com/go/go1.10.8.linux-amd64.tar.gz
 wget -nv https://dl.google.com/go/go1.9.7.linux-amd64.tar.gz
 
 mkdir -p /usr/local/goFiles1.11.x
-tar -xf /tmp/go1.11.4.linux-amd64.tar.gz
+tar -xf /tmp/go1.11.5.linux-amd64.tar.gz
 mv /tmp/go /usr/local/go1.11.x
 
 mkdir -p /usr/local/goFiles1.10.x
-tar -xf /tmp/go1.10.7.linux-amd64.tar.gz
+tar -xf /tmp/go1.10.8.linux-amd64.tar.gz
 mv /tmp/go /usr/local/go1.10.x
 
 mkdir -p /usr/local/goFiles1.9.x
@@ -26,16 +25,21 @@ tar -xf /tmp/go1.9.7.linux-amd64.tar.gz
 mv /tmp/go /usr/local/go1.9.x
 
 
+echo "starting Oracle"
+/usr/sbin/startup.sh
+
+
 echo "setting up Oracle"
 export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
-export LD_LIBRARY_PATH=/u01/app/oracle/product/11.2.0/xe/lib
+export PATH=$ORACLE_HOME/bin:$PATH
 export ORACLE_SID=XE
+export LD_LIBRARY_PATH=/u01/app/oracle/product/11.2.0/xe/lib
 
-DOCKER_IP=$(ip route | awk 'NR==1 {print $3}')
+DOCKER_IP=$(ifconfig eth0 | awk '/inet / { printf $2; exit }')
 
-${ORACLE_HOME}/bin/tnsping ${DOCKER_IP}
+tnsping ${DOCKER_IP}
 
-${ORACLE_HOME}/bin/sqlplus -L -S "sys/oracle@${DOCKER_IP}:1521 as sysdba" <<SQL
+sqlplus -L -S "sys/oracle@${DOCKER_IP}:1521 as sysdba" <<SQL
 CREATE USER scott IDENTIFIED BY tiger DEFAULT TABLESPACE users TEMPORARY TABLESPACE temp;
 GRANT connect, resource, create view, create synonym TO scott;
 GRANT execute ON SYS.DBMS_LOCK TO scott;
@@ -48,6 +52,7 @@ end SLEEP_SECONDS;
 
 SQL
 
+
 echo "creating oci8.pc"
 mkdir -p /usr/local/pkg_config
 cd /usr/local/pkg_config
@@ -59,6 +64,9 @@ Version: 11.1
 Cflags: -I${ORACLE_HOME}/rdbms/public
 Libs: -L${ORACLE_HOME}/lib -Wl,-rpath,${ORACLE_HOME}/lib -lclntsh
 PKGCONFIG
+
+
+export PATH_SAVE=${PATH}
 
 
 echo "testing go-oci8 Go 1.11.x"

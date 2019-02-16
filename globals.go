@@ -118,10 +118,11 @@ type (
 		dataType   C.ub2
 		pbuf       unsafe.Pointer
 		maxSize    C.sb4
-		length     *C.ub2
-		indicator  *C.sb2
+		length     *C.ub2 // for batch (array bind) mode, this is the OCI parameter "alenp", which needs to be a ptr to an array of actual lengths, one per col value.
+		indicator  *C.sb2 // for batch (array bind) mode, this is the array of flags that tells OCI whether a value is null (for example, specify -1 to cause a null to be inserted)
 		bindHandle *C.OCIBind
 		out        interface{} // original binded data type
+		iters      int         // store number of values held in pbuf (also matches the len of length when it is an array for batch binding).
 	}
 
 	// OCI8Rows is Oracle rows

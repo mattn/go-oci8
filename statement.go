@@ -799,11 +799,11 @@ func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, bind *oci8Bind) error {
 		&bind.bindHandle,               // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
 		stmt.conn.errHandle,            // An error handle
 		position,                       // The placeholder attributes are specified by position if OCIBindByPos() is being called.
-		bind.pbuf,                      // An address of a data value or an array of data values
+		bind.pbuf,                      // void* valuep - An address of a data value or an array of data values
 		bind.maxSize,                   // The maximum size possible in bytes of any data value for this bind variable
 		bind.dataType,                  // The data type of the values being bound
 		unsafe.Pointer(bind.indicator), // Pointer to an indicator variable or array
-		bind.length,                    // lengths are in bytes in general
+		bind.length,                    // ub2* alenp - lengths are in bytes in general - pointer to an array of actual array length elements
 		nil,                            // Pointer to the array of column-level return codes
 		0,                              // A maximum array length parameter
 		nil,                            // Current array length parameter

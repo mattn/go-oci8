@@ -47,11 +47,14 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	// TODO: find a way to track mallocs since we don't append sbind to pbind until later on below.
 	// therefore we may end up not freeing these mallocs.
 	// add to stmt.pbind now so if error will be freed by freeBinds call
-	doFreeBind := true // assume worst case and toggle freeBind() on via defer func.
+	doFreeSBind := true // assume worst case and toggle freeBind() on via defer func.
+	doFreePBind := true
 	var sbind oci8Bind
 	defer func() {
-		if doFreeBind {
+		if doFreeSBind {
 			freeBind(&sbind)      // free any mallocs done in this func before sbind is appended to stmt.pbind.
+		}
+		if doFreePBind {
 			freeBinds(stmt.pbind) // and free any previously bound columns.
 		}
 	}()
@@ -88,7 +91,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 		}
 		ptrInd[idx] = C.sb2(0)      // use -1 to specify a null.
 		ptrLen[idx] = C.ub2(len(v)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
-		fmt.Printf("idx = %v; char = %v; len = %v\n", idx+1, v, ptrLen[idx])
+		// fmt.Printf("idx = %v; char = %v; len = %v\n", idx+1, v, ptrLen[idx])
 		return nil
 	}
 	// Process the batch.
@@ -260,6 +263,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 			}
 			if v {
 				err = binary.Write(&buffer, binary.LittleEndian, int8(1))
+				// buffer.Write([1]byte{1}[:])
 			} else {
 				err = binary.Write(&buffer, binary.LittleEndian, int8(0))
 			}
@@ -280,7 +284,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	}
 	sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes())) // original mattn malloc. this will malloc and store in memory (needs freeing later)  // TODO: how can we avoid double copy of data?
 	stmt.pbind = append(stmt.pbind, sbind)             // save sbind so we free the allocated store later.
-
+	doFreeSBind = false
 	// Richard Lloyd - disable bind by name for array binds.
 	// if uv.Name != "" {
 	// 	err = stmt.ociBindByName([]byte(":"+uv.Name), &sbind)
@@ -290,10 +294,10 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 
 	err = stmt.ociBindByPos(C.ub4(position+1), &sbind)
 	if err != nil {
-		freeBinds(stmt.pbind)
+		// Freeing binds will be done by earlier defer().
 		return err
 	} else { // else there was no error so we should keep the malloc'ed data until batch is executed.
-		doFreeBind = false
+		doFreePBind = false
 	}
 	return nil
 }

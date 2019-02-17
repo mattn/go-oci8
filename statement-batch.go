@@ -35,13 +35,13 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	// TODO: remove use of namedValue here as it's not fully used in this func.
 	// Why are we making a slice of namedValue and filling it from the vals?
 	// just to add the ordinal index? where is the index used?
-	nv := make([]namedValue, len(vals), len(vals))
-	for i, v := range vals {
-		nv[i] = namedValue{
-			Ordinal: i + 1,
-			Value:   v.Value,
-		}
-	}
+	// nv := make([]namedValue, len(vals), len(vals))
+	// for i, v := range vals {
+	// 	nv[i] = namedValue{
+	// 		Ordinal: i + 1,
+	// 		Value:   v.Value,
+	// 	}
+	// }
 
 	// Setup a new sbind with correct length array preallocated (and indexable) ready for data about each value in this column.
 	// TODO: find a way to track mallocs since we don't append sbind to pbind until later on below.
@@ -51,11 +51,11 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	var sbind oci8Bind
 	defer func() {
 		if doFreeBind {
-			freeBind(sbind) // free any mallocs done in this func before sbind is appended to stmt.pbind.
-			freeBinds(stmt.pbind)  // and free any previously bound columns.
+			freeBind(&sbind)      // free any mallocs done in this func before sbind is appended to stmt.pbind.
+			freeBinds(stmt.pbind) // and free any previously bound columns.
 		}
 	}()
-	// Allocate storage for full column set of values
+	// Allocate storage for the full column batch of values.
 	sbind.length = (*C.ub2)(C.malloc(C.size_t(int(C.sizeof_sb2) * len(vals)))) // allocate an array of c.ub2, one element per col value held in the buffer.
 	ptrLen := (*[1 << 30]C.ub2)(unsafe.Pointer(sbind.length))                  // cast length to void* and then to a ptr of [1073741824]c.ub2 so we can index the array later.
 	sbind.indicator = (*C.sb2)(C.malloc(C.size_t(int(C.sizeof_sb2) * len(vals))))
@@ -63,7 +63,35 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	sbind.iters = len(vals)
 	sbind.maxSize = 0 // set maxSize = 0 for the case where all col values are null.
 	buffer := bytes.Buffer{}
-	foundColType := true
+	foundColType := false
+	// Func for handling string type in multiple places.
+	handleString := func(idx int, v string) error {
+		// TODO: confirm there aren't stored up problems around char set conversion - check unicode chars are written to the databsae okay considering NLS settings as well!
+		if !foundColType {
+			sbind.dataType = C.SQLT_AFC // SQLT_AFC is type CHAR (not varchar2) - why is this okay?
+			for idy := idx; idy < len(vals); idy++ { // for each remaining value in batch...
+				// Find the maximum string len in the batch.
+				// OCI seems to use sbind.maxsize to increment through the data array (sbind.pbuf, i.e. valuep).
+				// The array of lengths is used to read within each data array element.
+				l := C.sb4(len(vals[idy].Value.(string)))
+				if l > sbind.maxSize { // if we have a new maxsize...
+					sbind.maxSize = l // save the new size.
+				}
+			}
+			foundColType = true
+		}
+		b := make([]byte, sbind.maxSize, sbind.maxSize) // make a byte slice the width of the max string in this batch.
+		copy(b, v)                                      // copy v in leaving trailing junk
+		_, err2 := buffer.Write(b)
+		if err2 != nil {
+			return fmt.Errorf("binary write for column %v - error: %v", position, err2)
+		}
+		ptrInd[idx] = C.sb2(0)      // use -1 to specify a null.
+		ptrLen[idx] = C.ub2(len(v)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		fmt.Printf("idx = %v; char = %v; len = %v\n", idx+1, v, ptrLen[idx])
+		return nil
+	}
+	// Process the batch.
 	for idx, nv := range vals { // for each column value...
 		// Set the C length and indicator array elements, and write to a Golang buffer.
 		// Assume the column data type from the first non nil value seen.
@@ -94,10 +122,11 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 			// fmt.Println("reflect size of v = ", reflect.TypeOf(v).Size())
 			// fmt.Println("bytes = ", buffer.Bytes())
 		case []byte:
+			// TODO: test this!
 			if !foundColType {
 				sbind.dataType = C.SQLT_BIN
 				sz := reflect.TypeOf(v).Size()
-				if sbind.maxSize < sz {
+				if sbind.maxSize < C.sb4(sz) {
 					sbind.maxSize = C.sb4(sz)
 				}
 				foundColType = true
@@ -108,8 +137,7 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 				return fmt.Errorf("binary write for column %v - error: %v", position, err)
 			}
 			// Set the indicator and length for this idx.
-			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
-			// TODO: test loading of BLOB []byte greater than size 2^16 bytes as implied by type C.ub2.
+			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.  // TODO: test loading of BLOB []byte greater than size 2^16 bytes as implied by type C.ub2.
 			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
 		case time.Time:
 			if !foundColType {
@@ -147,15 +175,15 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 				zoneText,
 				C.size_t(len(zone)),
 			)
-			if rv != C.OCI_SUCCESS {  // if we failed...
+			if rv != C.OCI_SUCCESS { // if we failed...
 				tryAgain = true
-			} else {  // else we're okay so double-check if Oracle timezone offset is same...
+			} else { // else we're okay so double-check if Oracle timezone offset is same...
 				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
 					stmt.conn.env,
 					stmt.conn.errHandle,
 					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
-				if rvz.rv != C.OCI_SUCCESS {  // if we failed...
-					// freeing sbind and pbind will be done by ealier defer().
+				if rvz.rv != C.OCI_SUCCESS { // if we failed...
+					// Freeing sbind and pbind will be done by ealier defer().
 					return stmt.conn.getError(rvz.rv)
 				}
 				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
@@ -199,27 +227,18 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 			}
 			// Save the time data to the buffer.
 			// sbind.pbuf = unsafe.Pointer((*C.char)(pt))
-			slice := (*[1 << 30]byte)(unsafe.Pointer((*C.char)(pt)))[:sizeOfNilPointer:sizeOfNilPointer]  // create []byte the length of a pointer.
-			_, err = buffer.Write(slice)  // save the ptr address to the buffer.  should this be little endian like the rest?
+			slice := (*[1 << 30]byte)(unsafe.Pointer((*C.char)(pt)))[:sizeOfNilPointer:sizeOfNilPointer] // create []byte the length of a pointer.
+			_, err = buffer.Write(slice)                                                                 // save the ptr address to the buffer.  should this be little endian like the rest?
 			if err != nil {
 				return fmt.Errorf("binary write for column %v - error: %v", position, err)
 			}
-			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
+			ptrInd[idx] = C.sb2(0)                // use -1 to specify a null.
 			ptrLen[idx] = C.ub2(sizeOfNilPointer) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
 		case string:
-			if !foundColType {
-				sbind.dataType = C.SQLT_AFC  // char type (not varchar2) - why is this okay?
-				sbind.maxSize = C.sb4(len(v))
-				foundColType = true
-			}
-			b := []byte(v) // convert string to byte slice
-			err = binary.Write(&buffer, binary.LittleEndian, b)
+			err = handleString(idx, v)
 			if err != nil {
-				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+				return err
 			}
-			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
-			ptrLen[idx] = C.ub2(len(b)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
-			// sbind.pbuf = unsafe.Pointer(C.CString(v))
 		case float32, float64:
 			if !foundColType {
 				sbind.dataType = C.SQLT_BDOUBLE
@@ -240,32 +259,23 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 				foundColType = true
 			}
 			if v {
-				err = binary.Write(&buffer, binary.LittleEndian, 1)
+				err = binary.Write(&buffer, binary.LittleEndian, int8(1))
 			} else {
-				err = binary.Write(&buffer, binary.LittleEndian, 0)
+				err = binary.Write(&buffer, binary.LittleEndian, int8(0))
 			}
 			if err != nil {
 				return fmt.Errorf("binary write for column %v - error: %v", position, err)
 			}
 			// Set the indicator and length for this idx.
 			ptrInd[idx] = C.sb2(0)                        // use -1 to specify a null.
-			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+			ptrLen[idx] = C.ub2(1) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
 		default:
-			// TODO: confirm there aren't stored up problems around char set conversion - check unicode chars are written to the databsae okay considering NLS settings as well!
-			d := fmt.Sprintf("%v", v)
-			b := []byte(d) // convert string to byte slice
-			if !foundColType {
-				sbind.dataType = C.SQLT_AFC  // char type (not varchar2) - why is this okay?
-				sbind.maxSize = C.sb4(len(b))
-				foundColType = true
-			}
-			err = binary.Write(&buffer, binary.LittleEndian, b)
+			// Try to convert v to a string.
+			v2 := fmt.Sprintf("%v", v)
+			err = handleString(idx, v2)
 			if err != nil {
-				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+				return err
 			}
-			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
-			ptrLen[idx] = C.ub2(len(b)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
-			// sbind.pbuf = unsafe.Pointer(C.CString(v))
 		}
 	}
 	sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes())) // original mattn malloc. this will malloc and store in memory (needs freeing later)  // TODO: how can we avoid double copy of data?
@@ -277,12 +287,12 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	// } else {
 	//  err = stmt.ociBindByPos(C.ub4(i+1), &sbind)
 	// }
-	
+
 	err = stmt.ociBindByPos(C.ub4(position+1), &sbind)
 	if err != nil {
 		freeBinds(stmt.pbind)
 		return err
-	} else {  // else there was no error so we should keep the malloc'ed data until batch is executed.
+	} else { // else there was no error so we should keep the malloc'ed data until batch is executed.
 		doFreeBind = false
 	}
 	return nil

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/relloyd/go-sql/database/sql/driver"
 	"reflect"
+	"time"
 	"unsafe"
 )
 
@@ -34,246 +35,241 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	// TODO: remove use of namedValue here as it's not fully used in this func.
 	// Why are we making a slice of namedValue and filling it from the vals?
 	// just to add the ordinal index? where is the index used?
-	// nv := make([]namedValue, len(vals), len(vals))
-	// for i, v := range vals {
-	// 	nv[i] = namedValue{
-	// 		Ordinal: i + 1,
-	// 		Value:   v.Value,
-	// 	}
-	// }
+	nv := make([]namedValue, len(vals), len(vals))
+	for i, v := range vals {
+		nv[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v.Value,
+		}
+	}
 
 	// Setup a new sbind with correct length array preallocated (and indexable) ready for data about each value in this column.
 	// TODO: find a way to track mallocs since we don't append sbind to pbind until later on below.
 	// therefore we may end up not freeing these mallocs.
 	// add to stmt.pbind now so if error will be freed by freeBinds call
+	doFreeBind := true // assume worst case and toggle freeBind() on via defer func.
 	var sbind oci8Bind
-
-	// fmt.Println("len vals = ", len(vals))
-	// sbind.length = (*C.ub2)(C.malloc(C.size_t(int(unsafe.Sizeof(C.ub2(0))) * len(vals)))) // allocate an array of c.ub2, one element per col value held in the buffer.
+	defer func() {
+		if doFreeBind {
+			freeBind(sbind) // free any mallocs done in this func before sbind is appended to stmt.pbind.
+			freeBinds(stmt.pbind)  // and free any previously bound columns.
+		}
+	}()
+	// Allocate storage for full column set of values
 	sbind.length = (*C.ub2)(C.malloc(C.size_t(int(C.sizeof_sb2) * len(vals)))) // allocate an array of c.ub2, one element per col value held in the buffer.
 	ptrLen := (*[1 << 30]C.ub2)(unsafe.Pointer(sbind.length))                  // cast length to void* and then to a ptr of [1073741824]c.ub2 so we can index the array later.
 	sbind.indicator = (*C.sb2)(C.malloc(C.size_t(int(C.sizeof_sb2) * len(vals))))
 	ptrInd := (*[1 << 30]C.sb2)(unsafe.Pointer(sbind.indicator)) // cast length to void* and then to a ptr of [1073741824]c.ub2 so we can index the array later.
-	// *sbind.indicator = 0
 	sbind.iters = len(vals)
+	sbind.maxSize = 0 // set maxSize = 0 for the case where all col values are null.
 	buffer := bytes.Buffer{}
-
-	switch firstColVal := vals[0].Value.(type) { // inspect the first column value and do initial setup, assuming the other cols are the same type...
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
-		sbind.dataType = C.SQLT_INT
-		// assume all col values have the same size - use the first one - use Reflect to get the deepest underlying type. unsafe.SizeOf() is not doing this as it sees Driver.Value instead.
-		sbind.maxSize = C.sb4(reflect.TypeOf(firstColVal).Size()) // this should be set to the max size of any single entry in the bind array - which should all be the same!
-		for idx, nv := range vals { // for each column value...
-			switch v := nv.Value.(type) {
-			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
-				err = binary.Write(&buffer, binary.LittleEndian, v) // write the concrete typed value to the buffer.
-				if err != nil {
-					return fmt.Errorf("binary write for column %v - error: %v", position, err)
-				}
-				sz := reflect.TypeOf(v).Size()
-				// fmt.Println("reflect type pf v = ", reflect.TypeOf(v))
-				// fmt.Println("reflect size of v = ", sz)
-				ptrLen[idx] = C.ub2(sz) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
-				ptrInd[idx] = C.sb2(0)  // use -1 to specify a null.
-				// fmt.Println("bytes = ", buffer.Bytes())
+	foundColType := true
+	for idx, nv := range vals { // for each column value...
+		// Set the C length and indicator array elements, and write to a Golang buffer.
+		// Assume the column data type from the first non nil value seen.
+		switch v := nv.Value.(type) { // get concrete type from the nv.Value interface{} type.
+		case nil:
+			err = binary.Write(&buffer, binary.LittleEndian, 0)
+			// Set the length and indicator for this idx.
+			ptrInd[idx] = C.sb2(-1) // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(0)  // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
+			if !foundColType { // if we haven't found the column type yet...
+				// Save the data type and max size.
+				// use Reflect to get the deepest underlying type. unsafe.SizeOf() is not doing this as it sees Driver.Value instead.
+				// TODO: can we add unit test to ensure unsafe.SizeOf() is not used?
+				sbind.dataType = C.SQLT_INT
+				sbind.maxSize = C.sb4(reflect.TypeOf(v).Size()) // this should be set to the max size of any single entry in the bind array - which should all be the same!
+				foundColType = true
 			}
+			// Write the concrete type to the buffer.
+			err = binary.Write(&buffer, binary.LittleEndian, v)
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			// Set the indicator and length for this idx.
+			ptrInd[idx] = C.sb2(0)                        // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+			// fmt.Println("reflect type pf v = ", reflect.TypeOf(v))
+			// fmt.Println("reflect size of v = ", reflect.TypeOf(v).Size())
+			// fmt.Println("bytes = ", buffer.Bytes())
+		case []byte:
+			if !foundColType {
+				sbind.dataType = C.SQLT_BIN
+				sz := reflect.TypeOf(v).Size()
+				if sbind.maxSize < sz {
+					sbind.maxSize = C.sb4(sz)
+				}
+				foundColType = true
+			}
+			// Write the concrete type to the buffer.
+			err = binary.Write(&buffer, binary.LittleEndian, v)
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			// Set the indicator and length for this idx.
+			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
+			// TODO: test loading of BLOB []byte greater than size 2^16 bytes as implied by type C.ub2.
+			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		case time.Time:
+			if !foundColType {
+				sbind.dataType = C.SQLT_TIMESTAMP_TZ
+				sbind.maxSize = C.sb4(sizeOfNilPointer)
+				foundColType = true
+			}
+			// TODO: wrap up date-time construction into Go function
+			var timestampP *unsafe.Pointer
+			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+			if err != nil {
+				return err // freeing sbind and pbind will be called by earlier defer()
+			}
+			pt := unsafe.Pointer(timestampP)
+			// Try #1 to construct time zone using Go time zone.
+			zone, offset := v.Zone()
+			size := len(zone)
+			if size < 16 {
+				size = 16
+			}
+			zoneText := cStringN(zone, size)
+			defer C.free(unsafe.Pointer(zoneText))
+			tryAgain := false
+			rv := C.OCIDateTimeConstruct(
+				unsafe.Pointer(stmt.conn.env),
+				stmt.conn.errHandle,
+				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
+				C.sb2(v.Year()),
+				C.ub1(v.Month()),
+				C.ub1(v.Day()),
+				C.ub1(v.Hour()),
+				C.ub1(v.Minute()),
+				C.ub1(v.Second()),
+				C.ub4(v.Nanosecond()),
+				zoneText,
+				C.size_t(len(zone)),
+			)
+			if rv != C.OCI_SUCCESS {  // if we failed...
+				tryAgain = true
+			} else {  // else we're okay so double-check if Oracle timezone offset is same...
+				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
+					stmt.conn.env,
+					stmt.conn.errHandle,
+					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
+				if rvz.rv != C.OCI_SUCCESS {  // if we failed...
+					// freeing sbind and pbind will be done by ealier defer().
+					return stmt.conn.getError(rvz.rv)
+				}
+				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
+					// fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
+					tryAgain = true
+				}
+			}
+			if tryAgain { // if we should try zones with format, "[+-]hh:mm"...
+				sign := '+'
+				if offset < 0 {
+					offset = -offset
+					sign = '-'
+				}
+				offset /= 60
+				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
+				if size < len(zone) {
+					size = len(zone)
+					zoneText = cStringN(zone, size)
+					defer C.free(unsafe.Pointer(zoneText))
+				} else {
+					copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
+				}
+				rv := C.OCIDateTimeConstruct(
+					unsafe.Pointer(stmt.conn.env),
+					stmt.conn.errHandle,
+					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
+					C.sb2(v.Year()),
+					C.ub1(v.Month()),
+					C.ub1(v.Day()),
+					C.ub1(v.Hour()),
+					C.ub1(v.Minute()),
+					C.ub1(v.Second()),
+					C.ub4(v.Nanosecond()),
+					zoneText,
+					C.size_t(len(zone)),
+				)
+				if rv != C.OCI_SUCCESS {
+					// Freeing of sbind, pbind will be done via earlier defer().
+					return stmt.conn.getError(rv)
+				}
+			}
+			// Save the time data to the buffer.
+			// sbind.pbuf = unsafe.Pointer((*C.char)(pt))
+			slice := (*[1 << 30]byte)(unsafe.Pointer((*C.char)(pt)))[:sizeOfNilPointer:sizeOfNilPointer]  // create []byte the length of a pointer.
+			_, err = buffer.Write(slice)  // save the ptr address to the buffer.  should this be little endian like the rest?
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(sizeOfNilPointer) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		case string:
+			if !foundColType {
+				sbind.dataType = C.SQLT_AFC  // char type (not varchar2) - why is this okay?
+				sbind.maxSize = C.sb4(len(v))
+				foundColType = true
+			}
+			b := []byte(v) // convert string to byte slice
+			err = binary.Write(&buffer, binary.LittleEndian, b)
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(len(b)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+			// sbind.pbuf = unsafe.Pointer(C.CString(v))
+		case float32, float64:
+			if !foundColType {
+				sbind.dataType = C.SQLT_BDOUBLE
+				sbind.maxSize = C.sb4(reflect.TypeOf(v).Size())
+				foundColType = true
+			}
+			err = binary.Write(&buffer, binary.LittleEndian, v)
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			// Set the indicator and length for this idx.
+			ptrInd[idx] = C.sb2(0)                        // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		case bool: // oracle does not have bool, handle as 0/1 int
+			if !foundColType {
+				sbind.dataType = C.SQLT_INT
+				sbind.maxSize = 1
+				foundColType = true
+			}
+			if v {
+				err = binary.Write(&buffer, binary.LittleEndian, 1)
+			} else {
+				err = binary.Write(&buffer, binary.LittleEndian, 0)
+			}
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			// Set the indicator and length for this idx.
+			ptrInd[idx] = C.sb2(0)                        // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(reflect.TypeOf(v).Size()) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+		default:
+			// TODO: confirm there aren't stored up problems around char set conversion - check unicode chars are written to the databsae okay considering NLS settings as well!
+			d := fmt.Sprintf("%v", v)
+			b := []byte(d) // convert string to byte slice
+			if !foundColType {
+				sbind.dataType = C.SQLT_AFC  // char type (not varchar2) - why is this okay?
+				sbind.maxSize = C.sb4(len(b))
+				foundColType = true
+			}
+			err = binary.Write(&buffer, binary.LittleEndian, b)
+			if err != nil {
+				return fmt.Errorf("binary write for column %v - error: %v", position, err)
+			}
+			ptrInd[idx] = C.sb2(0) // use -1 to specify a null.
+			ptrLen[idx] = C.ub2(len(b)) // save the byte size of the col value casted to ub2. this implies 2 bytes are enough to store the max size.
+			// sbind.pbuf = unsafe.Pointer(C.CString(v))
 		}
-		sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes())) // original mattn malloc. this will malloc and store in memory (needs freeing later)  // TODO: how can we avoid double copy of data?
-		// sbind.pbuf = unsafe.Pointer(C.CBytes(buffer.Bytes())) // native cgo helper for malloc. // this will malloc and store in memory (needs freeing later)  // TODO: how can we avoid double copy of data?
-		// slice := (*[1 << 30]byte)(sbind.pbuf)[:80:80]
-		// fmt.Println("dump pbuf mem: ", slice)
-		// TODO: how about dumping memory address for 80 bytes around this void ptr?
-		// save sbind so we free the allocated store later.
-		stmt.pbind = append(stmt.pbind, sbind)
 	}
-
-	// assume the column values are all of the same type for now.
-	// use the type of the value in the first slice entry [0].
-	// for i, uv := range nv { // for each value in a single column...
-	// 	vv := uv.Value
-	// Richard Lloyd - comment handling of Sql.out bind variables.
-	// if out, ok := handleOutput(vv); ok {
-	// 	sbind.out = out.Dest
-	// 	outIn = out.In
-	// 	vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
-	// 	if err != nil {
-	// 		stmt.pbind = append(stmt.pbind, sbind)
-	// 		freeBinds(stmt.pbind)
-	// 		return err
-	// 	}
-	// }
-	// switch colVal := vv.(type) {
-	// case nil:
-	// 	sbind.dataType = C.SQLT_AFC
-	// 	sbind.pbuf = nil
-	// 	sbind.maxSize = 0
-	// 	*sbind.indicator = -1 // set to null
-	// case []byte:
-	// 	if sbind.out != nil {
-	//
-	// 		sbind.dataType = C.SQLT_BIN
-	// 		sbind.pbuf = unsafe.Pointer(cByteN(colVal, 32768))
-	// 		sbind.maxSize = 32767
-	// 		if !outIn {
-	// 			*sbind.indicator = -1 // set to null
-	// 		} else {
-	// 			*sbind.length = C.ub2(len(colVal))
-	// 		}
-	//
-	// 	} else {
-	// 		sbind.dataType = C.SQLT_BIN
-	// 		sbind.pbuf = unsafe.Pointer(cByte(colVal))
-	// 		sbind.maxSize = C.sb4(len(colVal))
-	// 		*sbind.length = C.ub2(len(colVal))
-	// 	}
-	// case time.Time:
-	// 	sbind.dataType = C.SQLT_TIMESTAMP_TZ
-	// 	sbind.maxSize = C.sb4(sizeOfNilPointer)
-	// 	*sbind.length = C.ub2(sizeOfNilPointer)
-	// 	// TODO: wrap up date time construction into Go function
-	// 	var timestampP *unsafe.Pointer
-	// 	timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
-	// 	if err != nil {
-	// 		freeBinds(stmt.pbind)
-	// 		return err
-	// 	}
-	// 	pt := unsafe.Pointer(timestampP)
-	// 	zone, offset := colVal.Zone()
-	// 	size := len(zone)
-	// 	if size < 16 {
-	// 		size = 16
-	// 	}
-	// 	zoneText := cStringN(zone, size)
-	// 	defer C.free(unsafe.Pointer(zoneText))
-	// 	tryagain := false
-	// 	rv := C.OCIDateTimeConstruct(
-	// 		unsafe.Pointer(stmt.conn.env),
-	// 		stmt.conn.errHandle,
-	// 		(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-	// 		C.sb2(colVal.Year()),
-	// 		C.ub1(colVal.Month()),
-	// 		C.ub1(colVal.Day()),
-	// 		C.ub1(colVal.Hour()),
-	// 		C.ub1(colVal.Minute()),
-	// 		C.ub1(colVal.Second()),
-	// 		C.ub4(colVal.Nanosecond()),
-	// 		zoneText,
-	// 		C.size_t(len(zone)),
-	// 	)
-	// 	if rv != C.OCI_SUCCESS {
-	// 		tryagain = true
-	// 	} else {
-	// 		// check if oracle timezone offset is same ?
-	// 		rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-	// 			stmt.conn.env,
-	// 			stmt.conn.errHandle,
-	// 			(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
-	// 		if rvz.rv != C.OCI_SUCCESS {
-	// 			stmt.pbind = append(stmt.pbind, sbind)
-	// 			freeBinds(stmt.pbind)
-	// 			return stmt.conn.getError(rvz.rv)
-	// 		}
-	// 		if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
-	// 			// fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
-	// 			tryagain = true
-	// 		}
-	// 	}
-	// 	if tryagain {
-	// 		sign := '+'
-	// 		if offset < 0 {
-	// 			offset = -offset
-	// 			sign = '-'
-	// 		}
-	// 		offset /= 60
-	// 		// oracle accept zones "[+-]hh:mm", try second time
-	// 		zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
-	// 		if size < len(zone) {
-	// 			size = len(zone)
-	// 			zoneText = cStringN(zone, size)
-	// 			defer C.free(unsafe.Pointer(zoneText))
-	// 		} else {
-	// 			copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
-	// 		}
-	// 		rv := C.OCIDateTimeConstruct(
-	// 			unsafe.Pointer(stmt.conn.env),
-	// 			stmt.conn.errHandle,
-	// 			(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-	// 			C.sb2(colVal.Year()),
-	// 			C.ub1(colVal.Month()),
-	// 			C.ub1(colVal.Day()),
-	// 			C.ub1(colVal.Hour()),
-	// 			C.ub1(colVal.Minute()),
-	// 			C.ub1(colVal.Second()),
-	// 			C.ub4(colVal.Nanosecond()),
-	// 			zoneText,
-	// 			C.size_t(len(zone)),
-	// 		)
-	// 		if rv != C.OCI_SUCCESS {
-	// 			stmt.pbind = append(stmt.pbind, sbind)
-	// 			freeBinds(stmt.pbind)
-	// 			return stmt.conn.getError(rv)
-	// 		}
-	// 	}
-	// 	sbind.pbuf = unsafe.Pointer((*C.char)(pt))
-	// case string:
-	// 	if sbind.out != nil {
-	// 		sbind.dataType = C.SQLT_CHR
-	// 		sbind.pbuf = unsafe.Pointer(cStringN(colVal, 32768))
-	// 		sbind.maxSize = 32767
-	// 		if !outIn {
-	// 			*sbind.indicator = -1 // set to null
-	// 		} else {
-	// 			*sbind.length = C.ub2(len(colVal))
-	// 		}
-	// 	} else {
-	// 		sbind.dataType = C.SQLT_AFC
-	// 		sbind.pbuf = unsafe.Pointer(C.CString(colVal))
-	// 		sbind.maxSize = C.sb4(len(colVal))
-	// 		*sbind.length = C.ub2(len(colVal))
-	// 	}
-	// case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
-	// 	// Write the entire column slice set of values to this buffer.
-	// 	err = binary.Write(&buffer, binary.LittleEndian, colVal) // write the column value to the buffer.
-	// 	fmt.Println("wrote to buffer. bytes = ", buffer.Bytes())
-	// 	if err != nil {
-	// 		return fmt.Errorf("binary write for column %v - error: %v", i, err)
-	// 	}
-	// case float32, float64:
-	// 	buffer := bytes.Buffer{}
-	// 	err = binary.Write(&buffer, binary.LittleEndian, colVal)
-	// 	if err != nil {
-	// 		return fmt.Errorf("binary write for column %v - error: %v", i, err)
-	// 	}
-	// 	sbind.dataType = C.SQLT_BDOUBLE
-	// 	sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
-	// 	sbind.maxSize = C.sb4(buffer.Len())
-	// 	*sbind.length = C.ub2(buffer.Len())
-	// case bool: // oracle does not have bool, handle as 0/1 int
-	// 	sbind.dataType = C.SQLT_INT
-	// 	if colVal {
-	// 		sbind.pbuf = unsafe.Pointer(cByte([]byte{1}))
-	// 	} else {
-	// 		sbind.pbuf = unsafe.Pointer(cByte([]byte{0}))
-	// 	}
-	// 	sbind.maxSize = 1
-	// 	*sbind.length = 1
-	// default:
-	// 	if sbind.out != nil {
-	// 		// TODO: should this error instead of setting to null?
-	// 		sbind.dataType = C.SQLT_AFC
-	// 		sbind.pbuf = nil
-	// 		sbind.maxSize = 0
-	// 		*sbind.length = 0
-	// 		*sbind.indicator = -1 // set to null
-	// 	} else {
-	// 		d := fmt.Sprintf("%v", colVal)
-	// 		sbind.dataType = C.SQLT_AFC
-	// 		sbind.pbuf = unsafe.Pointer(C.CString(d))
-	// 		sbind.maxSize = C.sb4(len(d))
-	// 		*sbind.length = C.ub2(len(d))
-	// 	}
-	// }
-	// }
+	sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes())) // original mattn malloc. this will malloc and store in memory (needs freeing later)  // TODO: how can we avoid double copy of data?
+	stmt.pbind = append(stmt.pbind, sbind)             // save sbind so we free the allocated store later.
 
 	// Richard Lloyd - disable bind by name for array binds.
 	// if uv.Name != "" {
@@ -281,10 +277,13 @@ func (stmt *OCI8Stmt) BindToBatchContext(ctx context.Context, position int, vals
 	// } else {
 	//  err = stmt.ociBindByPos(C.ub4(i+1), &sbind)
 	// }
+	
 	err = stmt.ociBindByPos(C.ub4(position+1), &sbind)
 	if err != nil {
 		freeBinds(stmt.pbind)
 		return err
+	} else {  // else there was no error so we should keep the malloc'ed data until batch is executed.
+		doFreeBind = false
 	}
 	return nil
 }

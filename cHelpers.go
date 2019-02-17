@@ -92,20 +92,24 @@ func freeDefines(defines []oci8Define) {
 // freeBinds frees binds
 func freeBinds(binds []oci8Bind) {
 	for _, bind := range binds {
-		if bind.pbuf != nil {
-			freeBuffer(bind.pbuf, bind.dataType)
-			bind.pbuf = nil
-		}
-		if bind.length != nil {
-			C.free(unsafe.Pointer(bind.length))
-			bind.length = nil
-		}
-		if bind.indicator != nil {
-			C.free(unsafe.Pointer(bind.indicator))
-			bind.indicator = nil
-		}
-		bind.bindHandle = nil // freed by oci statment close
+		freeBind(&bind)
 	}
+}
+
+func freeBind(bind *oci8Bind) {
+	if bind.pbuf != nil {
+		freeBuffer(bind.pbuf, bind.dataType)
+		bind.pbuf = nil
+	}
+	if bind.length != nil {
+		C.free(unsafe.Pointer(bind.length))
+		bind.length = nil
+	}
+	if bind.indicator != nil {
+		C.free(unsafe.Pointer(bind.indicator))
+		bind.indicator = nil
+	}
+	bind.bindHandle = nil // freed by oci statment close
 }
 
 // freeBuffer calles OCIDescriptorFree to free double pointer to buffer

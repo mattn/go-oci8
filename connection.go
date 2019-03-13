@@ -53,7 +53,7 @@ func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue
 // Ping database connection
 func (conn *OCI8Conn) Ping(ctx context.Context) error {
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
-	if result == C.OCI_SUCCESS {
+	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO { 
 		return nil
 	}
 	errorCode, err := conn.ociGetError()

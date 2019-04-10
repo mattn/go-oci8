@@ -318,7 +318,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			credentialType,     // type of credentials to use for establishing the user session: OCI_CRED_RDBMS or OCI_CRED_EXT
 			conn.operationMode, // mode of operation. https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87690
 		)
-		if result != C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO { 
+		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
 			return nil, conn.getError(result)
 		}
 
@@ -343,7 +343,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			host, // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Connect)), // length of dbname, in number of bytes, regardless of the encoding.
 		)
-		if result != C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO { 
+		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
 			return nil, conn.getError(result)
 		}
 		conn.svc = *svcCtxPP

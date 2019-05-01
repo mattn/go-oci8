@@ -15,7 +15,7 @@ import (
 	"unsafe"
 )
 
-// Close closes the statment
+// Close closes the statement
 func (stmt *OCI8Stmt) Close() error {
 	if stmt.closed {
 		return nil
@@ -750,7 +750,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				}
 				*dest = data
 			case *float32:
-				// statment is using SQLT_BDOUBLE to bind
+				// statement is using SQLT_BDOUBLE to bind
 				// need to read as float64 because of the 8 bits
 				buf := (*[8]byte)(bind.pbuf)[0:8]
 				var data float64
@@ -823,7 +823,7 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 		C.OCI_HTYPE_STMT,                         // Handle type: OCI_HTYPE_STMT, for a statement handle
 		stmt.conn.errHandle,                      // An error handle
 		(*unsafe.Pointer)(unsafe.Pointer(param)), // A descriptor of the parameter at the position
-		position, // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
+		position,                                 // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
 	)
 
 	err := stmt.conn.getError(result)

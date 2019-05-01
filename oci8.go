@@ -223,17 +223,16 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	handle := &handleTemp
 	result = C.OCIHandleAlloc(
 		unsafe.Pointer(conn.env), // An environment handle
-		handle,            // Returns a handle
-		C.OCI_HTYPE_ERROR, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
-		0,                 // amount of user memory to be allocated
-		nil,               // Returns a pointer to the user memory
+		handle,                   // Returns a handle
+		C.OCI_HTYPE_ERROR,        // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
+		0,                        // amount of user memory to be allocated
+		nil,                      // Returns a pointer to the user memory
 	)
 	if result != C.OCI_SUCCESS {
 		// TODO: error handle not yet allocated, how to get string error from oracle?
 		return nil, errors.New("allocate error handle error")
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
-	handle = nil
 
 	host := cString(dsn.Connect)
 	defer C.free(unsafe.Pointer(host))
@@ -249,7 +248,6 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate server handle error: %v", err)
 		}
 		conn.srv = (*C.OCIServer)(*handle)
-		handle = nil
 
 		if dsn.externalauthentication {
 			result = C.OCIServerAttach(
@@ -261,9 +259,9 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			)
 		} else {
 			result = C.OCIServerAttach(
-				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
-				conn.errHandle, // error handle
-				host,           // database server to use
+				conn.srv,                // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle,          // error handle
+				host,                    // database server to use
 				C.sb4(len(dsn.Connect)), //  length of the database server
 				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
@@ -278,7 +276,6 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate service handle error: %v", err)
 		}
 		conn.svc = (*C.OCISvcCtx)(*handle)
-		handle = nil
 
 		// sets the server context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.srv), 0, C.OCI_ATTR_SERVER)
@@ -292,7 +289,6 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate user session handle error: %v", err)
 		}
 		conn.usrSession = (*C.OCISession)(*handle)
-		handle = nil
 
 		credentialType := C.ub4(C.OCI_CRED_EXT)
 		if !dsn.externalauthentication {
@@ -340,8 +336,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			C.ub4(len(dsn.Username)), // length of user name, in number of bytes, regardless of the encoding
 			password,                 // user's password. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Password)), // length of password, in number of bytes, regardless of the encoding.
-			host, // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
-			C.ub4(len(dsn.Connect)), // length of dbname, in number of bytes, regardless of the encoding.
+			host,                     // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Connect)),  // length of dbname, in number of bytes, regardless of the encoding.
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
 			return nil, conn.getError(result)
@@ -359,7 +355,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	return &conn, nil
 }
 
-// GetLastInsertId retuns rowid from LastInsertId
+// GetLastInsertId returns rowid from LastInsertId
 func GetLastInsertId(id int64) string {
 	return *(*string)(unsafe.Pointer(uintptr(id)))
 }

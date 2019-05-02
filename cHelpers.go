@@ -85,7 +85,7 @@ func freeDefines(defines []oci8Define) {
 			C.free(unsafe.Pointer(define.indicator))
 			define.indicator = nil
 		}
-		define.defineHandle = nil // should be freed by oci statment close
+		define.defineHandle = nil // should be freed by oci statement close
 	}
 }
 
@@ -104,7 +104,7 @@ func freeBinds(binds []oci8Bind) {
 			C.free(unsafe.Pointer(bind.indicator))
 			bind.indicator = nil
 		}
-		bind.bindHandle = nil // freed by oci statment close
+		bind.bindHandle = nil // freed by oci statement close
 	}
 }
 

@@ -2,6 +2,7 @@
 
 [![GoDoc Reference](https://godoc.org/github.com/mattn/go-oci8?status.svg)](http://godoc.org/github.com/mattn/go-oci8)
 [![Build Status](https://travis-ci.org/mattn/go-oci8.svg?branch=master)](https://travis-ci.org/mattn/go-oci8)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mattn/go-oci8)](https://goreportcard.com/report/github.com/mattn/go-oci8)
 
 
 ## Description

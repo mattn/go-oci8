@@ -64,7 +64,7 @@ func testExecQuery(t *testing.T, query string, args []interface{}) {
 	}
 }
 
-// testGetRows runs a statment and returns the rows as [][]interface{}
+// testGetRows runs a statement and returns the rows as [][]interface{}
 func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
@@ -271,7 +271,6 @@ func testRunQueryResults(t *testing.T, queryResults testQueryResults) {
 
 // testRunQueryResult runs a single testQueryResults test
 func testRunQueryResult(t *testing.T, queryResult testQueryResult, query string, stmt *sql.Stmt) {
-
 	result, err := testGetRows(t, stmt, queryResult.args)
 	if err != nil {
 		t.Errorf("get rows error: %v - query: %v", err, query)
@@ -496,9 +495,9 @@ func TestDestructiveTransaction(t *testing.T) {
 
 	err = testExecRows(t, "insert into TRANSACTION_"+TestTimeString+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
-			[]interface{}{1, 2, 3},
-			[]interface{}{4, 5, 6},
-			[]interface{}{6, 7, 8},
+			{1, 2, 3},
+			{4, 5, 6},
+			{6, 7, 8},
 		})
 	if err != nil {
 		t.Fatal("insert error:", err)
@@ -522,11 +521,11 @@ func TestDestructiveTransaction(t *testing.T) {
 	queryResults := testQueryResults{
 		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(2), int64(3)},
-					[]interface{}{int64(4), int64(5), int64(6)},
-					[]interface{}{int64(6), int64(7), int64(8)},
+					{int64(1), int64(2), int64(3)},
+					{int64(4), int64(5), int64(6)},
+					{int64(6), int64(7), int64(8)},
 				},
 			},
 		},
@@ -564,11 +563,11 @@ func TestDestructiveTransaction(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(2), int64(3)},
-					[]interface{}{int64(4), int64(5), int64(6)},
-					[]interface{}{int64(6), int64(7), int64(8)},
+					{int64(1), int64(2), int64(3)},
+					{int64(4), int64(5), int64(6)},
+					{int64(6), int64(7), int64(8)},
 				},
 			},
 		},
@@ -583,6 +582,9 @@ func TestDestructiveTransaction(t *testing.T) {
 	}
 	var rows [][]interface{}
 	rows, err = testGetRows(t, stmt, []interface{}{1})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
 	if result == nil {
 		t.Fatal("rows is nil")
 	}
@@ -619,6 +621,9 @@ func TestDestructiveTransaction(t *testing.T) {
 
 	// tx1 with rows A = 4
 	rows, err = testGetRows(t, stmt, []interface{}{4})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
 	if rows == nil {
 		t.Fatal("rows is nil")
 	}
@@ -659,6 +664,9 @@ func TestDestructiveTransaction(t *testing.T) {
 		t.Fatal("prepare error:", err)
 	}
 	rows, err = testGetRows(t, stmt, []interface{}{1})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
 	if rows == nil {
 		t.Fatal("rows is nil")
 	}
@@ -695,6 +703,9 @@ func TestDestructiveTransaction(t *testing.T) {
 
 	// tx2 with rows A = 4
 	rows, err = testGetRows(t, stmt, []interface{}{4})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
 	if result == nil {
 		t.Fatal("rows is nil")
 	}
@@ -741,11 +752,11 @@ func TestDestructiveTransaction(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(22), int64(3)},
-					[]interface{}{int64(4), int64(55), int64(6)},
-					[]interface{}{int64(6), int64(7), int64(8)},
+					{int64(1), int64(22), int64(3)},
+					{int64(4), int64(55), int64(6)},
+					{int64(6), int64(7), int64(8)},
 				},
 			},
 		},
@@ -761,8 +772,8 @@ func TestSelectDualNull(t *testing.T) {
 
 	queryResults := testQueryResults{
 		query: "select null from dual",
-		queryResults: []testQueryResult{testQueryResult{
-			results: [][]interface{}{[]interface{}{nil}}}}}
+		queryResults: []testQueryResult{{
+			results: [][]interface{}{{nil}}}}}
 	testRunQueryResults(t, queryResults)
 }
 

@@ -217,12 +217,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			result = C.OCIIntervalGetDaySecond(
 				unsafe.Pointer(rows.stmt.conn.env), // environment handle
 				rows.stmt.conn.errHandle,           // error handle
-				&days,        // days
-				&hours,       // hours
-				&minutes,     // minutes
-				&seconds,     // seconds
-				&fracSeconds, // fractional seconds
-				interval,     // interval
+				&days,                              // days
+				&hours,                             // hours
+				&minutes,                           // minutes
+				&seconds,                           // seconds
+				&fracSeconds,                       // fractional seconds
+				interval,                           // interval
 			)
 			if result != C.OCI_SUCCESS {
 				return rows.stmt.conn.getError(result)
@@ -239,9 +239,9 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			result = C.OCIIntervalGetYearMonth(
 				unsafe.Pointer(rows.stmt.conn.env), // environment handle
 				rows.stmt.conn.errHandle,           // error handle
-				&years,   // year
-				&months,  // month
-				interval, // interval
+				&years,                             // year
+				&months,                            // month
+				interval,                           // interval
 			)
 			if result != C.OCI_SUCCESS {
 				return rows.stmt.conn.getError(result)

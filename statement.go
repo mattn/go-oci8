@@ -117,99 +117,12 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.maxSize = C.sb4(sizeOfNilPointer)
 			*sbind.length = C.ub2(sizeOfNilPointer)
 
-			// TODO: wrap up date time construction into Go function
-
-			var timestampP *unsafe.Pointer
-			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+			dateTimePP, err := stmt.conn.timeToOCIDateTime(&argValue)
 			if err != nil {
-				binds = append(binds, sbind)
-				freeBinds(binds)
-				return nil, err
-			}
-			pt := unsafe.Pointer(timestampP)
-
-			zone, offset := argValue.Zone()
-			size := len(zone)
-			if size < 16 {
-				size = 16
-			}
-			zoneText := cStringN(zone, size)
-			defer C.free(unsafe.Pointer(zoneText))
-
-			tryagain := false
-
-			rv := C.OCIDateTimeConstruct(
-				unsafe.Pointer(stmt.conn.env),
-				stmt.conn.errHandle,
-				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-				C.sb2(argValue.Year()),
-				C.ub1(argValue.Month()),
-				C.ub1(argValue.Day()),
-				C.ub1(argValue.Hour()),
-				C.ub1(argValue.Minute()),
-				C.ub1(argValue.Second()),
-				C.ub4(argValue.Nanosecond()),
-				zoneText,
-				C.size_t(len(zone)),
-			)
-			if rv != C.OCI_SUCCESS {
-				tryagain = true
-			} else {
-				// check if oracle timezone offset is same ?
-				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-					stmt.conn.env,
-					stmt.conn.errHandle,
-					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
-				if rvz.rv != C.OCI_SUCCESS {
-					binds = append(binds, sbind)
-					freeBinds(binds)
-					return nil, stmt.conn.getError(rvz.rv)
-				}
-				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
-					// fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
-					tryagain = true
-				}
+				return nil, fmt.Errorf("timeToOCIDateTime for column %v - error: %v", i, err)
 			}
 
-			if tryagain {
-				sign := '+'
-				if offset < 0 {
-					offset = -offset
-					sign = '-'
-				}
-				offset /= 60
-				// oracle accept zones "[+-]hh:mm", try second time
-				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
-				if size < len(zone) {
-					size = len(zone)
-					zoneText = cStringN(zone, size)
-					defer C.free(unsafe.Pointer(zoneText))
-				} else {
-					copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
-				}
-
-				rv := C.OCIDateTimeConstruct(
-					unsafe.Pointer(stmt.conn.env),
-					stmt.conn.errHandle,
-					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-					C.sb2(argValue.Year()),
-					C.ub1(argValue.Month()),
-					C.ub1(argValue.Day()),
-					C.ub1(argValue.Hour()),
-					C.ub1(argValue.Minute()),
-					C.ub1(argValue.Second()),
-					C.ub4(argValue.Nanosecond()),
-					zoneText,
-					C.size_t(len(zone)),
-				)
-				if rv != C.OCI_SUCCESS {
-					binds = append(binds, sbind)
-					freeBinds(binds)
-					return nil, stmt.conn.getError(rv)
-				}
-			}
-
-			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
+			sbind.pbuf = unsafe.Pointer(dateTimePP)
 
 		case string:
 			if isOut {

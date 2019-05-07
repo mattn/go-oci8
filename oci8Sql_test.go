@@ -322,8 +322,8 @@ func testRunQueryResult(t *testing.T, queryResult testQueryResult, query string,
 				}
 			}
 			if bad {
-				t.Errorf("result - row %v, %v - received: %T, %v - expected: %T, %v - query: %v", i, j,
-					result[i][j], result[i][j], queryResult.results[i][j], queryResult.results[i][j], query)
+				t.Errorf("result - row %v, %v - received: %T, %v - expected: %T, %v - query: %v",
+					i, j, result[i][j], result[i][j], queryResult.results[i][j], queryResult.results[i][j], query)
 			}
 		}
 

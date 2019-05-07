@@ -17,7 +17,7 @@ func getUint64(p unsafe.Pointer) uint64 {
 	return uint64(*(*C.sb8)(p))
 }
 
-// cByte comverts byte slice to OraText.
+// cByte converts byte slice to OraText.
 // must be freed
 func cByte(b []byte) *C.OraText {
 	p := C.malloc(C.size_t(len(b)))
@@ -26,7 +26,7 @@ func cByte(b []byte) *C.OraText {
 	return (*C.OraText)(p)
 }
 
-// cByteN comverts byte slice to C OraText with size.
+// cByteN converts byte slice to C OraText with size.
 // must be freed
 func cByteN(b []byte, size int) *C.OraText {
 	p := C.malloc(C.size_t(size))

@@ -41,12 +41,6 @@ var (
 	testByteSlice16383 []byte
 	testByteSlice32767 []byte
 
-	testTimeLocUTC *time.Location
-	testTimeLocGMT *time.Location
-	testTimeLocEST *time.Location
-	testTimeLocMST *time.Location
-	testTimeLocNZ  *time.Location
-
 	benchmarkSelectTableName    string
 	benchmarkSelectTableOnce    sync.Once
 	benchmarkSelectTableCreated bool
@@ -176,12 +170,6 @@ func setupForTesting() int {
 	for i = 0; i < 32767; i++ {
 		testByteSlice32767[i] = byte(i)
 	}
-
-	testTimeLocUTC, _ = time.LoadLocation("UTC")
-	testTimeLocGMT, _ = time.LoadLocation("GMT")
-	testTimeLocEST, _ = time.LoadLocation("EST")
-	testTimeLocMST, _ = time.LoadLocation("MST")
-	testTimeLocNZ, _ = time.LoadLocation("NZ")
 
 	return 0
 }

@@ -270,6 +270,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, conn.getError(result)
 		}
 
+		// Ensure connection is closed when it cannot be properly established
+		defer func(errP *error) {
+			if *errP != nil {
+				conn.Close()
+			}
+		}(&err)
+
 		// service handle
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SVCCTX, 0)
 		if err != nil {
@@ -315,7 +322,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			conn.operationMode, // mode of operation. https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87690
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(result)
+			err = conn.getError(result)
+			return nil, err
 		}
 
 		// sets the authentication context attribute of the service context

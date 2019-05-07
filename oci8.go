@@ -196,8 +196,32 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	conn.env = *envPP
 
 	// defer on error handle free
+	var doneSessionBegin bool
+	var doneServerAttach bool
+	var doneLogon bool
 	defer func(errP *error) {
 		if *errP != nil {
+			if doneSessionBegin {
+				C.OCISessionEnd(
+					conn.svc,
+					conn.errHandle,
+					conn.usrSession,
+					C.OCI_DEFAULT,
+				)
+			}
+			if doneServerAttach {
+				C.OCIServerDetach(
+					conn.srv,
+					conn.errHandle,
+					C.OCI_DEFAULT,
+				)
+			}
+			if doneLogon {
+				C.OCILogoff(
+					conn.svc,
+					conn.errHandle,
+				)
+			}
 			if conn.usrSession != nil {
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				conn.usrSession = nil
@@ -230,7 +254,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	)
 	if result != C.OCI_SUCCESS {
 		// TODO: error handle not yet allocated, how to get string error from oracle?
-		return nil, errors.New("allocate error handle error")
+		err = errors.New("allocate error handle error")
+		return nil, err
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
 
@@ -267,8 +292,10 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			)
 		}
 		if result != C.OCI_SUCCESS {
+			err = conn.getError(result)
 			return nil, conn.getError(result)
 		}
+		doneServerAttach = true
 
 		// service handle
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SVCCTX, 0)
@@ -280,7 +307,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		// sets the server context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.srv), 0, C.OCI_ATTR_SERVER)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("server context attribute set error: %v", err)
 		}
 
 		// user session handle
@@ -295,13 +322,13 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			// specifies a username to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("username attribute set error: %v", err)
 			}
 
 			// specifies a password to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(password), C.ub4(len(dsn.Password)), C.OCI_ATTR_PASSWORD)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("password attribute set error: %v", err)
 			}
 
 			credentialType = C.OCI_CRED_RDBMS
@@ -315,13 +342,15 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			conn.operationMode, // mode of operation. https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87690
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(result)
+			err = conn.getError(result)
+			return nil, err
 		}
+		doneSessionBegin = true
 
 		// sets the authentication context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.usrSession), 0, C.OCI_ATTR_SESSION)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("authentication context attribute set error: %v", err)
 		}
 
 	} else {
@@ -340,9 +369,11 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			C.ub4(len(dsn.Connect)),  // length of dbname, in number of bytes, regardless of the encoding.
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(result)
+			err = conn.getError(result)
+			return nil, err
 		}
 		conn.svc = *svcCtxPP
+		doneLogon = true
 
 	}
 

@@ -43,100 +43,33 @@ func TestSelectDualTime(t *testing.T) {
 	queryResults := testQueryResults{}
 
 	// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
-	// []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocNZ)},
 
-	queryResultTimeToLocal := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)}},
-		},
+	queryResultTimeToLocal := make([]testQueryResult, 0, len(timeLocations))
+	for i := 0; i < len(timeLocations); i++ {
+		queryResultTimeToLocal = append(queryResultTimeToLocal,
+			testQueryResult{
+				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
+				results: [][]interface{}{[]interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+			},
+			testQueryResult{
+				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
+				results: [][]interface{}{[]interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local)}},
+			},
+		)
 	}
 
-	queryResultTimeToTZ := []testQueryResult{
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-			results: [][]interface{}{[]interface{}{time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)}},
-		},
-		testQueryResult{
-			args:    []interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-			results: [][]interface{}{[]interface{}{time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)}},
-		},
+	queryResultTimeToTZ := make([]testQueryResult, 0, len(timeLocations))
+	for i := 0; i < len(timeLocations); i++ {
+		queryResultTimeToTZ = append(queryResultTimeToTZ,
+			testQueryResult{
+				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
+				results: [][]interface{}{[]interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])}},
+			},
+			testQueryResult{
+				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
+				results: [][]interface{}{[]interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])}},
+			},
+		)
 	}
 
 	// https://ss64.com/ora/syntax-datatypes.html
@@ -469,16 +402,22 @@ func TestDestructiveTime(t *testing.T) {
 
 	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
-		[][]interface{}{
-			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
-		})
+	rowsTimestamp := make([][]interface{}, len(timeLocations))
+	resultsTimestamp := make([][]interface{}, len(timeLocations))
+	for i := 0; i < len(timeLocations); i++ {
+		rowsTimestamp[i] = []interface{}{
+			i + 1,
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
+			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
+		}
+		resultsTimestamp[i] = []interface{}{
+			int64(i + 1),
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local),
+			time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local),
+		}
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", rowsTimestamp)
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -487,14 +426,7 @@ func TestDestructiveTime(t *testing.T) {
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
 			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
-					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
-					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local), time.Date(1, 1, 1, 0, 0, 0, 0, time.Local)},
-				},
+				results: resultsTimestamp,
 			},
 		},
 	}
@@ -509,20 +441,6 @@ func TestDestructiveTime(t *testing.T) {
 	if err != nil {
 		t.Error("delete error:", err)
 	}
-
-	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName + " order by A",
-		queryResults: []testQueryResult{
-			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.Local)},
-				},
-			},
-		},
-	}
-	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
 	tableName = "TIMESTAMPWTZ_" + TestTimeString
@@ -533,16 +451,20 @@ func TestDestructiveTime(t *testing.T) {
 
 	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
-		[][]interface{}{
-			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
-		})
+	for i := 0; i < len(timeLocations); i++ {
+		rowsTimestamp[i] = []interface{}{
+			i + 1,
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
+			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
+		}
+		resultsTimestamp[i] = []interface{}{
+			int64(i + 1),
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
+			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
+		}
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", rowsTimestamp)
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -551,14 +473,7 @@ func TestDestructiveTime(t *testing.T) {
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
 			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-				},
+				results: resultsTimestamp,
 			},
 		},
 	}
@@ -573,20 +488,6 @@ func TestDestructiveTime(t *testing.T) {
 	if err != nil {
 		t.Error("delete error:", err)
 	}
-
-	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName + " order by A",
-		queryResults: []testQueryResult{
-			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-				},
-			},
-		},
-	}
-	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH LOCAL TIME ZONE
 	tableName = "TIMESTAMPWLTZ_" + TestTimeString
@@ -598,16 +499,7 @@ func TestDestructiveTime(t *testing.T) {
 
 	defer testDropTable(t, tableName)
 
-	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
-		[][]interface{}{
-			[]interface{}{1, time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-			[]interface{}{2, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-			[]interface{}{3, time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-			[]interface{}{4, time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-			[]interface{}{5, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-			[]interface{}{6, time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-			// TOFIX: testTimeLocNZ - ORA-08192: Flashback Table operation is not allowed on fixed tables
-		})
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", rowsTimestamp)
 	if err != nil {
 		t.Error("insert error:", err)
 	}
@@ -616,14 +508,7 @@ func TestDestructiveTime(t *testing.T) {
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
 			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-					[]interface{}{int64(4), time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocUTC)},
-					[]interface{}{int64(5), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocGMT), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocEST)},
-					[]interface{}{int64(6), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST), time.Date(1, 1, 1, 0, 0, 0, 0, testTimeLocMST)},
-				},
+				results: resultsTimestamp,
 			},
 		},
 	}
@@ -638,20 +523,6 @@ func TestDestructiveTime(t *testing.T) {
 	if err != nil {
 		t.Error("delete error:", err)
 	}
-
-	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName + " order by A",
-		queryResults: []testQueryResult{
-			testQueryResult{
-				results: [][]interface{}{
-					[]interface{}{int64(1), time.Date(2006, 1, 2, 3, 4, 5, 123456789, time.UTC), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocUTC)},
-					[]interface{}{int64(2), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocGMT), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocEST)},
-					[]interface{}{int64(3), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocMST), time.Date(2006, 1, 2, 3, 4, 5, 123456789, testTimeLocNZ)},
-				},
-			},
-		},
-	}
-	testRunQueryResults(t, queryResults)
 
 	// INTERVAL YEAR TO MONTH
 	tableName = "INTERVALYTM_" + TestTimeString

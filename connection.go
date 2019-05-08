@@ -9,6 +9,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 	"unsafe"
 )
 
@@ -392,4 +394,152 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 	}
 
 	return buffer, conn.getError(result)
+}
+
+// ociDateTimeToTime coverts OCIDateTime to Go Time
+// if useOCITimeZone is true, will use OCIDateTime time zone, otherwise will use conn.location
+func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, useOCITimeZone bool) (*time.Time, error) {
+	// get date
+	var year C.sb2
+	var month C.ub1
+	var day C.ub1
+	result := C.OCIDateTimeGetDate(
+		unsafe.Pointer(conn.env), // environment handle
+		conn.errHandle,           // error handle
+		dateTime,                 // pointer to an OCIDateTime
+		&year,                    // year
+		&month,                   // month
+		&day,                     // day
+	)
+	err := conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+
+	// get time
+	var hour C.ub1
+	var min C.ub1
+	var sec C.ub1
+	var fsec C.ub4
+	result = C.OCIDateTimeGetTime(
+		unsafe.Pointer(conn.env), // environment handle
+		conn.errHandle,           // error handle
+		dateTime,                 // pointer to an OCIDateTime
+		&hour,                    // hour
+		&min,                     // min
+		&sec,                     // sec
+		&fsec,                    // fsec
+	)
+	err = conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+
+	if !useOCITimeZone {
+		// return Go Time with conn.location
+		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), conn.location)
+		return &aTime, nil
+	}
+
+	// get OCI time zone offset
+	var timeZoneHour C.sb1
+	var timeZoneMin C.sb1
+	result = C.OCIDateTimeGetTimeZoneOffset(
+		unsafe.Pointer(conn.env), // environment handle
+		conn.errHandle,           // error handle
+		dateTime,                 // pointer to an OCIDateTime
+		&timeZoneHour,            // time zone hour
+		&timeZoneMin,             // time zone minute
+	)
+	err = conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+
+	var location *time.Location
+	if timeZoneMin != 0 || timeZoneHour > 14 || timeZoneHour < -12 {
+		// create location with FixedZone
+		var timeZoneName string
+		if timeZoneHour < 0 {
+			timeZoneName = strconv.FormatInt(int64(timeZoneHour), 10) + ":"
+		} else {
+			timeZoneName = "+" + strconv.FormatInt(int64(timeZoneHour), 10) + ":"
+		}
+		if timeZoneMin == 0 {
+			timeZoneName += "00"
+		} else {
+			if timeZoneMin < 10 {
+				timeZoneName += "0"
+			}
+			timeZoneName += strconv.FormatInt(int64(timeZoneMin), 10)
+		}
+		location = time.FixedZone(timeZoneName, (3600*int(timeZoneHour))+(60*int(timeZoneMin)))
+	} else {
+		// use location from timeLocations cache
+		location = timeLocations[12+timeZoneHour]
+	}
+
+	// return Go Time using OCI time zone offset
+	aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), location)
+	return &aTime, nil
+}
+
+// timeToOCIDateTime coverts Go Time to OCIDateTime
+func (conn *OCI8Conn) timeToOCIDateTime(aTime *time.Time) (*unsafe.Pointer, error) {
+	var err error
+	var dateTimePP *unsafe.Pointer
+	dateTimePP, _, err = conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+	if err != nil {
+		return nil, err
+	}
+	dateTimeP := (*C.OCIDateTime)(*dateTimePP)
+
+	// make time zone string formated: [+|-][HH:MM]
+	_, offset := aTime.Zone()
+	timeZone := make([]byte, 0, 6)
+	if offset < 0 {
+		timeZone = append(timeZone, '-')
+		offset = -offset
+	} else {
+		timeZone = append(timeZone, '+')
+	}
+	// hours
+	timeZone = appendSmallInt(timeZone, offset/3600)
+	offset %= 3600
+	timeZone = append(timeZone, ':')
+	// minutes
+	timeZone = appendSmallInt(timeZone, offset/60)
+
+	result := C.OCIDateTimeConstruct(
+		unsafe.Pointer(conn.env),   // environment handle
+		conn.errHandle,             // error handle
+		dateTimeP,                  // an OCIDateTime pointer
+		C.sb2(aTime.Year()),        // year
+		C.ub1(aTime.Month()),       // month
+		C.ub1(aTime.Day()),         // day
+		C.ub1(aTime.Hour()),        // hour
+		C.ub1(aTime.Minute()),      // minute
+		C.ub1(aTime.Second()),      // second
+		C.ub4(aTime.Nanosecond()),  // fractional second
+		(*C.OraText)(&timeZone[0]), // time zone string formated: [+|-][HH:MM]
+		C.size_t(6),                //  time zone string length
+	)
+	err = conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return dateTimePP, nil
+}
+
+// appendSmallInt takes small int and returns an appended byte slice
+// if int is > 99 or < 0 the result may not be as expected
+func appendSmallInt(slice []byte, num int) []byte {
+	if num == 0 {
+		return append(slice, '0', '0')
+	}
+	if num < 10 {
+		return append(slice, '0', byte('0'+num))
+	}
+	return append(slice, byte('0'+num/10), byte('0'+(num%10)))
 }

@@ -154,57 +154,19 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:
-			if rv := C.WrapOCIDateTimeGetDateTime(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				*(**C.OCIDateTime)(rows.defines[i].pbuf),
-			); rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
-			} else {
-				dest[i] = time.Date(
-					int(rv.y),
-					time.Month(rv.m),
-					int(rv.d),
-					int(rv.hh),
-					int(rv.mm),
-					int(rv.ss),
-					int(rv.ff),
-					rows.stmt.conn.location,
-				)
+			aTime, err := rows.stmt.conn.ociDateTimeToTime(*(**C.OCIDateTime)(rows.defines[i].pbuf), false)
+			if err != nil {
+				return fmt.Errorf("ociDateTimeToTime for column %v - error: %v", i, err)
 			}
+			dest[i] = *aTime
 
 		// SQLT_TIMESTAMP_TZ and SQLT_TIMESTAMP_LTZ
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			tptr := *(**C.OCIDateTime)(rows.defines[i].pbuf)
-			rv := C.WrapOCIDateTimeGetDateTime(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				tptr)
-			if rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
-			}
-			rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				tptr)
-			if rvz.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rvz.rv)
-			}
-			nnn := C.GoStringN((*C.char)((unsafe.Pointer)(&rvz.zone[0])), C.int(rvz.zlen))
-			loc, err := time.LoadLocation(nnn)
+			aTime, err := rows.stmt.conn.ociDateTimeToTime(*(**C.OCIDateTime)(rows.defines[i].pbuf), true)
 			if err != nil {
-				// TODO: reuse locations
-				loc = time.FixedZone(nnn, int(rvz.h)*60*60+int(rvz.m)*60)
+				return fmt.Errorf("ociDateTimeToTime for column %v - error: %v", i, err)
 			}
-			dest[i] = time.Date(
-				int(rv.y),
-				time.Month(rv.m),
-				int(rv.d),
-				int(rv.hh),
-				int(rv.mm),
-				int(rv.ss),
-				int(rv.ff),
-				loc)
+			dest[i] = *aTime
 
 		// SQLT_INTERVAL_DS
 		case C.SQLT_INTERVAL_DS:

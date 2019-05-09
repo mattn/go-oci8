@@ -14,21 +14,21 @@ func TestSelectDualNullTime(t *testing.T) {
 	// TIMESTAMP(9)
 	queryResults := testQueryResults{
 		query:        "select cast (null as TIMESTAMP(9)) from dual",
-		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+		queryResults: []testQueryResult{{results: [][]interface{}{{nil}}}},
 	}
 	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
 	queryResults = testQueryResults{
 		query:        "select cast (null as TIMESTAMP(9) WITH TIME ZONE) from dual",
-		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+		queryResults: []testQueryResult{{results: [][]interface{}{{nil}}}},
 	}
 	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH LOCAL TIME ZONE
 	queryResults = testQueryResults{
 		query:        "select cast (null as TIMESTAMP(9) WITH LOCAL TIME ZONE) from dual",
-		queryResults: []testQueryResult{testQueryResult{results: [][]interface{}{[]interface{}{nil}}}},
+		queryResults: []testQueryResult{{results: [][]interface{}{{nil}}}},
 	}
 	testRunQueryResults(t, queryResults)
 
@@ -49,11 +49,11 @@ func TestSelectDualTime(t *testing.T) {
 		queryResultTimeToLocal = append(queryResultTimeToLocal,
 			testQueryResult{
 				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
-				results: [][]interface{}{[]interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local)}},
 			},
 			testQueryResult{
 				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
-				results: [][]interface{}{[]interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local)}},
+				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local)}},
 			},
 		)
 	}
@@ -63,11 +63,11 @@ func TestSelectDualTime(t *testing.T) {
 		queryResultTimeToTZ = append(queryResultTimeToTZ,
 			testQueryResult{
 				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
-				results: [][]interface{}{[]interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])}},
+				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])}},
 			},
 			testQueryResult{
 				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
-				results: [][]interface{}{[]interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])}},
+				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])}},
 			},
 		)
 	}
@@ -97,45 +97,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeYearToMonth := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-24)}},
+			results: [][]interface{}{{int64(-24)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-12)}},
+			results: [][]interface{}{{int64(-12)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(12)}},
+			results: [][]interface{}{{int64(12)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(24)}},
+			results: [][]interface{}{{int64(24)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.5)},
-			results: [][]interface{}{[]interface{}{int64(-30)}},
+			results: [][]interface{}{{int64(-30)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-15)}},
+			results: [][]interface{}{{int64(-15)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(15)}},
+			results: [][]interface{}{{int64(15)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.5)},
-			results: [][]interface{}{[]interface{}{int64(30)}},
+			results: [][]interface{}{{int64(30)}},
 		},
 	}
 
@@ -145,45 +145,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeMonthToMonth := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-2)}},
+			results: [][]interface{}{{int64(-2)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-1)}},
+			results: [][]interface{}{{int64(-1)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(1)}},
+			results: [][]interface{}{{int64(1)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(2)}},
+			results: [][]interface{}{{int64(2)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.75)},
-			results: [][]interface{}{[]interface{}{int64(-3)}},
+			results: [][]interface{}{{int64(-3)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-1)}},
+			results: [][]interface{}{{int64(-1)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(1)}},
+			results: [][]interface{}{{int64(1)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.75)},
-			results: [][]interface{}{[]interface{}{int64(3)}},
+			results: [][]interface{}{{int64(3)}},
 		},
 	}
 
@@ -193,45 +193,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeDayToSecond := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-172800000000000)}},
+			results: [][]interface{}{{int64(-172800000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-86400000000000)}},
+			results: [][]interface{}{{int64(-86400000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(86400000000000)}},
+			results: [][]interface{}{{int64(86400000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(172800000000000)}},
+			results: [][]interface{}{{int64(172800000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.5)},
-			results: [][]interface{}{[]interface{}{int64(-216000000000000)}},
+			results: [][]interface{}{{int64(-216000000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-108000000000000)}},
+			results: [][]interface{}{{int64(-108000000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(108000000000000)}},
+			results: [][]interface{}{{int64(108000000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.5)},
-			results: [][]interface{}{[]interface{}{int64(216000000000000)}},
+			results: [][]interface{}{{int64(216000000000000)}},
 		},
 	}
 
@@ -241,45 +241,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeHourToSecond := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-7200000000000)}},
+			results: [][]interface{}{{int64(-7200000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-3600000000000)}},
+			results: [][]interface{}{{int64(-3600000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(3600000000000)}},
+			results: [][]interface{}{{int64(3600000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(7200000000000)}},
+			results: [][]interface{}{{int64(7200000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.5)},
-			results: [][]interface{}{[]interface{}{int64(-9000000000000)}},
+			results: [][]interface{}{{int64(-9000000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-4500000000000)}},
+			results: [][]interface{}{{int64(-4500000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(4500000000000)}},
+			results: [][]interface{}{{int64(4500000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.5)},
-			results: [][]interface{}{[]interface{}{int64(9000000000000)}},
+			results: [][]interface{}{{int64(9000000000000)}},
 		},
 	}
 
@@ -289,45 +289,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeMinuteToSecond := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-120000000000)}},
+			results: [][]interface{}{{int64(-120000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-60000000000)}},
+			results: [][]interface{}{{int64(-60000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(60000000000)}},
+			results: [][]interface{}{{int64(60000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(120000000000)}},
+			results: [][]interface{}{{int64(120000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.5)},
-			results: [][]interface{}{[]interface{}{int64(-150000000000)}},
+			results: [][]interface{}{{int64(-150000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-75000000000)}},
+			results: [][]interface{}{{int64(-75000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(75000000000)}},
+			results: [][]interface{}{{int64(75000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.5)},
-			results: [][]interface{}{[]interface{}{int64(150000000000)}},
+			results: [][]interface{}{{int64(150000000000)}},
 		},
 	}
 
@@ -337,45 +337,45 @@ func TestSelectDualTime(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 
 	queryResultTimeSecondToSecond := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-2)},
-			results: [][]interface{}{[]interface{}{int64(-2000000000)}},
+			results: [][]interface{}{{int64(-2000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(-1)},
-			results: [][]interface{}{[]interface{}{int64(-1000000000)}},
+			results: [][]interface{}{{int64(-1000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(1)},
-			results: [][]interface{}{[]interface{}{int64(1000000000)}},
+			results: [][]interface{}{{int64(1000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{int64(2)},
-			results: [][]interface{}{[]interface{}{int64(2000000000)}},
+			results: [][]interface{}{{int64(2000000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-2.5)},
-			results: [][]interface{}{[]interface{}{int64(-2500000000)}},
+			results: [][]interface{}{{int64(-2500000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(-1.25)},
-			results: [][]interface{}{[]interface{}{int64(-1250000000)}},
+			results: [][]interface{}{{int64(-1250000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(0)},
-			results: [][]interface{}{[]interface{}{int64(0)}},
+			results: [][]interface{}{{int64(0)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(1.25)},
-			results: [][]interface{}{[]interface{}{int64(1250000000)}},
+			results: [][]interface{}{{int64(1250000000)}},
 		},
-		testQueryResult{
+		{
 			args:    []interface{}{float64(2.5)},
-			results: [][]interface{}{[]interface{}{int64(2500000000)}},
+			results: [][]interface{}{{int64(2500000000)}},
 		},
 	}
 
@@ -425,7 +425,7 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults := testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: resultsTimestamp,
 			},
 		},
@@ -434,9 +434,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{4},
-			[]interface{}{5},
-			[]interface{}{6},
+			{4},
+			{5},
+			{6},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -472,7 +472,7 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: resultsTimestamp,
 			},
 		},
@@ -481,9 +481,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{4},
-			[]interface{}{5},
-			[]interface{}{6},
+			{4},
+			{5},
+			{6},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -507,7 +507,7 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: resultsTimestamp,
 			},
 		},
@@ -516,9 +516,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{4},
-			[]interface{}{5},
-			[]interface{}{6},
+			{4},
+			{5},
+			{6},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -536,13 +536,13 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, NUMTOYMINTERVAL(:2, 'YEAR'), NUMTOYMINTERVAL(:3, 'MONTH'))",
 		[][]interface{}{
-			[]interface{}{1, -2, -2},
-			[]interface{}{2, -1, -1},
-			[]interface{}{3, 1, 1},
-			[]interface{}{4, 2, 2},
-			[]interface{}{5, 1.25, 2.1},
-			[]interface{}{6, 1.5, 2.9},
-			[]interface{}{7, 2.75, 3},
+			{1, -2, -2},
+			{2, -1, -1},
+			{3, 1, 1},
+			{4, 2, 2},
+			{5, 1.25, 2.1},
+			{6, 1.5, 2.9},
+			{7, 2.75, 3},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -551,15 +551,15 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-24), int64(-2)},
-					[]interface{}{int64(2), int64(-12), int64(-1)},
-					[]interface{}{int64(3), int64(12), int64(1)},
-					[]interface{}{int64(4), int64(24), int64(2)},
-					[]interface{}{int64(5), int64(15), int64(2)},
-					[]interface{}{int64(6), int64(18), int64(3)},
-					[]interface{}{int64(7), int64(33), int64(3)},
+					{int64(1), int64(-24), int64(-2)},
+					{int64(2), int64(-12), int64(-1)},
+					{int64(3), int64(12), int64(1)},
+					{int64(4), int64(24), int64(2)},
+					{int64(5), int64(15), int64(2)},
+					{int64(6), int64(18), int64(3)},
+					{int64(7), int64(33), int64(3)},
 				},
 			},
 		},
@@ -568,9 +568,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{5},
-			[]interface{}{6},
-			[]interface{}{7},
+			{5},
+			{6},
+			{7},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -579,12 +579,12 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-24), int64(-2)},
-					[]interface{}{int64(2), int64(-12), int64(-1)},
-					[]interface{}{int64(3), int64(12), int64(1)},
-					[]interface{}{int64(4), int64(24), int64(2)},
+					{int64(1), int64(-24), int64(-2)},
+					{int64(2), int64(-12), int64(-1)},
+					{int64(3), int64(12), int64(1)},
+					{int64(4), int64(24), int64(2)},
 				},
 			},
 		},
@@ -603,13 +603,13 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, NUMTODSINTERVAL(:2, 'DAY'), NUMTODSINTERVAL(:3, 'HOUR'))",
 		[][]interface{}{
-			[]interface{}{1, -2, -2},
-			[]interface{}{2, -1, -1},
-			[]interface{}{3, 1, 1},
-			[]interface{}{4, 2, 2},
-			[]interface{}{5, 1.25, 1.25},
-			[]interface{}{6, 1.5, 1.5},
-			[]interface{}{7, 2.75, 2.75},
+			{1, -2, -2},
+			{2, -1, -1},
+			{3, 1, 1},
+			{4, 2, 2},
+			{5, 1.25, 1.25},
+			{6, 1.5, 1.5},
+			{7, 2.75, 2.75},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -618,15 +618,15 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-172800000000000), int64(-7200000000000)},
-					[]interface{}{int64(2), int64(-86400000000000), int64(-3600000000000)},
-					[]interface{}{int64(3), int64(86400000000000), int64(3600000000000)},
-					[]interface{}{int64(4), int64(172800000000000), int64(7200000000000)},
-					[]interface{}{int64(5), int64(108000000000000), int64(4500000000000)},
-					[]interface{}{int64(6), int64(129600000000000), int64(5400000000000)},
-					[]interface{}{int64(7), int64(237600000000000), int64(9900000000000)},
+					{int64(1), int64(-172800000000000), int64(-7200000000000)},
+					{int64(2), int64(-86400000000000), int64(-3600000000000)},
+					{int64(3), int64(86400000000000), int64(3600000000000)},
+					{int64(4), int64(172800000000000), int64(7200000000000)},
+					{int64(5), int64(108000000000000), int64(4500000000000)},
+					{int64(6), int64(129600000000000), int64(5400000000000)},
+					{int64(7), int64(237600000000000), int64(9900000000000)},
 				},
 			},
 		},
@@ -635,9 +635,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{5},
-			[]interface{}{6},
-			[]interface{}{7},
+			{5},
+			{6},
+			{7},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -646,12 +646,12 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-172800000000000), int64(-7200000000000)},
-					[]interface{}{int64(2), int64(-86400000000000), int64(-3600000000000)},
-					[]interface{}{int64(3), int64(86400000000000), int64(3600000000000)},
-					[]interface{}{int64(4), int64(172800000000000), int64(7200000000000)},
+					{int64(1), int64(-172800000000000), int64(-7200000000000)},
+					{int64(2), int64(-86400000000000), int64(-3600000000000)},
+					{int64(3), int64(86400000000000), int64(3600000000000)},
+					{int64(4), int64(172800000000000), int64(7200000000000)},
 				},
 			},
 		},
@@ -665,13 +665,13 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, NUMTODSINTERVAL(:2, 'MINUTE'), NUMTODSINTERVAL(:3, 'SECOND'))",
 		[][]interface{}{
-			[]interface{}{1, -2, -2},
-			[]interface{}{2, -1, -1},
-			[]interface{}{3, 1, 1},
-			[]interface{}{4, 2, 2},
-			[]interface{}{5, 1.25, 1.25},
-			[]interface{}{6, 1.5, 1.5},
-			[]interface{}{7, 2.75, 2.75},
+			{1, -2, -2},
+			{2, -1, -1},
+			{3, 1, 1},
+			{4, 2, 2},
+			{5, 1.25, 1.25},
+			{6, 1.5, 1.5},
+			{7, 2.75, 2.75},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -680,15 +680,15 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-120000000000), int64(-2000000000)},
-					[]interface{}{int64(2), int64(-60000000000), int64(-1000000000)},
-					[]interface{}{int64(3), int64(60000000000), int64(1000000000)},
-					[]interface{}{int64(4), int64(120000000000), int64(2000000000)},
-					[]interface{}{int64(5), int64(75000000000), int64(1250000000)},
-					[]interface{}{int64(6), int64(90000000000), int64(1500000000)},
-					[]interface{}{int64(7), int64(165000000000), int64(2750000000)},
+					{int64(1), int64(-120000000000), int64(-2000000000)},
+					{int64(2), int64(-60000000000), int64(-1000000000)},
+					{int64(3), int64(60000000000), int64(1000000000)},
+					{int64(4), int64(120000000000), int64(2000000000)},
+					{int64(5), int64(75000000000), int64(1250000000)},
+					{int64(6), int64(90000000000), int64(1500000000)},
+					{int64(7), int64(165000000000), int64(2750000000)},
 				},
 			},
 		},
@@ -697,9 +697,9 @@ func TestDestructiveTime(t *testing.T) {
 
 	err = testExecRows(t, "delete from "+tableName+" where A = :1",
 		[][]interface{}{
-			[]interface{}{5},
-			[]interface{}{6},
-			[]interface{}{7},
+			{5},
+			{6},
+			{7},
 		})
 	if err != nil {
 		t.Error("delete error:", err)
@@ -708,12 +708,12 @@ func TestDestructiveTime(t *testing.T) {
 	queryResults = testQueryResults{
 		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
-			testQueryResult{
+			{
 				results: [][]interface{}{
-					[]interface{}{int64(1), int64(-120000000000), int64(-2000000000)},
-					[]interface{}{int64(2), int64(-60000000000), int64(-1000000000)},
-					[]interface{}{int64(3), int64(60000000000), int64(1000000000)},
-					[]interface{}{int64(4), int64(120000000000), int64(2000000000)},
+					{int64(1), int64(-120000000000), int64(-2000000000)},
+					{int64(2), int64(-60000000000), int64(-1000000000)},
+					{int64(3), int64(60000000000), int64(1000000000)},
+					{int64(4), int64(120000000000), int64(2000000000)},
 				},
 			},
 		},

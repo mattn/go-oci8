@@ -209,17 +209,17 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 					C.OCI_DEFAULT,
 				)
 			}
+			if doneLogon {
+				C.OCILogoff(
+					conn.svc,
+					conn.errHandle,
+				)
+			}
 			if doneServerAttach {
 				C.OCIServerDetach(
 					conn.srv,
 					conn.errHandle,
 					C.OCI_DEFAULT,
-				)
-			}
-			if doneLogon {
-				C.OCILogoff(
-					conn.svc,
-					conn.errHandle,
 				)
 			}
 			if conn.usrSession != nil {

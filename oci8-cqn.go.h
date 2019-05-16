@@ -405,7 +405,7 @@ OCIEnv *envhp;
   int q3out;
   fflush(stdout);
   /* allocate subscription handle */
-  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&subscrhp,OCI_HTYPE_SUBSCRIPTION, (size_t)0, (dvoid **)0);
+  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&subscrhp, OCI_HTYPE_SUBSCRIPTION, (size_t)0, (dvoid **)0);
   /* set the namespace to DBCHANGE */
   checker(errhp, OCIAttrSet(subscrhp, OCI_HTYPE_SUBSCRIPTION, (dvoid *)&namespace, sizeof(ub4),OCI_ATTR_SUBSCR_NAMESPACE, errhp));
   /* Associate a notification callback with the subscription */

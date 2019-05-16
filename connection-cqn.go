@@ -7,35 +7,60 @@ import (
 	"unsafe"
 )
 
-func (conn *OCI8Conn) RegisterQuery() {
+type CallbackFuncQueryChangeNotification func(
+	unsafe.Pointer,
+	*C.OCISubscription,
+	unsafe.Pointer,
+	*C.ub4,
+	unsafe.Pointer,
+	C.ub4)
+
+func (conn *OCI8Conn) RegisterQuery(query string, callback CallbackFuncQueryChangeNotification) error {
 	// Allocate subscription handle */
-	var handle *unsafe.Pointer
+	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
+	var rowIds = true
+	var qosFlags = C.OCI_SUBSCR_CQ_QOS_BEST_EFFORT  // or use OCI_SUBSCR_CQ_QOS_QUERY for query level granularity with no false-positives; use OCI_SUBSCR_CQ_QOS_BEST_EFFORT for best-efforts
+	var sHandle *unsafe.Pointer
 	var err error
-	handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SUBSCRIPTION, 0)
+	sHandle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SUBSCRIPTION, 0)
 	if err != nil {
-		return nil, fmt.Errorf("allocate user session handle error: %v", err)
+		return fmt.Errorf("allocate user session handle error: %v", err)
+	}
+	// Set the namespace.
+	err = conn.ociAttrSet(*sHandle, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&namespace), unsafe.Sizeof(C.ub4), C.OCI_ATTR_SUBSCR_NAMESPACE)
+	if err != nil {
+		return err
+	}
+	// Associate a notification callback with the subscription.
+	err = conn.ociAttrSet(*sHandle, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&callback), 0, C.OCI_ATTR_SUBSCR_CALLBACK)
+	if err != nil {
+		return err
+	}
+	// Allow extraction of rowid information.
+	err = conn.ociAttrSet(*sHandle, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&rowIds), unsafe.Sizeof(C.ub4), C.OCI_ATTR_CHNF_ROWIDS)
+	if err != nil {
+		return err
+	}
+	// QOS Flags.
+	err = conn.ociAttrSet(*sHandle, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&qosFlags), unsafe.Sizeof(C.ub4), C.OCI_ATTR_SUBSCR_CQ_QOSFLAGS)
+	if err != nil {
+		return err
+	}
+	// Create a new registration in the DBCHANGE namespace.
+	result := C.OCISubscriptionRegister(conn.svc, sHandle, 1, conn.errHandle, C.OCI_DEFAULT)
+	err = conn.getError(result)
+	if err != nil {
+		return err
 	}
 
-	checker(errhp, OCIAttrSet(subscrhp, OCI_HTYPE_SUBSCRIPTION, (dvoid *)&namespace, sizeof(ub4),OCI_ATTR_SUBSCR_NAMESPACE, errhp));
-	/* Associate a notification callback with the subscription */
-	checker(errhp, OCIAttrSet(subscrhp, OCI_HTYPE_SUBSCRIPTION,(void *)myCallback, 0, OCI_ATTR_SUBSCR_CALLBACK, errhp));
-	/* Allow extraction of rowid information */
-	checker(errhp, OCIAttrSet(subscrhp, OCI_HTYPE_SUBSCRIPTION,(dvoid *)&rowids, sizeof(ub4),OCI_ATTR_CHNF_ROWIDS, errhp));
-	checker(errhp, OCIAttrSet(subscrhp, OCI_HTYPE_SUBSCRIPTION,(dvoid *)&qosflags, sizeof(ub4),OCI_ATTR_SUBSCR_CQ_QOSFLAGS, errhp));
-	/* Create a new registration in the DBCHANGE namespace */
-	checker(errhp, OCISubscriptionRegister(svchp, &subscrhp, 1, errhp, OCI_DEFAULT));
-	
+	// Prepare a statement.
+	conn.Prepare(string)
 
-	// Allocate a statement.
-	var err error
-	var result C.sword
-	var handle *unsafe.Pointer
-	handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
+	sHandle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
 	if err != nil {
 		return nil, fmt.Errorf("allocate user session handle error: %v", err)
 	}
 }
-
 
 func (conn *OCI8Conn) freeHandles() {
 	if conn.usrSession != nil {

@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
+	"strconv"
 	"time"
 	"unsafe"
 )
@@ -182,7 +183,13 @@ func init() {
 	for i := 0; i < len(timeLocations); i++ {
 		timeLocations[i], err = time.LoadLocation(timeLocationNames[i])
 		if err != nil {
-			panic(err)
+			name := "GMT"
+			if i < 12 {
+				name += strconv.FormatInt(int64(i-12), 10)
+			} else if i > 12 {
+				name += "+" + strconv.FormatInt(int64(i-12), 10)
+			}
+			timeLocations[i] = time.FixedZone(name, 3600*(i-12))
 		}
 	}
 }

@@ -115,7 +115,7 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 		return 0, err
 	}
 	// Get the query ID.
-	qid := int64(0)
+	var qid C.ub8
 	sz := C.ub4(0)
 	result := C.OCIAttrGet(
 		unsafe.Pointer(stmt.stmt), // Pointer to a handle type
@@ -129,7 +129,7 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 	if err != nil {
 		return 0, err
 	} else {
-		queryId = qid
+		queryId = int64(qid)
 	}
 
 	// Commit to release the transaction. Can we rollback instead?

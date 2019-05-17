@@ -1,5 +1,6 @@
 package oci8
 
+// #include "oci8.go.h"
 import "C"
 
 import (
@@ -28,7 +29,7 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 		return 0, fmt.Errorf("allocate user session handle error: %v", err)
 	}
 	// Set the namespace.
-	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&namespace), unsafe.Sizeof(C.ub4), C.OCI_ATTR_SUBSCR_NAMESPACE)
+	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&namespace), C.sizeof_ub4, C.OCI_ATTR_SUBSCR_NAMESPACE)
 	if err != nil {
 		return 0, err
 	}
@@ -38,17 +39,19 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 		return 0, err
 	}
 	// Allow extraction of rowid information.
-	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&rowIds), unsafe.Sizeof(C.ub4), C.OCI_ATTR_CHNF_ROWIDS)
+	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&rowIds), C.sizeof_ub4, C.OCI_ATTR_CHNF_ROWIDS)
 	if err != nil {
 		return 0, err
 	}
 	// QOS Flags.
-	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&qosFlags), unsafe.Sizeof(C.ub4), C.OCI_ATTR_SUBSCR_CQ_QOSFLAGS)
+	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&qosFlags), C.sizeof_ub4, C.OCI_ATTR_SUBSCR_CQ_QOSFLAGS)
 	if err != nil {
 		return 0, err
 	}
 	// Create a new registration in the DBCHANGE namespace.
-	err = conn.getError(C.OCISubscriptionRegister(conn.svc, subscription, 1, conn.errHandle, C.OCI_DEFAULT))
+	var subscriptionPtr *C.OCISubscription
+	subscriptionPtr = (*C.OCISubscription)(*subscription)
+	err = conn.getError(C.OCISubscriptionRegister(conn.svc, &subscriptionPtr, 1, conn.errHandle, C.OCI_DEFAULT))  // this wants ptr to start of an array of subscription pointers.
 	if err != nil {
 		return 0, err
 	}
@@ -65,7 +68,7 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 		_ = rows.Close() // discard the rows and free the defines once we're done.
 	}()
 	// Set the change notification attribute on the statement using the subscription.
-	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, subscription, 0, C.OCI_ATTR_CHNF_REGHANDLE)
+	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, *subscription, 0, C.OCI_ATTR_CHNF_REGHANDLE)
 	if err != nil {
 		return 0, err
 	}
@@ -76,14 +79,15 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 		return 0, err
 	}
 	// Get the query ID.
-	qid := C.ub8(0)
+	qid := int64(0)
+	sz := C.ub4(0)
 	result := C.OCIAttrGet(
 		unsafe.Pointer(stmt.stmt), // Pointer to a handle type
-		C.OCI_HTYPE_STMT,            // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
-		&qid,             // Pointer to the storage for an attribute value
-		C.ub4(0),                    // The size of the attribute value.  // TODO: use sizeof()
-		C.OCI_ATTR_CQ_QUERYID,       // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
-		conn.errHandle,              // An error handle
+		C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
+		unsafe.Pointer(&qid),                      // Pointer to the storage for an attribute value
+		&sz,                  // The size of the attribute value.  // TODO: use sizeof()
+		C.OCI_ATTR_CQ_QUERYID,     // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
+		conn.errHandle,            // An error handle
 	)
 	err = conn.getError(result)
 	if err != nil {
@@ -93,12 +97,11 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 	}
 
 	// Commit to release the transaction. Can we rollback instead?
-	xxxxxxxx continue here!!!
-
-	subscription, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
-	if err != nil {
-		return 0, fmt.Errorf("allocate user session handle error: %v", err)
+	conn.inTransaction = false
+	if rv := C.OCITransCommit(conn.svc, conn.errHandle, 0, ); rv != C.OCI_SUCCESS {
+		return 0, conn.getError(rv)
 	}
+	return queryId, err
 }
 
 // PrepareStmt prepares a query and return the raw statement so we can access
@@ -162,6 +165,6 @@ func (conn *OCI8Conn) freeHandles() {
 	}
 }
 
-func (conn *OCI8Conn) createSubscription() error {
-
-}
+// func (conn *OCI8Conn) createSubscription() error {
+// 	return nil
+// }

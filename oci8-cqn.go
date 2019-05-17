@@ -1,7 +1,8 @@
 package oci8
 
-// #include "oci8-cqn.go.h"
+// #include "oci8.go.h"
 import "C"
+
 import (
 	"errors"
 	"fmt"
@@ -10,12 +11,6 @@ import (
 	"os"
 	"unsafe"
 )
-
-// startup
-// callback
-
-func ContinuousQueryNotificationDriver() {
-}
 
 // OpenOCI8Conn opens a connection to the given Oracle database.
 // Supply flags == C.OCI_EVENTS | C.OCI_OBJECT for Continuous Query Notification.

@@ -13,8 +13,8 @@ import (
 )
 
 // OpenOCI8Conn opens a connection to the given Oracle database.
-// Supply flags == C.OCI_EVENTS | C.OCI_OBJECT for Continuous Query Notification.
-func (oci8Driver *OCI8DriverStruct) OpenOCI8Conn(dsnString string, envCreateFlags C.ub4) (*OCI8Conn, error) {
+// Uses flags == C.OCI_EVENTS | C.OCI_OBJECT for Continuous Query Notification.
+func (oci8Driver *OCI8DriverStruct) OpenOCI8Conn(dsnString string) (*OCI8Conn, error) {
 	// Set up.
 	var err error
 	var dsn *DSN
@@ -37,17 +37,18 @@ func (oci8Driver *OCI8DriverStruct) OpenOCI8Conn(dsnString string, envCreateFlag
 		charset = defaultCharset
 	}
 	// Create OCI env.
+	envCreateFlags := C.OCI_EVENTS | C.OCI_OBJECT // required for ContinuousQueryNotification.
 	result = C.OCIEnvNlsCreate(
-		envPP,          // pointer to a handle to the environment
-		envCreateFlags, // environment mode: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87683
-		nil,            // Specifies the user-defined context for the memory callback routines.
-		nil,            // Specifies the user-defined memory allocation function. If mode is OCI_THREADED, this memory allocation routine must be thread-safe.
-		nil,            // Specifies the user-defined memory re-allocation function. If the mode is OCI_THREADED, this memory allocation routine must be thread safe.
-		nil,            // Specifies the user-defined memory free function. If mode is OCI_THREADED, this memory free routine must be thread-safe.
-		0,              // Specifies the amount of user memory to be allocated for the duration of the environment.
-		nil,            // Returns a pointer to the user memory of size xtramemsz allocated by the call for the user.
-		charset,        // The client-side character set for the current environment handle. If it is 0, the NLS_LANG setting is used.
-		charset,        // The client-side national character set for the current environment handle. If it is 0, NLS_NCHAR setting is used.
+		envPP,                 // pointer to a handle to the environment
+		C.ub4(envCreateFlags), // environment mode: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87683
+		nil,                   // Specifies the user-defined context for the memory callback routines.
+		nil,                   // Specifies the user-defined memory allocation function. If mode is OCI_THREADED, this memory allocation routine must be thread-safe.
+		nil,                   // Specifies the user-defined memory re-allocation function. If the mode is OCI_THREADED, this memory allocation routine must be thread safe.
+		nil,                   // Specifies the user-defined memory free function. If mode is OCI_THREADED, this memory free routine must be thread-safe.
+		0,                     // Specifies the amount of user memory to be allocated for the duration of the environment.
+		nil,                   // Returns a pointer to the user memory of size xtramemsz allocated by the call for the user.
+		charset,               // The client-side character set for the current environment handle. If it is 0, the NLS_LANG setting is used.
+		charset,               // The client-side national character set for the current environment handle. If it is 0, NLS_NCHAR setting is used.
 	)
 	if result != C.OCI_SUCCESS {
 		return nil, errors.New("OCIEnvNlsCreate error")
@@ -184,4 +185,3 @@ func (oci8Driver *OCI8DriverStruct) OpenOCI8Conn(dsnString string, envCreateFlag
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
 	return &conn, nil
 }
-

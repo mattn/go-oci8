@@ -1,14 +1,21 @@
 package oci8
 
-// #include "oci8.go.h"
+/*
+#include "oci8.go.h"
+void myCallbackSimple(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* escriptor, ub4 mode);
+*/
 import "C"
 
 import (
 	"context"
 	"fmt"
-	"github.com/relloyd/go-sql/database/sql/driver"
 	"unsafe"
 )
+
+//export goCallback
+func goCallback() {
+	fmt.Println("callback executed!")
+}
 
 type CallbackFuncQueryChangeNotification func(
 	unsafe.Pointer,
@@ -18,8 +25,34 @@ type CallbackFuncQueryChangeNotification func(
 	unsafe.Pointer,
 	C.ub4)
 
-func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification, query string, args []namedValue) (queryId int64, err error) {
-	// Allocate subscription handle */
+// func (conn *OCI8Conn) createSubscription() error {
+// 	return nil
+// }
+
+// callback CallbackFuncQueryChangeNotification
+
+//export callback
+func callback(unsafe.Pointer,
+	*C.OCISubscription,
+	unsafe.Pointer,
+	*C.ub4,
+	unsafe.Pointer,
+	C.ub4,
+) {
+	fmt.Println("callback executed")
+}
+
+func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId int64, err error) {
+	// Build a slice of namedValue using args.
+	nv := make([]namedValue, len(args), len(args))
+	for i, v := range args {
+		nv[i] = namedValue{
+			Name:    "",
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	// Allocate subscription handle.
 	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
 	var rowIds = true
 	var qosFlags = C.OCI_SUBSCR_CQ_QOS_BEST_EFFORT // or use OCI_SUBSCR_CQ_QOS_QUERY for query level granularity with no false-positives; use OCI_SUBSCR_CQ_QOS_BEST_EFFORT for best-efforts
@@ -34,7 +67,7 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 		return 0, err
 	}
 	// Associate a notification callback with the subscription.
-	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&callback), 0, C.OCI_ATTR_SUBSCR_CALLBACK)
+	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(C.myCallbackSimple), 0, C.OCI_ATTR_SUBSCR_CALLBACK)
 	if err != nil {
 		return 0, err
 	}
@@ -51,22 +84,25 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 	// Create a new registration in the DBCHANGE namespace.
 	var subscriptionPtr *C.OCISubscription
 	subscriptionPtr = (*C.OCISubscription)(*subscription)
-	err = conn.getError(C.OCISubscriptionRegister(conn.svc, &subscriptionPtr, 1, conn.errHandle, C.OCI_DEFAULT))  // this wants ptr to start of an array of subscription pointers.
+	err = conn.getError(C.OCISubscriptionRegister(conn.svc, &subscriptionPtr, 1, conn.errHandle, C.OCI_DEFAULT)) // this wants ptr to start of an array of subscription pointers.
 	if err != nil {
 		return 0, err
 	}
 	// Prepare the query/statement.
-	stmt, err := conn.PrepareStmt(query)
+	stmt, err := conn.prepareStmt(query)
 	if err != nil {
 		return 0, err
 	}
+
 	// Define variables to receive values from the stmt.
 	// It's in the sample code, but why bother if we don't want the values?!
-	var rows driver.Rows
-	rows, err = stmt.query(context.Background(), args, true)
-	defer func() {
-		_ = rows.Close() // discard the rows and free the defines once we're done.
-	}()
+
+	// var rows driver.Rows
+	// rows, err = stmt.query(context.Background(), nv, true)
+	// defer func() {
+	// 	_ = rows.Close() // discard the rows and free the defines once we're done.
+	// }()
+
 	// Set the change notification attribute on the statement using the subscription.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, *subscription, 0, C.OCI_ATTR_CHNF_REGHANDLE)
 	if err != nil {
@@ -84,8 +120,8 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 	result := C.OCIAttrGet(
 		unsafe.Pointer(stmt.stmt), // Pointer to a handle type
 		C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
-		unsafe.Pointer(&qid),                      // Pointer to the storage for an attribute value
-		&sz,                  // The size of the attribute value.  // TODO: use sizeof()
+		unsafe.Pointer(&qid),      // Pointer to the storage for an attribute value
+		&sz,                       // The size of the attribute value.  // TODO: use sizeof()
 		C.OCI_ATTR_CQ_QUERYID,     // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
 		conn.errHandle,            // An error handle
 	)
@@ -104,16 +140,16 @@ func (conn *OCI8Conn) RegisterQuery(callback CallbackFuncQueryChangeNotification
 	return queryId, err
 }
 
-// PrepareStmt prepares a query and return the raw statement so we can access
+// prepareStmt prepares a query and return the raw statement so we can access
 // the statement handle.  For example, to set change notifications upon it.
 // This is a duplicate of Prepare() which returns an interface.
-func (conn *OCI8Conn) PrepareStmt(query string) (*OCI8Stmt, error) {
-	return conn.PrepareStmtContext(context.Background(), query)
+func (conn *OCI8Conn) prepareStmt(query string) (*OCI8Stmt, error) {
+	return conn.prepareStmtContext(context.Background(), query)
 }
 
-// PrepareStmtContext is a duplicate of PrepareContext().
-// See notes in PrepareStmt().
-func (conn *OCI8Conn) PrepareStmtContext(ctx context.Context, query string) (*OCI8Stmt, error) {
+// prepareStmtContext is a duplicate of PrepareContext().
+// See notes in prepareStmt().
+func (conn *OCI8Conn) prepareStmtContext(ctx context.Context, query string) (*OCI8Stmt, error) {
 	if conn.enableQMPlaceholders {
 		query = placeholders(query)
 	}
@@ -164,7 +200,3 @@ func (conn *OCI8Conn) freeHandles() {
 		conn.env = nil
 	}
 }
-
-// func (conn *OCI8Conn) createSubscription() error {
-// 	return nil
-// }

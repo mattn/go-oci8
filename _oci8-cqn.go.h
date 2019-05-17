@@ -28,11 +28,11 @@ static void processTableChanges(OCIEnv *envhp, OCIError *errhp, OCIStmt *stmthp,
 static void processQueryChanges(OCIEnv *envhp, OCIError *errhp, OCIStmt *stmthp, OCIColl *query_changes);
 static int nonractests2(/*_ int argc, char *argv[] _*/);
 
-int main(int argc, char **argv)
-{
-  NotificationDriver(argc, argv);
-  return 0;
-}
+//int main(int argc, char **argv)
+//{
+//  NotificationDriver(argc, argv);
+//  return 0;
+//}
 
 int NotificationDriver(argc, argv) int argc;
 char *argv[];

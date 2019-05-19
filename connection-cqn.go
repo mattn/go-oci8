@@ -2,7 +2,7 @@ package oci8
 
 /*
 #include "oci8.go.h"
-void myCallbackSimple(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* escriptor, ub4 mode);
+void cqnCallback(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* descriptor, ub4 mode);
 */
 import "C"
 
@@ -11,36 +11,6 @@ import (
 	"fmt"
 	"unsafe"
 )
-
-//export goCallback
-func goCallback() {
-	fmt.Println("callback executed!")
-}
-
-type CallbackFuncQueryChangeNotification func(
-	unsafe.Pointer,
-	*C.OCISubscription,
-	unsafe.Pointer,
-	*C.ub4,
-	unsafe.Pointer,
-	C.ub4)
-
-// func (conn *OCI8Conn) createSubscription() error {
-// 	return nil
-// }
-
-// callback CallbackFuncQueryChangeNotification
-
-//export callback
-func callback(unsafe.Pointer,
-	*C.OCISubscription,
-	unsafe.Pointer,
-	*C.ub4,
-	unsafe.Pointer,
-	C.ub4,
-) {
-	fmt.Println("callback executed")
-}
 
 func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId int64, err error) {
 	// Build a slice of namedValue using args.
@@ -67,7 +37,7 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 		return 0, err
 	}
 	// Associate a notification callback with the subscription.
-	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(C.myCallbackSimple), 0, C.OCI_ATTR_SUBSCR_CALLBACK)
+	err = conn.ociAttrSet(*subscription, C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(C.cqnCallback), 0, C.OCI_ATTR_SUBSCR_CALLBACK)
 	if err != nil {
 		return 0, err
 	}
@@ -109,13 +79,13 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 		return 0, err
 	}
 	// Execute the statement.
-	// TODO: abort if not a SELECT statment - see query() for a check on this attr.
+	// TODO: abort if not a SELECT statement - see query() for a check on this attr.
 	err = stmt.ociStmtExecute(0, C.OCI_DEFAULT)
 	if err != nil {
 		return 0, err
 	}
 	// Get the query ID.
-	var qid C.ub8
+	qid := C.ub8(0)
 	sz := C.ub4(0)
 	result := C.OCIAttrGet(
 		unsafe.Pointer(stmt.stmt), // Pointer to a handle type
@@ -131,8 +101,7 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 	} else {
 		queryId = int64(qid)
 	}
-
-	// Commit to release the transaction. Can we rollback instead?
+	// Commit to release the transaction. TODO: Can we rollback instead of commit after this SELECT?
 	conn.inTransaction = false
 	if rv := C.OCITransCommit(conn.svc, conn.errHandle, 0, ); rv != C.OCI_SUCCESS {
 		return 0, conn.getError(rv)

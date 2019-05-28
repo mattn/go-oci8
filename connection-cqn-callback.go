@@ -9,5 +9,6 @@ import (
 
 //export goCqnCallback
 func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload unsafe.Pointer, payl *C.ub4, descriptor unsafe.Pointer, mode C.ub4) {
-	fmt.Println("callback executed!")
+	fmt.Println("callback executed yay!")
+
 }

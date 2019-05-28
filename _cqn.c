@@ -319,7 +319,7 @@ ub4 mode;
   /* server contexts */
   (void)OCIHandleAlloc((dvoid *)envhp, (dvoid **)&srvhp, OCI_HTYPE_SERVER,(size_t)0, (dvoid **)0);
   (void)OCIHandleAlloc((dvoid *)envhp, (dvoid **)&svchp, OCI_HTYPE_SVCCTX,(size_t)0, (dvoid **)0);
-  OCIAttrGet(change_descriptor, OCI_DTYPE_CHDES, (dvoid *)&notify_type,NULL, OCI_ATTR_CHDES_NFYTYPE, errhp);
+  OCIAttrGet(change_descriptor, OCI_DTYPE_CHDES, (dvoid*)&notify_type, NULL, OCI_ATTR_CHDES_NFYTYPE, errhp);
   fflush(stdout);
   if (notify_type == OCI_EVENT_SHUTDOWN ||
       notify_type == OCI_EVENT_SHUTDOWN_ANY)
@@ -348,7 +348,7 @@ ub4 mode;
   checker(errhp, OCISessionBegin(svchp, errhp, usrhp, OCI_CRED_RDBMS,OCI_DEFAULT));
   OCIAttrSet((dvoid *)svchp, (ub4)OCI_HTYPE_SVCCTX,(dvoid *)usrhp, (ub4)0, OCI_ATTR_SESSION, errhp);
   /* Allocate a statement handle */
-  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&stmthp,(ub4)OCI_HTYPE_STMT, 52, (dvoid **)&tmp);
+  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&stmthp, (ub4)OCI_HTYPE_STMT, 52, (dvoid **)&tmp);
   if (notify_type == OCI_EVENT_OBJCHANGE)
   {
     checker(errhp, OCIAttrGet(change_descriptor,OCI_DTYPE_CHDES, &table_changes, NULL,OCI_ATTR_CHDES_TABLE_CHANGES, errhp));

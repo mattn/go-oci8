@@ -79,6 +79,27 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 	if err != nil {
 		return 0, err
 	}
+
+	// Get the registration ID.
+	var regId1 C.ub8
+	sz := C.ub4(8)  // TODO: use sizeof.
+	result := C.OCIAttrGet(
+		unsafe.Pointer(subscriptionPtr), // unsafe.Pointer(stmt.stmt), // Pointer to a handle type
+		C.OCI_HTYPE_SUBSCRIPTION,        // C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
+		unsafe.Pointer(&regId1),          // Pointer to the storage for an attribute value
+		&sz,                             // The size of the attribute value.  // TODO: use sizeof()
+		C.OCI_ATTR_SUBSCR_CQ_REGID,      // C.OCI_ATTR_CQ_QUERYID <<< returns 0 for what I think is the first query since multiples can be registered in one subscroption. // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
+		conn.errHandle,                  // An error handle
+	)
+	err = conn.getError(result)
+	if err != nil {
+		return int64(regId1), err
+	} else {
+		fmt.Println("query ID fetched early =", int64(regId1))
+	}
+
+
+
 	// Prepare the query/statement.
 	stmt, err := conn.prepareStmt(query)
 	if err != nil {
@@ -129,10 +150,11 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 	// copy(buf, p[:])
 	// fmt.Println("name = ", *(*string)(unsafe.Pointer(&buf)))
 
+	// Duplicated above:
 	// Get the query ID.
 	var regId C.ub8
-	sz := C.ub4(8)  // TODO: use sizeof.
-	result := C.OCIAttrGet(
+	sz = C.ub4(8)  // TODO: use sizeof.
+	result = C.OCIAttrGet(
 		unsafe.Pointer(subscriptionPtr), // unsafe.Pointer(stmt.stmt), // Pointer to a handle type
 		C.OCI_HTYPE_SUBSCRIPTION,        // C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
 		unsafe.Pointer(&regId),          // Pointer to the storage for an attribute value
@@ -146,6 +168,7 @@ func (conn *OCI8Conn) RegisterQuery(query string, args []interface{}) (queryId i
 	} else {
 		queryId = int64(regId)
 	}
+
 	// Commit to release the transaction. TODO: Can we rollback instead of commit after this SELECT?
 	conn.inTransaction = false
 	if rv := C.OCITransCommit(conn.svc, conn.errHandle, 0, ); rv != C.OCI_SUCCESS {

@@ -14,6 +14,7 @@ import (
 
 // OpenOCI8Conn opens a connection to the given Oracle database.
 // Uses flags == C.OCI_EVENTS | C.OCI_OBJECT for Continuous Query Notification.
+// Mostly a duplicate of Open() but needed since the flags above differ.
 func (oci8Driver *OCI8DriverStruct) OpenOCI8Conn(dsnString string) (*OCI8Conn, error) {
 	// Set up.
 	var err error

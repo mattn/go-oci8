@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal("nil db")
 	}
-	id, err := db.RegisterQuery("select a, b from t1", nil)
+	id, err := db.NewCqnSubscription("select a, b from t1", nil)
 	if err != nil {
 		log.Fatalf("unable to register query: %v", err)
 	}

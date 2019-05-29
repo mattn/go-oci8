@@ -3,13 +3,7 @@ package oci8
 /*
 #cgo CXXFLAGS: -std=c++11
 #include "oci8.go.h"
-#include <string.h>
 void cqnCallback(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* descriptor, ub4 mode);
-// typedef void (*FNP)(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* descriptor, ub4 mode);
-// std::function<FNP> getCqnCallback(int functionLookupIdx);
-// FNP getCqnCallback(int functionLookupIdx);
-// void (*func)(dvoid* ctx, OCISubscription* subscrhp, dvoid* payload, ub4* payl, dvoid* descriptor, ub4 mode) getCqnCallback(int functionLookupIdx);
-
 */
 import "C"
 
@@ -100,6 +94,8 @@ func (conn *OCI8Conn) ExecuteCqn(subscription *C.OCISubscription, query string, 
 	if err != nil {
 		return
 	}
+	// TODO: bind the args.
+
 	// Set the subscription on the statement.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(subscription), 0, C.OCI_ATTR_CHNF_REGHANDLE)
 	if err != nil {

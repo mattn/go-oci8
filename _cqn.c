@@ -319,6 +319,7 @@ ub4 mode;
   /* server contexts */
   (void)OCIHandleAlloc((dvoid *)envhp, (dvoid **)&srvhp, OCI_HTYPE_SERVER,(size_t)0, (dvoid **)0);
   (void)OCIHandleAlloc((dvoid *)envhp, (dvoid **)&svchp, OCI_HTYPE_SVCCTX,(size_t)0, (dvoid **)0);
+
   OCIAttrGet(change_descriptor, OCI_DTYPE_CHDES, (dvoid*)&notify_type, NULL, OCI_ATTR_CHDES_NFYTYPE, errhp);
   fflush(stdout);
   if (notify_type == OCI_EVENT_SHUTDOWN ||
@@ -338,7 +339,7 @@ ub4 mode;
   }
   notifications_processed++;
   checker(errhp, OCIServerAttach(srvhp, errhp, (text *)server, (sb4)strlen(server),(ub4)OCI_DEFAULT));
-  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&svchp, (ub4)OCI_HTYPE_SVCCTX,52, (dvoid **)&tmp);
+  OCIHandleAlloc((dvoid *)envhp, (dvoid **)&svchp, (ub4)OCI_HTYPE_SVCCTX, 52, (dvoid **)&tmp);
   /* set attribute server context in the service context */
   OCIAttrSet((dvoid *)svchp, (ub4)OCI_HTYPE_SVCCTX, (dvoid *)srvhp,(ub4)0, (ub4)OCI_ATTR_SERVER, (OCIError *)errhp);
   /* allocate a user context handle */
@@ -351,7 +352,7 @@ ub4 mode;
   OCIHandleAlloc((dvoid *)envhp, (dvoid **)&stmthp, (ub4)OCI_HTYPE_STMT, 52, (dvoid **)&tmp);
   if (notify_type == OCI_EVENT_OBJCHANGE)
   {
-    checker(errhp, OCIAttrGet(change_descriptor,OCI_DTYPE_CHDES, &table_changes, NULL,OCI_ATTR_CHDES_TABLE_CHANGES, errhp));
+    checker(errhp, OCIAttrGet(change_descriptor,OCI_DTYPE_CHDES, &table_changes, NULL, OCI_ATTR_CHDES_TABLE_CHANGES, errhp));
     processTableChanges(envhp, errhp, stmthp, table_changes);
   }
   else if (notify_type == OCI_EVENT_QUERYCHANGE)

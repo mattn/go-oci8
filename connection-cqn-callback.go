@@ -4,7 +4,7 @@ package oci8
 // #include <string.h>
 // #include <stdio.h>
 // #include <stdlib.h>
-// sword getTableDescriptor(OCIEnv* envhp, OCIError* errhp, OCIColl* table_changes, sb4 i, dvoid** tableDescP);
+// sword getTableChangesCollectionElement(OCIEnv* envhp, OCIError* errhp, OCIColl* table_changes, ub2 idx, dvoid** tableDescP);
 import "C"
 
 import (
@@ -164,10 +164,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	var err error
 	var result C.sword
 	var numTables C.sb4
-	//var exist C.boolean
 	var tableDescriptionUP unsafe.Pointer
-	// tableDescriptionPP := &tableDescriptionUP
-	//var elemIndP unsafe.Pointer
 	var tableName *C.oratext
 	var tableOp C.ub4
 	var rowChanges *C.OCIColl
@@ -181,16 +178,10 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	fmt.Println("number of table changes is", numTables)
 
 	for idx = 0; idx < numTables; idx++ {
-		// checker(errhp, OCICollGetElem(envhp, errhp, (OCIColl *)table_changes, i, &exist, &table_descp, &elemind));
-		// result = C.OCICollGetElem(conn.env, conn.errHandle, tableChanges, idx, &exist, &tableDescriptionUP, &elemIndP)
-		// if err = conn.getError(result); err != nil {
-		// 	panic(fmt.Sprintf("error fetching element: %v", err))
-		// }
-		result = C.getTableDescriptor(conn.env, conn.errHandle, tableChanges, idx, &tableDescriptionUP)
-		// table_desc = *table_descp;
-		// var tableDescriptionP unsafe.Pointer
-		// tableDescriptionP = *tableDescriptionPP
-
+		result = C.getTableChangesCollectionElement(conn.env, conn.errHandle, tableChanges, C.ub2(idx), &tableDescriptionUP)
+		if err = conn.getError(result); err != nil {
+			panic(fmt.Sprintf("error fetching table descriptor: %v", err))
+		}
 		// checker(errhp, OCIAttrGet(table_desc,OCI_DTYPE_TABLE_CHDES, (dvoid*)&table_name,NULL, OCI_ATTR_CHDES_TABLE_NAME, errhp));
 		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableName), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
 		if err = conn.getError(result); err != nil {

@@ -212,8 +212,7 @@ void processTableChanges(OCIEnv *envhp, OCIError *errhp, OCIStmt *stmthp, OCICol
   sb4 num_tables;
   if (!table_changes)
     return;
-  checker(errhp, OCICollSize(envhp, errhp,
-                             (CONST OCIColl *)table_changes, &num_tables));
+  checker(errhp, OCICollSize(envhp, errhp, (CONST OCIColl *)table_changes, &num_tables));
   // char op_insert[] = "INSERT";
   // char op_update[] = "UPDATE";
   // char op_delete[] = "DELETE";

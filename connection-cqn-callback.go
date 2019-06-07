@@ -2,6 +2,9 @@ package oci8
 
 // #include "oci8.go.h"
 // #include <string.h>
+// #include <stdio.h>
+// #include <stdlib.h>
+// sword getTableDescriptor(OCIEnv* envhp, OCIError* errhp, OCIColl* table_changes, sb4 i, dvoid** tableDescP);
 import "C"
 
 import (
@@ -116,7 +119,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	} else if notificationType == C.OCI_EVENT_OBJCHANGE { // else if we registered subscription of type OCI_SUBSCR_CQ_QOS_BEST_EFFORT...
 		// Supply address of pointer tableChangesPtr *C.OCIColl to OCIAttrGet.
 		// This isn't exactly clear from the documentation:
-		// void* is the documented type, but (void*)(*C.OCIColl) seems to work!
+		// void* is the documented type, but (void*)(&*C.OCIColl) seems to work!
 		result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&tableChangesPtr), nil, C.OCI_ATTR_CHDES_TABLE_CHANGES, conn.errHandle)
 		err = conn.getError(result)
 		if err != nil {
@@ -161,11 +164,11 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	var err error
 	var result C.sword
 	var numTables C.sb4
-	var exist C.boolean
-	var tableDescriptionPP *unsafe.Pointer
-	var tableDescriptionP unsafe.Pointer
-	var elemInd unsafe.Pointer
-	var tableName *C.OraText
+	//var exist C.boolean
+	var tableDescriptionUP unsafe.Pointer
+	// tableDescriptionPP := &tableDescriptionUP
+	//var elemIndP unsafe.Pointer
+	var tableName *C.oratext
 	var tableOp C.ub4
 	var rowChanges *C.OCIColl
 	var idx C.sb4
@@ -178,41 +181,52 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	fmt.Println("number of table changes is", numTables)
 
 	for idx = 0; idx < numTables; idx++ {
-		// checker(errhp, OCICollGetElem(envhp,errhp, (OCIColl *)table_changes,i, &exist, &table_descp, &elemind));
-		result = C.OCICollGetElem(conn.env, conn.errHandle, tableChanges, idx, &exist, tableDescriptionPP, &elemInd)
-		if err = conn.getError(result); err != nil {
-			panic("error fetching element")
-		}
+		// checker(errhp, OCICollGetElem(envhp, errhp, (OCIColl *)table_changes, i, &exist, &table_descp, &elemind));
+		// result = C.OCICollGetElem(conn.env, conn.errHandle, tableChanges, idx, &exist, &tableDescriptionUP, &elemIndP)
+		// if err = conn.getError(result); err != nil {
+		// 	panic(fmt.Sprintf("error fetching element: %v", err))
+		// }
+		result = C.getTableDescriptor(conn.env, conn.errHandle, tableChanges, idx, &tableDescriptionUP)
 		// table_desc = *table_descp;
-		tableDescriptionP = *tableDescriptionPP
+		// var tableDescriptionP unsafe.Pointer
+		// tableDescriptionP = *tableDescriptionPP
 
 		// checker(errhp, OCIAttrGet(table_desc,OCI_DTYPE_TABLE_CHDES, (dvoid*)&table_name,NULL, OCI_ATTR_CHDES_TABLE_NAME, errhp));
-		result = C.OCIAttrGet(tableDescriptionP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableName), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
+		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableName), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching table name from element")
 		}
-		fmt.Println("table name", cGoStringN(tableName, int(C.strlen(tableName))))  // TODO: find the length for real
+
+		// C.printf("table name \n")
+		// l := C.strlen(*C.char(tableName))
+		// p := (*[1 << 30]byte)(unsafe.Pointer(tableName))
+		// idx := 0
+		// for p[idx] != 0 {
+		// 	idx++
+		// 	fmt.Println("searching for len tableName idx=", idx)
+		// }
+		// fmt.Println("table name", cGoStringN(tableName, int(l)))  // TODO: find the length for real
 
 		// checker(errhp, OCIAttrGet(table_desc, OCI_DTYPE_TABLE_CHDES, (dvoid*)&table_op, NULL, OCI_ATTR_CHDES_TABLE_OPFLAGS, errhp));
-		result = C.OCIAttrGet(tableDescriptionP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableOp), nil, C.OCI_ATTR_CHDES_TABLE_OPFLAGS, conn.errHandle)
+		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableOp), nil, C.OCI_ATTR_CHDES_TABLE_OPFLAGS, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching table operation from element")
 		}
 
 		// checker(errhp, OCIAttrGet(table_desc, OCI_DTYPE_TABLE_CHDES, (dvoid*)&row_changes, NULL, OCI_ATTR_CHDES_TABLE_ROW_CHANGES, errhp));
-		result = C.OCIAttrGet(tableDescriptionP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&rowChanges), nil, C.OCI_ATTR_CHDES_TABLE_ROW_CHANGES, conn.errHandle)
+		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&rowChanges), nil, C.OCI_ATTR_CHDES_TABLE_ROW_CHANGES, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching row changes")
 		}
 
-		fmt.Println("Table changed is ", tableName, "table_op 0x%x", tableOp)
+		fmt.Println(fmt.Sprintf("Table changed is dunnoyet; table_op 0x%x", int32(tableOp)))
 
-		if !(tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0 {
-			// processRowChanges(envhp, errhp, stmthp, row_changes);
-			fmt.Println("process row changes...")
-		} else {
-			fmt.Println("table all rows changed")
-		}
+		// if !(tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0 {
+		// 	processRowChanges(envhp, errhp, stmthp, row_changes);
+		// fmt.Println("process row changes...")
+		// } else {
+		// 	fmt.Println("table all rows changed")
+		// }
 	}
 }
 

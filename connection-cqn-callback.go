@@ -4,7 +4,7 @@ package oci8
 // #include <string.h>
 // #include <stdio.h>
 // #include <stdlib.h>
-// sword getTableChangesCollectionElement(OCIEnv* envhp, OCIError* errhp, OCIColl* table_changes, ub2 idx, dvoid** tableDescP);
+// sword getCollectionElement(OCIEnv* envhp, OCIError* errhp, OCIColl* collection, ub2 idx, dvoid** element);
 import "C"
 
 import (
@@ -98,21 +98,19 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	// Get the notification type.
 	var notificationType C.ub4
 	result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&notificationType), nil, C.OCI_ATTR_CHDES_NFYTYPE, conn.errHandle)
-	err = conn.getError(result)
-	if err != nil {
+	if err = conn.getError(result); err != nil {
 		panic("error fetching CQN notification type")
-	} else {
-		fmt.Println("notification type =", notificationType)
 	}
+	fmt.Println("notification type =", notificationType)
 
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
-	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY {
+	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY {  // if the database is shutting down...
 		fmt.Println("SHUTDOWN NOTIFICATION RECEIVED\n");
 		// notifications_processed++;
 		return
-	} else if notificationType == C.OCI_EVENT_STARTUP {
+	} else if notificationType == C.OCI_EVENT_STARTUP {  // if the database is starting up...
 		fmt.Println("STARTUP NOTIFICATION RECEIVED\n");
 		// notifications_processed++;
 		return
@@ -121,24 +119,19 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		// This isn't exactly clear from the documentation:
 		// void* is the documented type, but (void*)(&*C.OCIColl) seems to work!
 		result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&tableChangesPtr), nil, C.OCI_ATTR_CHDES_TABLE_CHANGES, conn.errHandle)
-		err = conn.getError(result)
-		if err != nil {
+		if err = conn.getError(result); err != nil {
 			panic("error fetching CQN table changes")
-		} else {
-			fmt.Println("processing table changes...")
-			extractTableChanges(&conn, tableChangesPtr)
 		}
+		fmt.Println("processing table changes...")
+		extractTableChanges(&conn, tableChangesPtr)
 	} else if notificationType == C.OCI_EVENT_QUERYCHANGE { // else if we registered subscription of type OCI_SUBSCR_CQ_QOS_QUERY...
 		result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&queryChangesPtr), nil, C.OCI_ATTR_CHDES_QUERIES, conn.errHandle)
-		err = conn.getError(result)
-		if err != nil {
+		if err = conn.getError(result); err != nil {
 			panic("error fetching CQN query changes")
-		} else {
-			fmt.Println("processing query changes")
-			// processQueryChanges(envhp, errhp, stmthp, queryChanges)
 		}
+		fmt.Println("processing query changes")
+		// processQueryChanges(envhp, errhp, stmthp, queryChanges)
 	}
-
 	// Get the registration ID.
 	var regId C.ub8
 	regIdSize := C.ub4(C.sizeof_ub8)
@@ -163,71 +156,107 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	var err error
 	var result C.sword
-	var numTables C.sb4
-	var tableDescriptionUP unsafe.Pointer
-	var tableName *C.oratext
+	// var numTables C.sb4
+	var element unsafe.Pointer  // will be populated by call to getCollectionElement().
+	var tableNameOratext *C.oratext
 	var tableOp C.ub4
 	var rowChanges *C.OCIColl
-	var idx C.sb4
+	// var idx C.sb4
 
-	result = C.OCICollSize(conn.env, conn.errHandle, tableChanges, &numTables)
-	err = conn.getError(result)
-	if err != nil {
-		panic("error processing CQN table changes")
-	}
+	// Get the number of table changes.
+	// result = C.OCICollSize(conn.env, conn.errHandle, tableChanges, &numTables)
+	// err = conn.getError(result)
+	// if err != nil {
+	// 	panic("error processing CQN table changes")
+	// }
+	numTables := getCollSize(conn, tableChanges)
 	fmt.Println("number of table changes is", numTables)
-
-	for idx = 0; idx < numTables; idx++ {
-		result = C.getTableChangesCollectionElement(conn.env, conn.errHandle, tableChanges, C.ub2(idx), &tableDescriptionUP)
+	// Process each table in the change list.
+	for idx := 0; idx < numTables; idx++ {  // for each table in the collection...
+		// Get the collection element and fetch the attributes within it.
+		result = C.getCollectionElement(conn.env, conn.errHandle, tableChanges, C.ub2(idx), &element)
 		if err = conn.getError(result); err != nil {
-			panic(fmt.Sprintf("error fetching table descriptor: %v", err))
+			panic(fmt.Sprintf("error fetching table changes element: %v", err))
 		}
-		// checker(errhp, OCIAttrGet(table_desc,OCI_DTYPE_TABLE_CHDES, (dvoid*)&table_name,NULL, OCI_ATTR_CHDES_TABLE_NAME, errhp));
-		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableName), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
+		// Extract the table name.
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableNameOratext), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching table name from element")
 		}
-
-		// C.printf("table name \n")
-		// l := C.strlen(*C.char(tableName))
-		// p := (*[1 << 30]byte)(unsafe.Pointer(tableName))
-		// idx := 0
-		// for p[idx] != 0 {
-		// 	idx++
-		// 	fmt.Println("searching for len tableName idx=", idx)
-		// }
-		// fmt.Println("table name", cGoStringN(tableName, int(l)))  // TODO: find the length for real
-
-		// checker(errhp, OCIAttrGet(table_desc, OCI_DTYPE_TABLE_CHDES, (dvoid*)&table_op, NULL, OCI_ATTR_CHDES_TABLE_OPFLAGS, errhp));
-		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableOp), nil, C.OCI_ATTR_CHDES_TABLE_OPFLAGS, conn.errHandle)
+		// fmt.Println("table name =", oraText2GoString(tableNameOratext))
+		// Extract the operation type.
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableOp), nil, C.OCI_ATTR_CHDES_TABLE_OPFLAGS, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching table operation from element")
 		}
-
-		// checker(errhp, OCIAttrGet(table_desc, OCI_DTYPE_TABLE_CHDES, (dvoid*)&row_changes, NULL, OCI_ATTR_CHDES_TABLE_ROW_CHANGES, errhp));
-		result = C.OCIAttrGet(tableDescriptionUP, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&rowChanges), nil, C.OCI_ATTR_CHDES_TABLE_ROW_CHANGES, conn.errHandle)
+		// Find out if there were row changes.
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&rowChanges), nil, C.OCI_ATTR_CHDES_TABLE_ROW_CHANGES, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching row changes")
 		}
-
-		fmt.Println(fmt.Sprintf("Table changed is dunnoyet; table_op 0x%x", int32(tableOp)))
-
-		// if !(tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0 {
-		// 	processRowChanges(envhp, errhp, stmthp, row_changes);
-		// fmt.Println("process row changes...")
-		// } else {
-		// 	fmt.Println("table all rows changed")
-		// }
+		// Dump table changes.
+		fmt.Println(fmt.Sprintf("Table changed is %v; tableOp = 0x%x", oraText2GoString(tableNameOratext), int32(tableOp)))
+		// Process row changes.
+		if !((tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0) { // if individual rows were changed...
+			// processRowChanges(envhp, errhp, stmthp, row_changes);
+			fmt.Println("processing row changes...")
+			extractRowChanges(conn, rowChanges)
+		} else {
+			fmt.Println("all rows changed")
+		}
 	}
 }
 
-// CGoStringN coverts C OraText to Go string
-func oratextGoStringN(s *C.oratext, size int) string {
-	if size == 0 {
-		return ""
+func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
+	var err error
+	var result C.sword
+	var element unsafe.Pointer
+	var rowId *C.oratext
+	var rowOp C.ub4
+	// Get the number of row changes.
+	numChanges := getCollSize(conn, rowChanges)
+	fmt.Println("number of row changes =", numChanges)
+	// Process each row in the change list.
+	for idx := 0; idx < numChanges; idx++ {  // for each row change...
+		// Extract the element and fetch attributes within it.
+		result = C.getCollectionElement(conn.env, conn.errHandle, rowChanges, C.ub2(idx), &element)
+		if err = conn.getError(result); err != nil {
+			panic("error fetching collection element from row changes")
+		}
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_ROW_CHDES, unsafe.Pointer(&rowId), nil, C.OCI_ATTR_CHDES_ROW_ROWID, conn.errHandle)
+		if err = conn.getError(result); err != nil {
+			panic("error fetching row ID")
+		}
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_ROW_CHDES, unsafe.Pointer(&rowOp), nil, C.OCI_ATTR_CHDES_ROW_OPFLAGS, conn.errHandle)
+		if err = conn.getError(result); err != nil {
+			panic("error fetching row operation")
+		}
+		fmt.Println(fmt.Sprintf("Row changed = %v; rowOp = 0x%x", oraText2GoString(rowId), int32(rowOp)))
 	}
+}
+
+// oraText2GoString coverts C oratext to Go string.
+func oraText2GoString(s *C.oratext) string {
 	p := (*[1 << 30]byte)(unsafe.Pointer(s))
+	size := 0
+	for p[size] != 0 {
+		size++
+	}
 	buf := make([]byte, size)
 	copy(buf, p[:])
 	return *(*string)(unsafe.Pointer(&buf))
 }
+
+// getCollSize returns the number of elements in the collection.
+func getCollSize(conn *OCI8Conn, c *C.OCIColl) int {
+	var err error
+	var result C.sword
+	var size C.sb4
+	result = C.OCICollSize(conn.env, conn.errHandle, c, &size)
+	err = conn.getError(result)
+	if err != nil {
+		panic("error getting CQN collection size")
+	}
+	return int(size)
+}
+

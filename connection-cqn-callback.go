@@ -17,30 +17,15 @@ import (
 
 //export goCqnCallback
 func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload unsafe.Pointer, payl *C.ub4, descriptor unsafe.Pointer, mode C.ub4) {
-	fmt.Println("callback started bad-ass...")
-	// openString := "richard/richard@//192.168.56.101:1521/ORCL?prefetch_rows=500"
-	// driver := &oci8.OCI8DriverStruct{
-	// 	Logger: log.New(ioutil.Discard, "", 0),
-	// }
-	// conn, err := driver.OpenOCI8Conn(openString)
-	// if err != nil {
-	// 	log.Fatal("nil conn")
-	// }
-
 	var err error
-
-	conn := OCI8Conn{
-		// operationMode: dsn.operationMode,
-		// logger:        oci8Driver.Logger,
-	}
+	var result C.sword
+	conn := OCI8Conn{}
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
 	}
-
 	// Environment handle.
 	var envP *C.OCIEnv
 	envPP := &envP
-	var result C.sword
 	charset := C.ub2(0)
 	if os.Getenv("NLS_LANG") == "" && os.Getenv("NLS_NCHAR") == "" {
 		charset = defaultCharset
@@ -64,6 +49,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	}
 	conn.env = *envPP
 
+	// TODO: fix cleanup.
 	// Defer cleanup if any error occurs.
 	// defer func(errP *error) {
 	// 	if *errP != nil {
@@ -89,13 +75,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	conn.errHandle = (*C.OCIError)(*handle)
 	handle = nil // deallocate.
 
-	// TODO: next...
-	// extract reg ID from subscription.
-	// get a connection
-	// try handling change descriptors without preparing a tmp statement as demo code doesn't use the statement
-	// implement processTableChanges() as a starter!
-
-	// Get the notification type.
+	// Get the notification type from the descriptor.
 	var notificationType C.ub4
 	result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&notificationType), nil, C.OCI_ATTR_CHDES_NFYTYPE, conn.errHandle)
 	if err = conn.getError(result); err != nil {
@@ -156,19 +136,11 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	var err error
 	var result C.sword
-	// var numTables C.sb4
 	var element unsafe.Pointer  // will be populated by call to getCollectionElement().
 	var tableNameOratext *C.oratext
 	var tableOp C.ub4
 	var rowChanges *C.OCIColl
-	// var idx C.sb4
-
 	// Get the number of table changes.
-	// result = C.OCICollSize(conn.env, conn.errHandle, tableChanges, &numTables)
-	// err = conn.getError(result)
-	// if err != nil {
-	// 	panic("error processing CQN table changes")
-	// }
 	numTables := getCollSize(conn, tableChanges)
 	fmt.Println("number of table changes is", numTables)
 	// Process each table in the change list.
@@ -211,7 +183,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 	var err error
 	var result C.sword
 	var element unsafe.Pointer
-	var rowId *C.oratext
+	var rowIdOratext *C.oratext
 	var rowOp C.ub4
 	// Get the number of row changes.
 	numChanges := getCollSize(conn, rowChanges)
@@ -223,7 +195,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 		if err = conn.getError(result); err != nil {
 			panic("error fetching collection element from row changes")
 		}
-		result = C.OCIAttrGet(element, C.OCI_DTYPE_ROW_CHDES, unsafe.Pointer(&rowId), nil, C.OCI_ATTR_CHDES_ROW_ROWID, conn.errHandle)
+		result = C.OCIAttrGet(element, C.OCI_DTYPE_ROW_CHDES, unsafe.Pointer(&rowIdOratext), nil, C.OCI_ATTR_CHDES_ROW_ROWID, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			panic("error fetching row ID")
 		}
@@ -231,7 +203,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 		if err = conn.getError(result); err != nil {
 			panic("error fetching row operation")
 		}
-		fmt.Println(fmt.Sprintf("Row changed = %v; rowOp = 0x%x", oraText2GoString(rowId), int32(rowOp)))
+		fmt.Println(fmt.Sprintf("Row changed = %v; rowOp = 0x%x", oraText2GoString(rowIdOratext), int32(rowOp)))
 	}
 }
 
@@ -239,7 +211,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 func oraText2GoString(s *C.oratext) string {
 	p := (*[1 << 30]byte)(unsafe.Pointer(s))
 	size := 0
-	for p[size] != 0 {
+	for p[size] != 0 {  // while we look for a null string terminator...
 		size++
 	}
 	buf := make([]byte, size)
@@ -259,4 +231,3 @@ func getCollSize(conn *OCI8Conn, c *C.OCIColl) int {
 	}
 	return int(size)
 }
-

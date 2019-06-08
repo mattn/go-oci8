@@ -26,6 +26,7 @@ type CqnData struct {
 
 type CqnOpCode uint32
 
+// TODO: make these op code a hex bit map instead of integers!
 const (
 	CqnAllRows CqnOpCode = iota + 1
 	CqnInsert

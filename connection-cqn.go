@@ -96,17 +96,19 @@ func (conn *OCI8Conn) ExecuteCqn(subscription *C.OCISubscription, query string, 
 	}
 	// TODO: bind the args.
 
-	// Set the subscription on the statement.
+	// Set the subscription attribute on the statement.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(subscription), 0, C.OCI_ATTR_CHNF_REGHANDLE)
 	if err != nil {
 		return
 	}
+
 	// Execute the statement.
 	// TODO: abort if not a SELECT statement - see query() for a check on this attr.
 	err = stmt.ociStmtExecute(0, C.OCI_DEFAULT)
 	if err != nil {
 		return
 	}
+
 	// Commit to release the transaction.
 	// TODO: Rollback instead of commit after this SELECT.
 	conn.inTransaction = false

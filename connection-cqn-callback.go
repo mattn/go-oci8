@@ -23,6 +23,8 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
 	}
+	// Defer cleanup.
+	defer conn.freeHandles()
 	// Environment handle.
 	var envP *C.OCIEnv
 	envPP := &envP
@@ -44,19 +46,9 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		charset,               // The client-side national character set for the current environment handle. If it is 0, NLS_NCHAR setting is used.
 	)
 	if result != C.OCI_SUCCESS {
-		// return nil, errors.New("OCIEnvNlsCreate error")
 		panic("OCIEnvNlsCreate error")
 	}
 	conn.env = *envPP
-
-	// TODO: fix cleanup.
-	// Defer cleanup if any error occurs.
-	// defer func(errP *error) {
-	// 	if *errP != nil {
-	// 		conn.freeHandles()
-	// 	}
-	// }(&err) // pass the address of err so this is the last error assigned to err.
-
 	// Error handle.
 	var handleTemp unsafe.Pointer
 	handle := &handleTemp
@@ -68,13 +60,10 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		nil,                      // Returns a pointer to the user memory
 	)
 	if result != C.OCI_SUCCESS {
-		// TODO: error handle not yet allocated, how to get string error from oracle?
-		// return nil, errors.New("allocate error handle error")
-		panic("allocate error handle error")
+		panic("error allocating Oracle error handle")
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
 	handle = nil // deallocate.
-
 	// Get the notification type from the descriptor.
 	var notificationType C.ub4
 	result = C.OCIAttrGet(descriptor, C.OCI_DTYPE_CHDES, unsafe.Pointer(&notificationType), nil, C.OCI_ATTR_CHDES_NFYTYPE, conn.errHandle)
@@ -82,19 +71,16 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		panic("error fetching CQN notification type")
 	}
 	fmt.Println("notification type =", notificationType)
-
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
-	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY {  // if the database is shutting down...
-		fmt.Println("SHUTDOWN NOTIFICATION RECEIVED\n");
-		// notifications_processed++;
+	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY { // if the database is shutting down...
+		fmt.Println("Oracle shutdown notification received")
 		return
-	} else if notificationType == C.OCI_EVENT_STARTUP {  // if the database is starting up...
-		fmt.Println("STARTUP NOTIFICATION RECEIVED\n");
-		// notifications_processed++;
+	} else if notificationType == C.OCI_EVENT_STARTUP { // if the database is starting up...
+		fmt.Println("Oracle startup notification received")
 		return
-	} else if notificationType == C.OCI_EVENT_OBJCHANGE { // else if we registered subscription of type OCI_SUBSCR_CQ_QOS_BEST_EFFORT...
+	} else if notificationType == C.OCI_EVENT_OBJCHANGE { // else if we registered a subscription of type OCI_SUBSCR_CQ_QOS_BEST_EFFORT...
 		// Supply address of pointer tableChangesPtr *C.OCIColl to OCIAttrGet.
 		// This isn't exactly clear from the documentation:
 		// void* is the documented type, but (void*)(&*C.OCIColl) seems to work!
@@ -110,25 +96,20 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 			panic("error fetching CQN query changes")
 		}
 		fmt.Println("processing query changes")
+		// TODO: process query changes!
 		// processQueryChanges(envhp, errhp, stmthp, queryChanges)
 	}
 	// Get the registration ID.
+	// Alternatively use C.OCI_ATTR_CQ_QUERYID to get the query ID. This produces return value = 0, for what I think
+	// is the first query since multiples can be registered in one subscription.
+	// The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
 	var regId C.ub8
 	regIdSize := C.ub4(C.sizeof_ub8)
-	result = C.OCIAttrGet(
-		unsafe.Pointer(subHandle),  // unsafe.Pointer(stmt.stmt), // Pointer to a handle type
-		C.OCI_HTYPE_SUBSCRIPTION,   // C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
-		unsafe.Pointer(&regId),     // Pointer to the storage for an attribute value
-		&regIdSize,                 // The size of the attribute value.  // TODO: use sizeof()
-		C.OCI_ATTR_SUBSCR_CQ_REGID, // C.OCI_ATTR_CQ_QUERYID <<< returns 0 for what I think is the first query since multiples can be registered in one subscroption. // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
-		conn.errHandle,             // An error handle
-	)
-	err = conn.getError(result)
-	if err != nil {
+	result = C.OCIAttrGet(unsafe.Pointer(subHandle), C.OCI_HTYPE_SUBSCRIPTION, unsafe.Pointer(&regId), &regIdSize, C.OCI_ATTR_SUBSCR_CQ_REGID, conn.errHandle)
+	if err = conn.getError(result); err != nil {
 		panic("error fetching CQN registration ID in callback")
-	} else {
-		log.Println("callback fetched registration ID =", int64(regId))
 	}
+	log.Println("callback fetched registration ID =", int64(regId))
 }
 
 // extractTableChanges will extract the table changes.
@@ -136,7 +117,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	var err error
 	var result C.sword
-	var element unsafe.Pointer  // will be populated by call to getCollectionElement().
+	var element unsafe.Pointer // will be populated by call to getCollectionElement().
 	var tableNameOratext *C.oratext
 	var tableOp C.ub4
 	var rowChanges *C.OCIColl
@@ -144,7 +125,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) {
 	numTables := getCollSize(conn, tableChanges)
 	fmt.Println("number of table changes is", numTables)
 	// Process each table in the change list.
-	for idx := 0; idx < numTables; idx++ {  // for each table in the collection...
+	for idx := 0; idx < numTables; idx++ { // for each table in the collection...
 		// Get the collection element and fetch the attributes within it.
 		result = C.getCollectionElement(conn.env, conn.errHandle, tableChanges, C.ub2(idx), &element)
 		if err = conn.getError(result); err != nil {
@@ -189,7 +170,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 	numChanges := getCollSize(conn, rowChanges)
 	fmt.Println("number of row changes =", numChanges)
 	// Process each row in the change list.
-	for idx := 0; idx < numChanges; idx++ {  // for each row change...
+	for idx := 0; idx < numChanges; idx++ { // for each row change...
 		// Extract the element and fetch attributes within it.
 		result = C.getCollectionElement(conn.env, conn.errHandle, rowChanges, C.ub2(idx), &element)
 		if err = conn.getError(result); err != nil {
@@ -211,7 +192,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) {
 func oraText2GoString(s *C.oratext) string {
 	p := (*[1 << 30]byte)(unsafe.Pointer(s))
 	size := 0
-	for p[size] != 0 {  // while we look for a null string terminator...
+	for p[size] != 0 { // while we look for a null string terminator...
 		size++
 	}
 	buf := make([]byte, size)

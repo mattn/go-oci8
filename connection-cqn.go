@@ -10,10 +10,22 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"sync"
 	"unsafe"
 )
 
-func (conn *OCI8Conn) NewCqnSubscription() (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
+type SubscriptionHandler interface {
+	ProcessCqnData(d []CqnData)
+}
+
+var (
+	cqnSubscriptionHandlerMap struct {
+		sync.RWMutex
+		m map[int64]SubscriptionHandler
+	}
+)
+
+func (conn *OCI8Conn) NewCqnSubscription(i SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
 	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
 	var rowIds = true
 	var qosFlags = C.OCI_SUBSCR_CQ_QOS_BEST_EFFORT // or use OCI_SUBSCR_CQ_QOS_QUERY for query level granularity with no false-positives; use OCI_SUBSCR_CQ_QOS_BEST_EFFORT for best-efforts
@@ -69,11 +81,18 @@ func (conn *OCI8Conn) NewCqnSubscription() (registrationId int64, subscriptionPt
 		C.OCI_ATTR_SUBSCR_CQ_REGID,      // C.OCI_ATTR_CQ_QUERYID <<< returns 0 for what I think is the first query since multiples can be registered in one subscroption. // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
 		conn.errHandle,                  // An error handle
 	)
-	err = conn.getError(result)
-	if err != nil {
+	if err = conn.getError(result); err != nil { // if there was an error registering...
 		return
-	} else {
-		registrationId = int64(regId)
+	} else { // else we have a successful registration...
+		// Save the registration ID and supplied interface so the Go callback can use it later.
+		// See the C callback used above first: C.cqnCallback(), which leads to the go callback.
+		registrationId = int64(regId) // set the return value.
+		if cqnSubscriptionHandlerMap.m == nil { // if the map needs initialising...
+			cqnSubscriptionHandlerMap.m = make(map[int64]SubscriptionHandler)
+		}
+		cqnSubscriptionHandlerMap.Lock()
+		cqnSubscriptionHandlerMap.m[registrationId] = i
+		cqnSubscriptionHandlerMap.Unlock()
 	}
 	return
 }

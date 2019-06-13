@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 	"unsafe"
 )
 
@@ -38,14 +39,17 @@ const (
 )
 
 //export goCqnCallback
-// goCqnCallback extracts CQN payload details from the supplied parameters and follows the following process to deliver
-// them to a SubscriptionHandler interface.
-// First, it extracts details of the CQN event e.g. table and row level change details.
-// Then it finds the registration ID origin of the payload and looks up an associated SubscriptionHandler interface
-// in global map cqnSubscriptionHandlerMap.m.
+// goCqnCallback is used by C.cqnCallback() only.
+// It extracts CQN payload details from the supplied parameters and follows the following process to deliver
+// them to a SubscriptionHandler interface:
+// 1) It extracts details of the CQN event e.g. table and row level change details.
+// 2) It finds the origin of the payload by fetching the registration ID for the CQN and looks up an associated
+// SubscriptionHandler interface in global map cqnSubscriptionHandlerMap.m.
 // If it can't find one, it panics.
-// If a subscription handler is found then it forwards the payload details to interface method ProcessCqnData()
-// in a goroutine and exits.
+// If a subscription handler is found, it forwards the payload details to interface method ProcessCqnData()
+// synchronously.
+// The OCI driver calls the C.cqnCallback() in sequence per commit that affects the registered query so it is important
+// to process the notifications in order to maintain data consistency.
 func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload unsafe.Pointer, payl *C.ub4, descriptor unsafe.Pointer, mode C.ub4) {
 	var err error
 	var result C.sword
@@ -104,7 +108,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
-	var cqnData []CqnData
+	var cqnData []CqnData // slice to hold CQN change details; will be passed to a go callback function below.
 	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY { // if the database is shutting down...
 		fmt.Println("Oracle shutdown notification received")
 		return
@@ -145,14 +149,16 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		panic("error fetching CQN registration ID in callback")
 	}
 	log.Println("callback fetched registration ID =", int64(regId))
-	// Fetch the interface for this registration ID and send the payload.
+	// Fetch the SubscriptionHandler interface for this registration ID and send the change details / payload.
 	cqnSubscriptionHandlerMap.RLock()
 	i, ok := cqnSubscriptionHandlerMap.m[int64(regId)]
 	cqnSubscriptionHandlerMap.RUnlock()
 	if !ok {
 		panic(fmt.Sprintf("unable to find SubscriptionHandler interface for CQN registration ID %v", regId))
 	}
-	go i.ProcessCqnData(cqnData) // launch goroutine to deal with the payload.
+	i.ProcessCqnData(cqnData) // launch goroutine to deal with the changes async.
+	fmt.Println("callback sleeping deliberately")
+	time.Sleep(30 * time.Second)
 	return
 }
 
@@ -182,7 +188,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 			err = errors.Wrap(err, "error fetching table changes element")
 			return
 		}
-		// Extract the table name.
+		// Extract the table name from this element.
 		result = C.OCIAttrGet(element, C.OCI_DTYPE_TABLE_CHDES, unsafe.Pointer(&tableNameOratext), nil, C.OCI_ATTR_CHDES_TABLE_NAME, conn.errHandle)
 		if err = conn.getError(result); err != nil {
 			err = errors.Wrap(err, "error fetching table name from element")
@@ -205,6 +211,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 		d[idx].tableOperation = getOpCode(tableOp)
 		// Process row changes.
 		if !((tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0) { // if individual rows were changed...
+			// Get the row changes in r.
 			fmt.Println("processing row changes...")
 			var r RowChanges
 			r, err = extractRowChanges(conn, rowChanges)
@@ -291,7 +298,7 @@ func getOpCode(op C.ub4) (retval CqnOpCode) {
 		retval = retval | CqnDrop
 		foundOne = true
 	}
-	if ! foundOne || (op & C.OCI_OPCODE_UNKNOWN) > 0 {
+	if ! foundOne || (op&C.OCI_OPCODE_UNKNOWN) > 0 {
 		retval = CqnUnexpected
 	}
 	return

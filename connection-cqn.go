@@ -93,7 +93,7 @@ func (conn *OCI8Conn) NewCqnSubscription(i SubscriptionHandler) (registrationId 
 		unsafe.Pointer(subscriptionPtr), // unsafe.Pointer(stmt.stmt), // Pointer to a handle type
 		C.OCI_HTYPE_SUBSCRIPTION,        // C.OCI_HTYPE_STMT,          // The handle type: OCI_DTYPE_PARAM, for a parameter descriptor
 		unsafe.Pointer(&regId),          // Pointer to the storage for an attribute value
-		&regIdSize,                      // The size of the attribute value.  // TODO: use sizeof()
+		&regIdSize,                      // The size of the attribute value.
 		C.OCI_ATTR_SUBSCR_CQ_REGID,      // C.OCI_ATTR_CQ_QUERYID <<< returns 0 for what I think is the first query since multiples can be registered in one subscroption. // The attribute type: https://docs.oracle.com/cd/B19306_01/appdev.102/b14250/ociaahan.htm
 		conn.errHandle,                  // An error handle
 	)
@@ -216,5 +216,11 @@ func (conn *OCI8Conn) freeHandles() {
 	if conn.env != nil {
 		C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 		conn.env = nil
+	}
+}
+
+func FreeSubscriptionHandle(subscriptionPtr *C.OCISubscription) {
+	if subscriptionPtr != nil {
+		C.OCIHandleFree(unsafe.Pointer(subscriptionPtr), C.OCI_HTYPE_SUBSCRIPTION)
 	}
 }

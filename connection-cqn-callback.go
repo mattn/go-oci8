@@ -38,6 +38,14 @@ const (
 )
 
 //export goCqnCallback
+// goCqnCallback extracts CQN payload details from the supplied parameters and follows the following process to deliver
+// them to a SubscriptionHandler interface.
+// First, it extracts details of the CQN event e.g. table and row level change details.
+// Then it finds the registration ID origin of the payload and looks up an associated SubscriptionHandler interface
+// in global map cqnSubscriptionHandlerMap.m.
+// If it can't find one, it panics.
+// If a subscription handler is found then it forwards the payload details to interface method ProcessCqnData()
+// in a goroutine and exits.
 func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload unsafe.Pointer, payl *C.ub4, descriptor unsafe.Pointer, mode C.ub4) {
 	var err error
 	var result C.sword
@@ -139,8 +147,11 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	log.Println("callback fetched registration ID =", int64(regId))
 	// Fetch the interface for this registration ID and send the payload.
 	cqnSubscriptionHandlerMap.RLock()
-	i := cqnSubscriptionHandlerMap.m[int64(regId)]
+	i, ok := cqnSubscriptionHandlerMap.m[int64(regId)]
 	cqnSubscriptionHandlerMap.RUnlock()
+	if !ok {
+		panic(fmt.Sprintf("unable to find SubscriptionHandler interface for CQN registration ID %v", regId))
+	}
 	go i.ProcessCqnData(cqnData) // launch goroutine to deal with the payload.
 	return
 }
@@ -210,6 +221,9 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 	return
 }
 
+// extractRowChanges will fetch row-level changes of type
+// OCI_ATTR_CHDES_ROW_ROWID and OCI_ATTR_CHDES_ROW_OPFLAGS from the supplied collection.
+// It expects conn.env and conn.errHandle to be setup in advance.
 // TODO: make this a method of OCI8Conn.
 func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges, err error) {
 	var result C.sword
@@ -248,34 +262,37 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 	return
 }
 
+// getOpCode converts operation codes used by OCI for CQN notifications into native values.
+// const CqnUnexpected is returned if a known code is NOT found in the supplied bit map.
+// See Oracle oci.h for multiple OCI_OPCODE values.
 func getOpCode(op C.ub4) (retval CqnOpCode) {
 	foundOne := false
 	if (op & C.OCI_OPCODE_ALLROWS) > 0 {
-		retval += CqnAllRows
+		retval = retval | CqnAllRows
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_INSERT) > 0 {
-		retval += CqnInsert
+		retval = retval | CqnInsert
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_UPDATE) > 0 {
-		retval += CqnUpdate
+		retval = retval | CqnUpdate
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_DELETE) > 0 {
-		retval += CqnDelete
+		retval = retval | CqnDelete
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_ALTER) > 0 {
-		retval += CqnAlter
+		retval = retval | CqnAlter
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_DROP) > 0 {
-		retval += CqnDrop
+		retval = retval | CqnDrop
 		foundOne = true
 	}
-	if ! foundOne {
-		retval += CqnUnexpected
+	if ! foundOne || (op & C.OCI_OPCODE_UNKNOWN) > 0 {
+		retval = CqnUnexpected
 	}
 	return
 }

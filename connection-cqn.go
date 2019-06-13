@@ -25,6 +25,22 @@ var (
 	}
 )
 
+// NewCqnSubscription registers a new CQN subscription, returning a handle/pointer to the subscription and its
+// registration ID. A Go callback function of type SubscriptionHandler needs to be registered in global map
+// cqnSubscriptionHandlerMap.m, using the registrationId which is returned by this function.
+// ExecuteCqn() should then be called with the subscription handle pointer, SQL and args.
+// Background:
+// The subscription uses a central C function that will be executed by Oracle when query change notification events are raised.
+// The C callback function executes a Go function, which searches global variable cqnSubscriptionHandlerMap for an instance function
+// to execute and supply the notification payload to.
+// Here's an example, to register and use a CQN:
+// 1) call NewCqnSubscription().
+// 2) save an interface of type SubscriptionHandler in global map cqnSubscriptionHandlerMap.m using the registration ID.
+// 3) call ExecuteCqn() with the query you wish to register for CQN.
+// 4) Oracle calls C.cqnCallback() when a CQN event occurs.
+// 5) C.cqnCallback() passes the payload to Go function goCqnCallback().
+// 6) goCqnCallback() uses the registration ID to look up a SubscriptionHandler interface.
+// 7) The Go SubscriptionHandler is executed with the CQN payload and descriptor so you can route the event where its required.
 func (conn *OCI8Conn) NewCqnSubscription(i SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
 	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
 	var rowIds = true
@@ -97,6 +113,8 @@ func (conn *OCI8Conn) NewCqnSubscription(i SubscriptionHandler) (registrationId 
 	return
 }
 
+// ExecuteCqn prepares the query, binds the arguments if []args are provided and executes the CQN query.
+// The return value is an error if one occurred else nil.
 func (conn *OCI8Conn) ExecuteCqn(subscription *C.OCISubscription, query string, args []interface{}) (err error) {
 	// Build a slice of namedValue using args.
 	nv := make([]namedValue, len(args), len(args))
@@ -113,7 +131,8 @@ func (conn *OCI8Conn) ExecuteCqn(subscription *C.OCISubscription, query string, 
 	if err != nil {
 		return
 	}
-	// TODO: bind the args.
+
+	// TODO: bind the args or else the bind vars won't produce anything!
 
 	// Set the subscription attribute on the statement.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(subscription), 0, C.OCI_ATTR_CHNF_REGHANDLE)
@@ -176,6 +195,7 @@ func (conn *OCI8Conn) prepareStmtContext(ctx context.Context, query string) (*OC
 	return &OCI8Stmt{conn: conn, stmt: (*C.OCIStmt)(*stmt)}, nil
 }
 
+// freeHandles will clean up any handles allocated in C.
 func (conn *OCI8Conn) freeHandles() {
 	if conn.usrSession != nil {
 		C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)

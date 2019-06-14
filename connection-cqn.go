@@ -77,15 +77,21 @@ func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{
 	return nil
 }
 
-func (c *CqnConn) Close() {
-	// TODO: unregister the CQN and close the connection.
+func (c *CqnConn) Close() error {
+	// TODO: unregister the CQN via OCI and close the connection.
 	c.m.Lock()
 	if c.subscriptionCreated {
+		// Free the C subscription handle.
 		freeSubscriptionHandle(c.subscriptionPtr)
+		// Remove the subscription handler from global map which was supplied to Execute().
+		cqnSubscriptionHandlerMap.Lock()
+		delete(cqnSubscriptionHandlerMap.m, c.registrationId)
+		cqnSubscriptionHandlerMap.Unlock()
+		// Flag that we're clean.
 		c.subscriptionCreated = false
 	}
 	c.m.Unlock()
-	return
+	return c.conn.Close()
 }
 
 // openOCI8Conn opens a connection to the given Oracle database.

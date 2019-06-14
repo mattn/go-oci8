@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"time"
 	"unsafe"
 )
 
@@ -155,9 +154,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	if !ok {
 		panic(fmt.Sprintf("unable to find SubscriptionHandler interface for CQN registration ID %v", regId))
 	}
-	i.ProcessCqnData(cqnData) // launch goroutine to deal with the changes async.
-	fmt.Println("callback sleeping deliberately")
-	time.Sleep(30 * time.Second)
+	i.ProcessCqnData(cqnData) // deal with the changes synchronously so we maintain transaction order!
 	return
 }
 

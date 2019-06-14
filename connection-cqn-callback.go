@@ -17,17 +17,16 @@ import (
 	"unsafe"
 )
 
-type RowChanges map[string]CqnOpCode
-
 type CqnData struct {
 	schemaTableName string
 	tableOperation  CqnOpCode
 	rowChanges      RowChanges
 }
 
+type RowId string
+type RowChanges map[RowId]CqnOpCode
 type CqnOpCode uint32
 
-// TODO: make these op code a hex bit map instead of integers!
 const (
 	CqnAllRows CqnOpCode = 1 << iota
 	CqnInsert
@@ -263,7 +262,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 			err = errors.Wrap(err, "error fetching row operation")
 			return
 		}
-		rowIds[oraText2GoString(rowIdOratext)] = getOpCode(rowOp)
+		rowIds[RowId(oraText2GoString(rowIdOratext))] = getOpCode(rowOp)
 		fmt.Println(fmt.Sprintf("row changed = %v; rowOp = 0x%x", oraText2GoString(rowIdOratext), int32(rowOp)))
 	}
 	return
@@ -303,6 +302,10 @@ func getOpCode(op C.ub4) (retval CqnOpCode) {
 	}
 	return
 }
+
+// func string2RowId(rowIdText string) RowId {
+// 	return RowId(rowIdText)
+// }
 
 // oraText2GoString coverts C oratext to Go string.
 func oraText2GoString(s *C.oratext) string {

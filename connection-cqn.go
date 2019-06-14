@@ -23,19 +23,23 @@ type SubscriptionHandler interface {
 }
 
 type CqnConn struct {
-	conn *OCI8Conn
-	registrationId int64
-	subscriptionPtr *C.OCISubscription
+	conn                *OCI8Conn
+	registrationId      int64
+	subscriptionPtr     *C.OCISubscription
 	subscriptionCreated bool
+	m                   sync.Mutex
 }
 
-var (
-	cqnSubscriptionHandlerMap struct {
-		sync.RWMutex
-		m map[int64]SubscriptionHandler
-	}
-)
+// cqnSubscriptionHandlerMap is a global store for SubscriptionHandler interfaces supplied by
+// users of CqnConn.Execute().
+var cqnSubscriptionHandlerMap struct {
+	sync.RWMutex
+	m map[int64]SubscriptionHandler
+}
 
+// OpenCqnConnection opens a OCI driver connection directly given the supplied DSN.
+// The returned CqnConn can be used to execute a Continuous Query Notification statement.
+// The user should call CqnConn.Close() to unregister the statement and free private C handles when done.
 func OpenCqnConnection(dsnString string) (c CqnConn, err error) {
 	driver := &OCI8DriverStruct{
 		Logger: log.New(ioutil.Discard, "", 0),
@@ -52,28 +56,35 @@ func OpenCqnConnection(dsnString string) (c CqnConn, err error) {
 func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{}) error {
 	var err error
 	// Create CQN subscription.
-	if !c.subscriptionCreated {  // if a subscription hasn't already been created...
+	c.m.Lock()
+	if !c.subscriptionCreated { // if a subscription hasn't already been created...
 		// Create a new subscription and register the handler/callback interface.
-		c.registrationId, c.subscriptionPtr, err = c.conn.getCqnSubscription(h)
+		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)
 		if err != nil {
 			return errors.Wrap(err, "unable to register query")
 		}
 		c.subscriptionCreated = true
+		// Execute the CQN query.
+		err = c.conn.executeCqnQuery(c.subscriptionPtr, query, args)
+		if err != nil {
+			return errors.Wrap(err, "error executing the query")
+		}
 	} else {
+		c.m.Unlock()
 		return errors.New("CQN subscription exists; call Close() or create a new instance")
 	}
-	// Execute the CQN query.
-	err = c.conn.executeCqnQuery(c.subscriptionPtr, query, args)
-	if err != nil {
-		return errors.Wrap(err, "error executing the query")
-	}
+	c.m.Unlock()
 	return nil
 }
 
 func (c *CqnConn) Close() {
 	// TODO: unregister the CQN and close the connection.
-	freeSubscriptionHandle(c.subscriptionPtr)
-	c.subscriptionCreated = false
+	c.m.Lock()
+	if c.subscriptionCreated {
+		freeSubscriptionHandle(c.subscriptionPtr)
+		c.subscriptionCreated = false
+	}
+	c.m.Unlock()
 	return
 }
 
@@ -268,7 +279,7 @@ func (oci8Driver *OCI8DriverStruct) openOCI8Conn4Cqn(dsnString string) (*OCI8Con
 // 5) C.cqnCallback() passes the payload to Go function goCqnCallback().
 // 6) goCqnCallback() uses the registration ID to look up a SubscriptionHandler interface.
 // 7) The Go SubscriptionHandler is executed with the CQN payload and descriptor so you can route the event where its required.
-func (conn *OCI8Conn) getCqnSubscription(i SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
+func (conn *OCI8Conn) registerCqnSubscription(i SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
 	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
 	var rowIds = true
 	var qosFlags = C.OCI_SUBSCR_CQ_QOS_BEST_EFFORT // or use OCI_SUBSCR_CQ_QOS_QUERY for query level granularity with no false-positives; use OCI_SUBSCR_CQ_QOS_BEST_EFFORT for best-efforts

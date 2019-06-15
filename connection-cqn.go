@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,8 +25,9 @@ type SubscriptionHandler interface {
 
 type CqnConn struct {
 	conn                *OCI8Conn
-	registrationId      int64
+	stmt                *OCI8Stmt
 	subscriptionPtr     *C.OCISubscription
+	registrationId      int64
 	subscriptionCreated bool
 	m                   sync.Mutex
 }
@@ -35,63 +37,6 @@ type CqnConn struct {
 var cqnSubscriptionHandlerMap struct {
 	sync.RWMutex
 	m map[int64]SubscriptionHandler
-}
-
-// OpenCqnConnection opens a OCI driver connection directly given the supplied DSN.
-// The returned CqnConn can be used to execute a Continuous Query Notification statement.
-// The user should call CqnConn.Close() to unregister the statement and free private C handles when done.
-func OpenCqnConnection(dsnString string) (c CqnConn, err error) {
-	driver := &OCI8DriverStruct{
-		Logger: log.New(ioutil.Discard, "", 0),
-	}
-	// Connect.
-	c.conn, err = driver.openOCI8Conn4Cqn(dsnString)
-	if err != nil {
-		err = errors.Wrap(err, "unable to open Oracle OCI connection for Continuous Query Notification")
-		return
-	}
-	return
-}
-
-func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{}) error {
-	var err error
-	// Create CQN subscription.
-	c.m.Lock()
-	if !c.subscriptionCreated { // if a subscription hasn't already been created...
-		// Create a new subscription and register the handler/callback interface.
-		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)
-		if err != nil {
-			return errors.Wrap(err, "unable to register query")
-		}
-		c.subscriptionCreated = true
-		// Execute the CQN query.
-		err = c.conn.executeCqnQuery(c.subscriptionPtr, query, args)
-		if err != nil {
-			return errors.Wrap(err, "error executing the query")
-		}
-	} else {
-		c.m.Unlock()
-		return errors.New("CQN subscription exists; call Close() or create a new instance")
-	}
-	c.m.Unlock()
-	return nil
-}
-
-func (c *CqnConn) Close() error {
-	// TODO: unregister the CQN via OCI and close the connection.
-	c.m.Lock()
-	if c.subscriptionCreated {
-		// Free the C subscription handle.
-		freeSubscriptionHandle(c.subscriptionPtr)
-		// Remove the subscription handler from global map which was supplied to Execute().
-		cqnSubscriptionHandlerMap.Lock()
-		delete(cqnSubscriptionHandlerMap.m, c.registrationId)
-		cqnSubscriptionHandlerMap.Unlock()
-		// Flag that we're clean.
-		c.subscriptionCreated = false
-	}
-	c.m.Unlock()
-	return c.conn.Close()
 }
 
 // openOCI8Conn opens a connection to the given Oracle database.
@@ -359,24 +304,26 @@ func (conn *OCI8Conn) registerCqnSubscription(i SubscriptionHandler) (registrati
 
 // ExecuteCqn prepares the query, binds the arguments if []args are provided and executes the CQN query.
 // The return value is an error if one occurred else nil.
-func (conn *OCI8Conn) executeCqnQuery(subscription *C.OCISubscription, query string, args []interface{}) (err error) {
+func (conn *OCI8Conn) executeCqnQuery(subscription *C.OCISubscription, query string, args []interface{}) (stmt *OCI8Stmt, rows driver.Rows, err error) {
 	// Build a slice of namedValue using args.
-	nv := make([]namedValue, len(args), len(args))
-	for i, v := range args {
-		nv[i] = namedValue{
-			Name:    "",
-			Ordinal: i + 1,
-			Value:   v,
-		}
-	}
+	argsNv := argsToNamedValue(args)
+
 	// Prepare the query/statement.
-	var stmt *OCI8Stmt
 	stmt, err = conn.prepareStmt(query)
 	if err != nil {
 		return
 	}
 
-	// TODO: bind the args or else the bind vars won't produce anything!
+	// Defer statement closure.
+	// We *think* closing the statement is okay here because the caller is not using the prepared
+	// statement multiple times!
+	//
+	// defer func() {
+	// 	err2 := stmt.Close()  // close the statement.
+	// 	if err2 != nil {
+	// 		err = errors.Wrap(err, "error closing statement")
+	// 	}
+	// }()
 
 	// Set the subscription attribute on the statement.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(subscription), 0, C.OCI_ATTR_CHNF_REGHANDLE)
@@ -384,20 +331,26 @@ func (conn *OCI8Conn) executeCqnQuery(subscription *C.OCISubscription, query str
 		return
 	}
 
-	// Execute the statement.
-	// TODO: abort if not a SELECT statement - see query() for a check on this attr.
-	err = stmt.ociStmtExecute(0, C.OCI_DEFAULT)
-	if err != nil {
+	conn.inTransaction = false // cause query() to use mode = OCI_COMMIT_ON_SUCCESS
+	rows, err = stmt.query(context.Background(), argsNv, false)
+	if err != nil { // if there was a query error...
 		return
 	}
 
-	// Commit to release the transaction.
-	// TODO: Rollback instead of commit after this SELECT.
-	conn.inTransaction = false
-	if rv := C.OCITransCommit(conn.svc, conn.errHandle, 0, ); rv != C.OCI_SUCCESS {
-		err = conn.getError(rv)
-		return
-	}
+	// // Execute the statement.
+	// // TODO: abort if not a SELECT statement - see query() for a check on this attr.
+	// err = stmt.ociStmtExecute(0, C.OCI_DEFAULT)
+	// if err != nil {
+	// 	return
+	// }
+
+	// // Commit to release the transaction.
+	// // TODO: Rollback instead of commit after this SELECT.
+	// if rv := C.OCITransCommit(conn.svc, conn.errHandle, 0, ); rv != C.OCI_SUCCESS {
+	// 	err = conn.getError(rv)
+	// 	return
+	// }
+
 	return
 }
 
@@ -463,8 +416,88 @@ func (conn *OCI8Conn) freeHandles() {
 	}
 }
 
+func (conn *OCI8Conn) unregisterCqn(subscriptionPtr *C.OCISubscription) {
+	if subscriptionPtr != nil {
+		C.OCISubscriptionUnRegister(conn.svc, subscriptionPtr, conn.errHandle, C.OCI_DEFAULT)
+	}
+}
+
+// OpenCqnConnection opens a OCI driver connection directly given the supplied DSN.
+// The returned CqnConn can be used to execute a Continuous Query Notification statement.
+// The user should call CqnConn.Close() to unregister the statement and free private C handles when done.
+func OpenCqnConnection(dsnString string) (c CqnConn, err error) {
+	d := &OCI8DriverStruct{
+		Logger: log.New(ioutil.Discard, "", 0),
+	}
+	// Connect.
+	c.conn, err = d.openOCI8Conn4Cqn(dsnString)
+	if err != nil {
+		err = errors.Wrap(err, "unable to open Oracle OCI connection for Continuous Query Notification")
+		return
+	}
+	return
+}
+
+func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{}) (rows driver.Rows, err error) {
+	// Create CQN subscription.
+	c.m.Lock()
+	if !c.subscriptionCreated { // if a subscription hasn't already been created...
+		// Create a new subscription and register the handler/callback interface.
+		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)
+		if err != nil {
+			return nil, errors.Wrap(err, "error registering query")
+		}
+		c.subscriptionCreated = true
+		// Execute the CQN query.
+		// Save the stmt so we can clean up later.
+		c.stmt, rows, err = c.conn.executeCqnQuery(c.subscriptionPtr, query, args)
+		if err != nil {
+			return nil, errors.Wrap(err, "error executing query")
+		}
+	} else {
+		c.m.Unlock()
+		return nil, errors.New("CQN subscription exists; call Close() or create a new instance")
+	}
+	c.m.Unlock()
+	return
+}
+
+func (c *CqnConn) Close() error {
+	c.m.Lock()
+	defer c.m.Unlock()
+	if c.subscriptionCreated {
+		// Unregister the CQN.
+		c.conn.unregisterCqn(c.subscriptionPtr)
+		// Free the subscription handle.
+		freeSubscriptionHandle(c.subscriptionPtr)
+		// Free the statement handle.
+		err := c.stmt.Close()
+		if err != nil {
+			err = errors.Wrap(err, "error closing statement")
+		}
+		// Remove the subscription handler interface from our global map.
+		cqnSubscriptionHandlerMap.Lock()
+		delete(cqnSubscriptionHandlerMap.m, c.registrationId)
+		cqnSubscriptionHandlerMap.Unlock()
+		// Flag that we're clean.
+		c.subscriptionCreated = false
+	}
+	return c.conn.Close()
+}
+
 func freeSubscriptionHandle(subscriptionPtr *C.OCISubscription) {
 	if subscriptionPtr != nil {
 		C.OCIHandleFree(unsafe.Pointer(subscriptionPtr), C.OCI_HTYPE_SUBSCRIPTION)
 	}
+}
+
+func argsToNamedValue(args []interface{}) []namedValue {
+	nv := make([]namedValue, len(args), len(args))
+	for i, v := range args {
+		nv[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return nv
 }

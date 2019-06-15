@@ -15,13 +15,6 @@ import (
 	"unsafe"
 )
 
-// type DMLBatcher interface {
-// 	BindToBatch(args []driver.Value) error
-// 	BindToBatchContext(ctx context.Context, args []driver.Value) error
-// 	ExecBatch() (driver.Result, error)
-// 	ExecBatchContext(ctx context.Context) (driver.Result, error)
-// }
-
 // BindToBatch will add the bind variables to the batch.
 // vals is expected to be a slice of values for a single column (not a row).
 // position is expected to be the column number starting at position 0.
@@ -450,16 +443,6 @@ func (stmt *OCI8Stmt) execBatch(ctx context.Context) (driver.Result, error) {
 	}
 	return &result, nil
 }
-
-// type oci8Bind2 struct {
-// 	bindHandle *C.OCIBind
-// 	dataType   C.ub2
-// 	pbuf       unsafe.Pointer
-// 	maxSize    C.sb4
-// 	length     *C.ub2
-// 	indicator  *C.sb2
-// 	out        interface{} // original binded data type
-// }
 
 // ociBindByPos calls OCIBindByPos, then returns bind handle and error.
 func (stmt *OCI8Stmt) ociBindArrayByPos(position C.ub4, bind *oci8Bind) error {

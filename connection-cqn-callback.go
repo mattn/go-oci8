@@ -17,9 +17,9 @@ import (
 )
 
 type CqnData struct {
-	schemaTableName string
-	tableOperation  CqnOpCode
-	rowChanges      RowChanges
+	SchemaTableName string
+	TableOperation  CqnOpCode
+	RowChanges      RowChanges
 }
 
 type RowId string
@@ -203,8 +203,8 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 			return
 		}
 		// Save the table change data.
-		d[idx].schemaTableName = oraText2GoString(tableNameOratext)
-		d[idx].tableOperation = getOpCode(tableOp)
+		d[idx].SchemaTableName = oraText2GoString(tableNameOratext)
+		d[idx].TableOperation = getOpCode(tableOp)
 		// Process row changes.
 		if !((tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0) { // if individual rows were changed...
 			// Get the row changes in r.
@@ -215,7 +215,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 				return
 			}
 			// Save the row change data.
-			d[idx].rowChanges = r
+			d[idx].RowChanges = r
 		} else { // else the table-level operation was all rows changed...
 			fmt.Println("all rows changed")
 		}
@@ -266,8 +266,8 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 }
 
 // getOpCode converts operation codes used by OCI for CQN notifications into native values.
-// const CqnUnexpected is returned if a known code is NOT found in the supplied bit map.
-// See Oracle oci.h for multiple OCI_OPCODE values.
+// const CqnUnexpected is returned if an operation code is present but we don't know what it is.
+// See Oracle oci.h for the multiple OCI_OPCODE% values.
 func getOpCode(op C.ub4) (retval CqnOpCode) {
 	foundOne := false
 	if (op & C.OCI_OPCODE_ALLROWS) > 0 {

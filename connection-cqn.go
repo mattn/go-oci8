@@ -314,17 +314,6 @@ func (conn *OCI8Conn) executeCqnQuery(subscription *C.OCISubscription, query str
 		return
 	}
 
-	// Defer statement closure.
-	// We *think* closing the statement is okay here because the caller is not using the prepared
-	// statement multiple times!
-	//
-	// defer func() {
-	// 	err2 := stmt.Close()  // close the statement.
-	// 	if err2 != nil {
-	// 		err = errors.Wrap(err, "error closing statement")
-	// 	}
-	// }()
-
 	// Set the subscription attribute on the statement.
 	err = conn.ociAttrSet(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT, unsafe.Pointer(subscription), 0, C.OCI_ATTR_CHNF_REGHANDLE)
 	if err != nil {
@@ -443,7 +432,7 @@ func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{
 	c.m.Lock()
 	if !c.subscriptionCreated { // if a subscription hasn't already been created...
 		// Create a new subscription and register the handler/callback interface.
-		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)
+		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)  // saves the handler in a global map using key = the registrationId
 		if err != nil {
 			return nil, errors.Wrap(err, "error registering query")
 		}
@@ -462,7 +451,7 @@ func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{
 	return
 }
 
-func (c *CqnConn) Close() error {
+func (c *CqnConn) RemoveSubscription() {
 	c.m.Lock()
 	defer c.m.Unlock()
 	if c.subscriptionCreated {
@@ -482,6 +471,10 @@ func (c *CqnConn) Close() error {
 		// Flag that we're clean.
 		c.subscriptionCreated = false
 	}
+}
+
+func (c *CqnConn) CloseCqnConnection() error {
+	c.RemoveSubscription()
 	return c.conn.Close()
 }
 

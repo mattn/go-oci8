@@ -102,7 +102,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	if err = conn.getError(result); err != nil {
 		panic("error fetching CQN notification type")
 	}
-	fmt.Printf("notification type = %v\n", notificationType)
+	// fmt.Printf("notification type = %v\n", notificationType)
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
@@ -121,7 +121,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		if err = conn.getError(result); err != nil {
 			panic("error fetching CQN table changes")
 		}
-		fmt.Println("processing table changes...")
+		// fmt.Println("processing table changes...")
 		cqnData, err = extractTableChanges(&conn, tableChangesPtr)
 		if err != nil {
 			panic(err)
@@ -132,7 +132,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 		if err = conn.getError(result); err != nil {
 			panic("error fetching CQN query changes")
 		}
-		fmt.Println("processing query changes")
+		fmt.Println("processing query changes - not implemented yet!")
 		// TODO: process query changes!
 		// processQueryChanges(envhp, errhp, stmthp, queryChanges)
 	}
@@ -169,7 +169,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 	var rowChanges *C.OCIColl
 	// Get the number of table changes.
 	numTables := getCollSize(conn, tableChanges)
-	fmt.Println("number of table changes is", numTables)
+	// fmt.Println("number of table changes is", numTables)
 	// Setup the return slice.
 	if numTables <= 0 {
 		err = errors.New("no tables found in CQN collection")
@@ -208,7 +208,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 		// Process row changes.
 		if !((tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0) { // if individual rows were changed...
 			// Get the row changes in r.
-			fmt.Println("processing row changes...")
+			// fmt.Println("processing row changes...")
 			var r RowChanges
 			r, err = extractRowChanges(conn, rowChanges)
 			if err != nil {
@@ -216,10 +216,12 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 			}
 			// Save the row change data.
 			d[idx].RowChanges = r
-		} else { // else the table-level operation was all rows changed...
-			fmt.Println("all rows changed")
 		}
-		fmt.Println(fmt.Sprintf("table changed is %v; table operation = 0x%x", oraText2GoString(tableNameOratext), uint32(tableOp)))
+		// Table-level changes are saved to d above, but print the fact here, for info only.
+		// else { // else the table-level operation was all rows changed...
+		//	 fmt.Println("all rows changed")
+		// }
+		// fmt.Println(fmt.Sprintf("table changed is %v; table operation = 0x%x", oraText2GoString(tableNameOratext), uint32(tableOp)))
 	}
 	return
 }
@@ -235,7 +237,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 	var rowOp C.ub4
 	// Get the number of row changes.
 	numChanges := getCollSize(conn, rowChanges)
-	fmt.Println("number of row changes =", numChanges)
+	// fmt.Println("number of row changes =", numChanges)
 	if numChanges <= 0 {
 		err = errors.New("no row changes found in CQN collection")
 		return
@@ -260,7 +262,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 			return
 		}
 		rowIds[RowId(oraText2GoString(rowIdOratext))] = getOpCode(rowOp)
-		fmt.Println(fmt.Sprintf("row changed = %v; rowOp = 0x%x", oraText2GoString(rowIdOratext), int32(rowOp)))
+		// fmt.Println(fmt.Sprintf("row changed = %v; rowOp = 0x%x", oraText2GoString(rowIdOratext), int32(rowOp)))
 	}
 	return
 }

@@ -300,10 +300,6 @@ func getOpCode(op C.ub4) (retval CqnOpCode) {
 	return
 }
 
-// func string2RowId(rowIdText string) RowId {
-// 	return RowId(rowIdText)
-// }
-
 // oraText2GoString coverts C oratext to Go string.
 func oraText2GoString(s *C.oratext) string {
 	p := (*[1 << 30]byte)(unsafe.Pointer(s))

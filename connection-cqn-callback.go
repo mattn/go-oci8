@@ -146,7 +146,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	if err = conn.getError(result); err != nil {
 		panic("error fetching CQN registration ID in callback")
 	}
-	log.Println("callback fetched registration ID =", int64(regId))
+	// fmt.Println("callback fetched registration ID =", int64(regId))
 	// Fetch the SubscriptionHandler interface for this registration ID and send the change details / payload.
 	cqnSubscriptionHandlerMap.RLock()
 	i, ok := cqnSubscriptionHandlerMap.m[int64(regId)]

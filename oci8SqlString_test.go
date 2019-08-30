@@ -1765,7 +1765,7 @@ func TestDestructiveString(t *testing.T) {
 	}
 
 	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName,
+		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{
@@ -1816,7 +1816,7 @@ func TestDestructiveString(t *testing.T) {
 	}
 
 	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName,
+		query: "select A, B, C from " + tableName + " order by A",
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{

@@ -3,7 +3,9 @@ package oci8
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
+	"sync"
 	"testing"
 )
 
@@ -13,8 +15,15 @@ func TestSelectDualNullNumber(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// INTEGER
+	// null
 	queryResults := testQueryResults{
+		query:        "select null from dual",
+		queryResults: []testQueryResult{{results: [][]interface{}{{nil}}}},
+	}
+	testRunQueryResults(t, queryResults)
+
+	// INTEGER
+	queryResults = testQueryResults{
 		query:        "select cast (null as INTEGER) from dual",
 		queryResults: []testQueryResult{{results: [][]interface{}{{nil}}}},
 	}
@@ -100,7 +109,7 @@ func TestSelectDualNumber(t *testing.T) {
 	queryResults := testQueryResults{}
 
 	// bool
-	queryResultBoolToInt := []testQueryResult{
+	queryResultBoolToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{false},
 			results: [][]interface{}{{int64(0)}},
@@ -111,7 +120,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int8: -128 to 127
-	queryResultInt8ToInt := []testQueryResult{
+	queryResultInt8ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{int8(-128)},
 			results: [][]interface{}{{int64(-128)}},
@@ -134,7 +143,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int16: -32768 to 32767
-	queryResultInt16ToInt := []testQueryResult{
+	queryResultInt16ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{int16(-32768)},
 			results: [][]interface{}{{int64(-32768)}},
@@ -153,7 +162,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int32: -2147483648 to 2147483647
-	queryResultInt32ToInt := []testQueryResult{
+	queryResultInt32ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{int32(-2147483648)},
 			results: [][]interface{}{{int64(-2147483648)}},
@@ -172,7 +181,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int64: -9223372036854775808 to 9223372036854775807
-	queryResultInt64ToInt := []testQueryResult{
+	queryResultInt64ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{int64(-9223372036854775808)},
 			results: [][]interface{}{{int64(-9223372036854775808)}},
@@ -191,7 +200,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint8: 0 to 255
-	queryResultUint8ToInt := []testQueryResult{
+	queryResultUint8ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{uint8(0)},
 			results: [][]interface{}{{int64(0)}},
@@ -214,7 +223,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint16: 0 to 65535
-	queryResultUint16ToInt := []testQueryResult{
+	queryResultUint16ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{uint16(255)},
 			results: [][]interface{}{{int64(255)}},
@@ -225,7 +234,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint32: 0 to 4294967295
-	queryResultUint32ToInt := []testQueryResult{
+	queryResultUint32ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{uint32(65535)},
 			results: [][]interface{}{{int64(65535)}},
@@ -237,7 +246,7 @@ func TestSelectDualNumber(t *testing.T) {
 	}
 	// uint64: 0 to 18446744073709551615
 	// for 18446744073709551615 get: get rows error: query error: sql: converting argument $1 type: uint64 values with high bit set are not supported
-	queryResultUint64ToInt := []testQueryResult{
+	queryResultUint64ToInt64 := []testQueryResult{
 		{
 			args:    []interface{}{uint64(4294967295)},
 			results: [][]interface{}{{int64(4294967295)}},
@@ -248,7 +257,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// bool
-	queryResultBoolToFloat := []testQueryResult{
+	queryResultBoolToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{false},
 			results: [][]interface{}{{float64(0)}},
@@ -259,7 +268,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int8: -128 to 127
-	queryResultInt8ToFloat := []testQueryResult{
+	queryResultInt8ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{int8(-128)},
 			results: [][]interface{}{{float64(-128)}},
@@ -282,7 +291,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int16: -32768 to 32767
-	queryResultInt16ToFloat := []testQueryResult{
+	queryResultInt16ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{int16(-32768)},
 			results: [][]interface{}{{float64(-32768)}},
@@ -301,7 +310,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int32: -2147483648 to 2147483647
-	queryResultInt32ToFloat := []testQueryResult{
+	queryResultInt32ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{int32(-2147483648)},
 			results: [][]interface{}{{float64(-2147483648)}},
@@ -320,7 +329,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// int64: -9223372036854775808 to 9223372036854775807
-	queryResultInt64ToFloat := []testQueryResult{
+	queryResultInt64ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{int64(-9223372036854775808)},
 			results: [][]interface{}{{float64(-9223372036854775808)}},
@@ -339,7 +348,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint8: 0 to 255
-	queryResultUint8ToFloat := []testQueryResult{
+	queryResultUint8ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{uint8(0)},
 			results: [][]interface{}{{float64(0)}},
@@ -362,7 +371,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint16: 0 to 65535
-	queryResultUint16ToFloat := []testQueryResult{
+	queryResultUint16ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{uint16(255)},
 			results: [][]interface{}{{float64(255)}},
@@ -373,7 +382,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// uint32: 0 to 4294967295
-	queryResultUint32ToFloat := []testQueryResult{
+	queryResultUint32ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{uint32(65535)},
 			results: [][]interface{}{{float64(65535)}},
@@ -385,7 +394,7 @@ func TestSelectDualNumber(t *testing.T) {
 	}
 	// uint64: 0 to 18446744073709551615
 	// for 18446744073709551615 get: get rows error: query error: sql: converting argument $1 type: uint64 values with high bit set are not supported
-	queryResultUint64ToFloat := []testQueryResult{
+	queryResultUint64ToFloat64 := []testQueryResult{
 		{
 			args:    []interface{}{uint64(4294967295)},
 			results: [][]interface{}{{float64(4294967295)}},
@@ -396,7 +405,7 @@ func TestSelectDualNumber(t *testing.T) {
 		},
 	}
 	// float32: sign 1 bit, exponent 8 bits, mantissa 23 bits
-	queryResultFloat32ToFloat := []testQueryResult{
+	queryResultFloat32ToFloat64 := []testQueryResult{
 		{ // 0 00000000 00000000000000000000000
 			args:    []interface{}{math.Float32frombits(0x00000000)},
 			results: [][]interface{}{{float64(math.Float32frombits(0x00000000))}},
@@ -434,7 +443,7 @@ func TestSelectDualNumber(t *testing.T) {
 					bits |= 1 << l
 				}
 				float := math.Float32frombits(bits)
-				queryResultFloat32ToFloat = append(queryResultFloat32ToFloat,
+				queryResultFloat32ToFloat64 = append(queryResultFloat32ToFloat64,
 					testQueryResult{
 						args:    []interface{}{float},
 						results: [][]interface{}{{float64(float)}},
@@ -450,266 +459,266 @@ func TestSelectDualNumber(t *testing.T) {
 
 	// INTEGER
 	queryResults.query = "select cast (:1 as INTEGER) from dual"
-	queryResults.queryResults = queryResultBoolToInt
+	queryResults.queryResults = queryResultBoolToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToInt
+	queryResults.queryResults = queryResultInt8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToInt
+	queryResults.queryResults = queryResultInt16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToInt
+	queryResults.queryResults = queryResultInt32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToInt
+	queryResults.queryResults = queryResultInt64ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToInt
+	queryResults.queryResults = queryResultUint8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToInt
+	queryResults.queryResults = queryResultUint16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToInt
+	queryResults.queryResults = queryResultUint32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToInt
+	queryResults.queryResults = queryResultUint64ToInt64
 	testRunQueryResults(t, queryResults)
 
 	// INT
 	queryResults.query = "select cast (:1 as INT) from dual"
-	queryResults.queryResults = queryResultBoolToInt
+	queryResults.queryResults = queryResultBoolToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToInt
+	queryResults.queryResults = queryResultInt8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToInt
+	queryResults.queryResults = queryResultInt16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToInt
+	queryResults.queryResults = queryResultInt32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToInt
+	queryResults.queryResults = queryResultInt64ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToInt
+	queryResults.queryResults = queryResultUint8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToInt
+	queryResults.queryResults = queryResultUint16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToInt
+	queryResults.queryResults = queryResultUint32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToInt
+	queryResults.queryResults = queryResultUint64ToInt64
 	testRunQueryResults(t, queryResults)
 
 	// SMALLINT
 	queryResults.query = "select cast (:1 as SMALLINT) from dual"
-	queryResults.queryResults = queryResultBoolToInt
+	queryResults.queryResults = queryResultBoolToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToInt
+	queryResults.queryResults = queryResultInt8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToInt
+	queryResults.queryResults = queryResultInt16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToInt
+	queryResults.queryResults = queryResultInt32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToInt
+	queryResults.queryResults = queryResultInt64ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToInt
+	queryResults.queryResults = queryResultUint8ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToInt
+	queryResults.queryResults = queryResultUint16ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToInt
+	queryResults.queryResults = queryResultUint32ToInt64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToInt
+	queryResults.queryResults = queryResultUint64ToInt64
 	testRunQueryResults(t, queryResults)
 
 	// NUMBER(38,10)
 	queryResults.query = "select cast (:1 as NUMBER(38,10)) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// DEC(38,10)
 	queryResults.query = "select cast (:1 as DEC(38,10)) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// DECIMAL(38,10)
 	queryResults.query = "select cast (:1 as DECIMAL(38,10)) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// NUMERIC(38,10)
 	queryResults.query = "select cast (:1 as NUMERIC(38,10)) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// FLOAT
 	queryResults.query = "select cast (:1 as FLOAT) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// REAL
 	queryResults.query = "select cast (:1 as REAL) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_FLOAT
 	queryResults.query = "select cast (:1 as BINARY_FLOAT) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// BINARY_DOUBLE
 	queryResults.query = "select cast (:1 as BINARY_DOUBLE) from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// https://tour.golang.org/basics/11
 
 	// Go
 	queryResults.query = "select :1 from dual"
-	queryResults.queryResults = queryResultBoolToFloat
+	queryResults.queryResults = queryResultBoolToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt8ToFloat
+	queryResults.queryResults = queryResultInt8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt16ToFloat
+	queryResults.queryResults = queryResultInt16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt32ToFloat
+	queryResults.queryResults = queryResultInt32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultInt64ToFloat
+	queryResults.queryResults = queryResultInt64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint8ToFloat
+	queryResults.queryResults = queryResultUint8ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint16ToFloat
+	queryResults.queryResults = queryResultUint16ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint32ToFloat
+	queryResults.queryResults = queryResultUint32ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultUint64ToFloat
+	queryResults.queryResults = queryResultUint64ToFloat64
 	testRunQueryResults(t, queryResults)
-	queryResults.queryResults = queryResultFloat32ToFloat
+	queryResults.queryResults = queryResultFloat32ToFloat64
 	testRunQueryResults(t, queryResults)
 
 	// sum
@@ -2864,6 +2873,7 @@ func TestDestructiveNumberSequence(t *testing.T) {
 }
 
 // TestDestructiveNumberRowsAffected checks insert RowsAffected
+// Also checks count
 func TestDestructiveNumberRowsAffected(t *testing.T) {
 	if TestDisableDatabase || TestDisableDestructive {
 		t.SkipNow()
@@ -2889,7 +2899,13 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 1)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 
 	var count int64
@@ -2913,7 +2929,13 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 2, 3)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 
 	count, err = result.RowsAffected()
@@ -2936,7 +2958,13 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 4, 5, 6)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 
 	count, err = result.RowsAffected()
@@ -2959,6 +2987,7 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 2, 1)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
 	}
 
@@ -2975,6 +3004,7 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 3, 2)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
 	}
 
@@ -2991,7 +3021,13 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	result, err = stmt.ExecContext(ctx, 4, 3)
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 
 	count, err = result.RowsAffected()
@@ -3001,6 +3037,48 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	expected = int64(3)
 	if count != expected {
 		t.Fatalf("rows affected: received: %v - expected: %v", count, expected)
+	}
+
+	// count test
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "select count(1) from "+tableName)
+	if err != nil {
+		cancel()
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	var rows *sql.Rows
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("query error:", err)
+	}
+
+	if !rows.Next() {
+		cancel()
+		stmt.Close()
+		t.Fatal("expected row")
+	}
+
+	err = rows.Scan(&count)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("scan error:", err)
+	}
+
+	cancel()
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	expected = int64(6)
+	if count != expected {
+		t.Fatalf("count: received: %v - expected: %v", count, expected)
 	}
 
 }
@@ -3040,6 +3118,7 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
 	}
 	if !nullFloat1.Valid {
@@ -3055,7 +3134,12 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 	if !nullFloat1.Valid {
 		t.Fatal("nullFloat1 not Valid")
@@ -3088,7 +3172,12 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullFloat1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 	if nullFloat1.Valid {
 		t.Fatal("nullFloat1 is Valid")
@@ -3126,6 +3215,7 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
 	}
 	if !nullInt1.Valid {
@@ -3141,7 +3231,12 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 	if !nullInt1.Valid {
 		t.Fatal("nullInt1 not Valid")
@@ -3174,7 +3269,12 @@ end;`
 	_, err = stmt.ExecContext(ctx, sql.Named("num1", sql.Out{Dest: &nullInt1, In: true}))
 	cancel()
 	if err != nil {
+		stmt.Close()
 		t.Fatal("exec error:", err)
+	}
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 	if nullInt1.Valid {
 		t.Fatal("nullInt1 is Valid")
@@ -3183,3 +3283,260 @@ end;`
 		t.Fatal("nullInt1 not equal to 0")
 	}
 }
+
+// TestSelectDualNumberScan testing select numbers from dual with scan
+func TestSelectDualNumberScan(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	// float64 to float64
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select :1 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var rows *sql.Rows
+	var float float64
+	floats := []float64{-4294967295, -65535, -255, -128, -1, 0, 1, 128, 255, 65535, 4294967295}
+	for _, data := range floats {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		rows, err = stmt.QueryContext(ctx, data)
+		if err != nil {
+			cancel()
+			stmt.Close()
+			t.Fatal("query error:", err)
+		}
+
+		if !rows.Next() {
+			cancel()
+			stmt.Close()
+			t.Fatal("expected row")
+		}
+
+		err = rows.Scan(&float)
+		if err != nil {
+			cancel()
+			stmt.Close()
+			t.Fatal("scan error:", err)
+		}
+
+		cancel()
+
+		if float != data {
+			stmt.Close()
+			t.Fatalf("float64 to float64 - received: %v - wanted: %v", float, data)
+		}
+	}
+
+	// int64 to float64
+	var aint64 int64
+	for _, data := range floats {
+		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+		rows, err = stmt.QueryContext(ctx, data)
+		if err != nil {
+			cancel()
+			stmt.Close()
+			t.Fatal("query error:", err)
+		}
+
+		if !rows.Next() {
+			cancel()
+			stmt.Close()
+			t.Fatal("expected row")
+		}
+
+		err = rows.Scan(&aint64)
+		if err != nil {
+			cancel()
+			stmt.Close()
+			t.Fatal("scan error:", err)
+		}
+
+		cancel()
+
+		if aint64 != int64(data) {
+			stmt.Close()
+			t.Fatalf("int64 to float64 - received: %v - wanted: %v", aint64, int64(data))
+		}
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	// count int64
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "select count(1) from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("query error:", err)
+	}
+
+	if !rows.Next() {
+		cancel()
+		stmt.Close()
+		t.Fatal("expected row")
+	}
+	err = rows.Scan(&aint64)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("scan error:", err)
+	}
+
+	cancel()
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	if aint64 != 1 {
+		t.Fatal("aint64 not equal to 1")
+	}
+
+}
+
+func TestSelectCountLarge(t *testing.T) {
+	// skip test because it takes too long to be run all the time
+	t.SkipNow()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "COUNT_TABLE_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	// insert into table
+	query := "insert into " + tableName + ` ( A )
+select :1 from dual
+union all select :2 from dual
+union all select :3 from dual
+union all select :4 from dual
+union all select :5 from dual
+union all select :6 from dual
+union all select :7 from dual
+union all select :8 from dual
+union all select :9 from dual
+union all select :10 from dual
+union all select :11 from dual
+union all select :12 from dual
+union all select :13 from dual
+union all select :14 from dual
+union all select :15 from dual
+union all select :16 from dual
+union all select :17 from dual
+union all select :18 from dual
+union all select :19 from dual
+union all select :20 from dual`
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, query)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var hasError bool
+	var waitGroup sync.WaitGroup
+	chanGoLimit := make(chan struct{}, 100)
+	waitGroup.Add(50001)
+	for i := 0; i < 1000020; i += 20 {
+		chanGoLimit <- struct{}{}
+		go func(num int) {
+			for j := 0; j < 100; j++ {
+				ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+				_, err := stmt.ExecContext(ctx, num, num+1, num+2, num+3, num+4, num+5, num+6, num+7, num+8, num+9,
+					num+10, num+11, num+12, num+13, num+14, num+15, num+16, num+17, num+18, num+19)
+				cancel()
+				if err == nil {
+					break
+				}
+				if len(err.Error()) < 9 {
+					break
+				}
+				if err.Error()[0:9] != "ORA-12519" {
+					break
+				}
+			}
+			<-chanGoLimit
+			waitGroup.Done()
+			if err != nil {
+				hasError = true
+				t.Fatal("exec error:", err)
+			}
+		}(i)
+		if hasError {
+			fmt.Println("has error at", i)
+			break
+		}
+	}
+
+	if !hasError {
+		fmt.Println("waiting")
+		waitGroup.Wait()
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	// count int64
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = TestDB.PrepareContext(ctx, "select count(1) from "+tableName)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	var rows *sql.Rows
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("query error:", err)
+	}
+
+	if !rows.Next() {
+		cancel()
+		stmt.Close()
+		t.Fatal("expected row")
+	}
+	var aint64 int64
+	err = rows.Scan(&aint64)
+	if err != nil {
+		cancel()
+		stmt.Close()
+		t.Fatal("scan error:", err)
+	}
+
+	cancel()
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
+
+	if aint64 < 1000019 {
+		t.Fatal("aint64 less than 1000019 -", aint64)
+	}
+
+}
+

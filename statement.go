@@ -66,6 +66,13 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 	}
 
 	for i := 0; i < count; i++ {
+		select {
+		case <-ctx.Done():
+			freeBinds(binds)
+			return nil, ctx.Err()
+		default:
+		}
+
 		var valueInterface interface{}
 		var sbind oci8Bind
 		sbind.length = (*C.ub2)(C.malloc(C.sizeof_ub2))
@@ -253,12 +260,12 @@ func (stmt *OCI8Stmt) Query(values []driver.Value) (driver.Rows, error) {
 
 // QueryContext runs a query with context
 func (stmt *OCI8Stmt) QueryContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Rows, error) {
-	binds, err := stmt.bindValues(context.Background(), nil, namedValues)
+	binds, err := stmt.bindValues(ctx, nil, namedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.query(context.Background(), binds)
+	return stmt.query(ctx, binds)
 }
 
 // query runs a query with context
@@ -318,6 +325,13 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 	defines := make([]oci8Define, paramCount)
 
 	for i := 0; i < paramCount; i++ {
+		select {
+		case <-ctx.Done():
+			freeBinds(binds)
+			return nil, ctx.Err()
+		default:
+		}
+
 		var param *C.OCIParam
 		param, err = stmt.ociParamGet(C.ub4(i + 1))
 		if err != nil {
@@ -388,6 +402,8 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 			// otherwise, it is a NUMBER(precision, scale).
 			// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
 			// https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci06des.htm#LNOCI16458
+
+			// note that select sum and count both return as precision == 0 && scale == 0 so use float64 (SQLT_BDOUBLE) to handle both
 
 			if (precision == 0 && scale == 0) || scale > 0 || scale == -127 {
 				defines[i].dataType = C.SQLT_BDOUBLE
@@ -557,12 +573,12 @@ func (stmt *OCI8Stmt) Exec(values []driver.Value) (driver.Result, error) {
 
 // ExecContext run a exec query with context
 func (stmt *OCI8Stmt) ExecContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Result, error) {
-	binds, err := stmt.bindValues(context.Background(), nil, namedValues)
+	binds, err := stmt.bindValues(ctx, nil, namedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.exec(context.Background(), binds)
+	return stmt.exec(ctx, binds)
 }
 
 func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result, error) {

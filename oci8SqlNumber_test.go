@@ -3331,7 +3331,10 @@ func TestSelectDualNumberScan(t *testing.T) {
 		}
 	}
 
-	// int64 to float64
+	// float64 to int64
+	// note that Go database/sql convertAssignRows does not handle float64 to int64 over 6 digits as of Go ~1.11
+	// Go database/sql source code: https://golang.org/src/database/sql/convert.go
+	floats = []float64{-999999, -65535, -255, -128, -1, 0, 1, 128, 255, 65535, 999999}
 	var aint64 int64
 	for _, data := range floats {
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
@@ -3498,7 +3501,7 @@ union all select :20 from dual`
 		t.Fatal("stmt close error:", err)
 	}
 
-	// count int64
+	// count float64
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = TestDB.PrepareContext(ctx, "select count(1) from "+tableName)
 	cancel()
@@ -3520,8 +3523,8 @@ union all select :20 from dual`
 		stmt.Close()
 		t.Fatal("expected row")
 	}
-	var aint64 int64
-	err = rows.Scan(&aint64)
+	var float float64
+	err = rows.Scan(&float)
 	if err != nil {
 		cancel()
 		stmt.Close()
@@ -3534,9 +3537,8 @@ union all select :20 from dual`
 		t.Fatal("stmt close error:", err)
 	}
 
-	if aint64 < 1000019 {
-		t.Fatal("aint64 less than 1000019 -", aint64)
+	if float != 1000020 {
+		t.Fatal("count not equaal to  -", float)
 	}
 
 }
-

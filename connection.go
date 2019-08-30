@@ -16,6 +16,7 @@ import (
 
 // Ping database connection
 func (conn *OCI8Conn) Ping(ctx context.Context) error {
+	// TODO: do a OCIPing with ctx timeout
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
 		return nil

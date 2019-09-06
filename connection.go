@@ -14,46 +14,9 @@ import (
 	"unsafe"
 )
 
-// Exec executes a query
-func (conn *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	list := make([]namedValue, len(args))
-	for i, v := range args {
-		list[i] = namedValue{
-			Ordinal: i + 1,
-			Value:   v,
-		}
-	}
-	return conn.exec(context.Background(), query, list)
-}
-
-func (conn *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (driver.Result, error) {
-	s, err := conn.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer s.Close()
-	res, err := s.(*OCI8Stmt).exec(ctx, args)
-	if err != nil && err != driver.ErrSkip {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (conn *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
-	s, err := conn.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := s.(*OCI8Stmt).query(ctx, args, true)
-	if err != nil && err != driver.ErrSkip {
-		s.Close()
-		return nil, err
-	}
-	return rows, nil
-}
-
 // Ping database connection
 func (conn *OCI8Conn) Ping(ctx context.Context) error {
+	// TODO: do a OCIPing with ctx timeout
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
 		return nil
@@ -68,47 +31,6 @@ func (conn *OCI8Conn) Ping(ctx context.Context) error {
 
 	conn.logger.Print("Ping error: ", err)
 	return driver.ErrBadConn
-}
-
-// Begin starts a transaction
-func (conn *OCI8Conn) Begin() (driver.Tx, error) {
-	return conn.BeginTx(context.Background(), driver.TxOptions{})
-}
-
-// BeginTx starts a transaction
-func (conn *OCI8Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
-	if conn.transactionMode != C.OCI_TRANS_READWRITE {
-		// transaction handle
-		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
-		if err != nil {
-			return nil, fmt.Errorf("allocate transaction handle error: %v", err)
-		}
-
-		// sets the transaction context attribute of the service context
-		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
-		if err != nil {
-			C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
-			return nil, err
-		}
-
-		// transaction handle should be freed by something once attached to the service context
-		// but I cannot find anything in the documentation explicitly calling this out
-		// going by examples: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci17msc006.htm#i428845
-
-		if rv := C.OCITransStart(
-			conn.svc,
-			conn.errHandle,
-			0,
-			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
-		); rv != C.OCI_SUCCESS {
-			return nil, conn.getError(rv)
-		}
-
-	}
-
-	conn.inTransaction = true
-
-	return &OCI8Tx{conn}, nil
 }
 
 // Close a connection
@@ -163,7 +85,7 @@ func (conn *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
 	return conn.PrepareContext(context.Background(), query)
 }
 
-// PrepareContext prepares a query
+// PrepareContext prepares a query with context
 func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if conn.enableQMPlaceholders {
 		query = placeholders(query)
@@ -191,6 +113,47 @@ func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.
 	}
 
 	return &OCI8Stmt{conn: conn, stmt: (*C.OCIStmt)(*stmt)}, nil
+}
+
+// Begin starts a transaction
+func (conn *OCI8Conn) Begin() (driver.Tx, error) {
+	return conn.BeginTx(context.Background(), driver.TxOptions{})
+}
+
+// BeginTx starts a transaction
+func (conn *OCI8Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
+	if conn.transactionMode != C.OCI_TRANS_READWRITE {
+		// transaction handle
+		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+		if err != nil {
+			return nil, fmt.Errorf("allocate transaction handle error: %v", err)
+		}
+
+		// sets the transaction context attribute of the service context
+		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
+		if err != nil {
+			C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
+			return nil, err
+		}
+
+		// transaction handle should be freed by something once attached to the service context
+		// but I cannot find anything in the documentation explicitly calling this out
+		// going by examples: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci17msc006.htm#i428845
+
+		if rv := C.OCITransStart(
+			conn.svc,
+			conn.errHandle,
+			0,
+			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
+		); rv != C.OCI_SUCCESS {
+			return nil, conn.getError(rv)
+		}
+
+	}
+
+	conn.inTransaction = true
+
+	return &OCI8Tx{conn}, nil
 }
 
 // getError gets error from return result (sword) or OCIError

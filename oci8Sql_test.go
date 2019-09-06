@@ -764,7 +764,7 @@ func TestDestructiveTransaction(t *testing.T) {
 	testRunQueryResults(t, queryResults)
 }
 
-// TestSelectDualNull checks nulls
+// TestSelectDualNull checks null from dual
 func TestSelectDualNull(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()

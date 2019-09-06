@@ -42,8 +42,6 @@ func TestSelectDualTime(t *testing.T) {
 
 	queryResults := testQueryResults{}
 
-	// TOFIX: ORA-08192: Flashback Table operation is not allowed on fixed tables
-
 	queryResultTimeToLocal := make([]testQueryResult, 0, len(timeLocations))
 	for i := 0; i < len(timeLocations); i++ {
 		queryResultTimeToLocal = append(queryResultTimeToLocal,

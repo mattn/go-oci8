@@ -23,10 +23,6 @@ func (rows *OCI8Rows) Close() error {
 	rows.closed = true
 	close(rows.done)
 
-	if rows.cls {
-		rows.stmt.Close()
-	}
-
 	freeDefines(rows.defines)
 
 	return nil

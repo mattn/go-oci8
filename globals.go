@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"io/ioutil"
 	"log"
@@ -77,17 +76,6 @@ type (
 		conn *OCI8Conn
 	}
 
-	namedValue struct {
-		Name    string
-		Ordinal int
-		Value   driver.Value
-	}
-
-	outValue struct {
-		Dest interface{}
-		In   bool
-	}
-
 	// OCI8Stmt is Oracle statement
 	OCI8Stmt struct {
 		conn   *OCI8Conn
@@ -132,7 +120,6 @@ type (
 		e       bool
 		closed  bool
 		done    chan struct{}
-		cls     bool
 	}
 )
 

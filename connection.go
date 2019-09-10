@@ -16,8 +16,10 @@ import (
 
 // Ping database connection
 func (conn *OCI8Conn) Ping(ctx context.Context) error {
-	// TODO: do a OCIPing with ctx timeout
+	done := make(chan struct{})
+	go conn.ociBreak(ctx, done)
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
+	close(done)
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
 		return nil
 	}
@@ -505,4 +507,25 @@ func appendSmallInt(slice []byte, num int) []byte {
 		return append(slice, '0', byte('0'+num))
 	}
 	return append(slice, byte('0'+num/10), byte('0'+(num%10)))
+}
+
+// ociBreak calls OCIBreak if ctx.Done is finished before done chan is closed
+func (conn *OCI8Conn) ociBreak(ctx context.Context, done chan struct{}) {
+	select {
+	case <-done:
+	case <-ctx.Done():
+		// select again to avoid race condition if both are done
+		select {
+		case <-done:
+		default:
+			result := C.OCIBreak(
+				unsafe.Pointer(conn.svc), // The service context handle or the server context handle.
+				conn.errHandle,           // An error handle
+			)
+			err := conn.getError(result)
+			if err != nil {
+				conn.logger.Print("OCIBreak error: ", err)
+			}
+		}
+	}
 }

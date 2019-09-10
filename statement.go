@@ -308,7 +308,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 	}
 
 	done := make(chan struct{})
-	go stmt.ociBreak(ctx, done)
+	go stmt.conn.ociBreak(ctx, done)
 	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
 	if err != nil {
@@ -521,7 +521,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		done:    make(chan struct{}),
 	}
 
-	go stmt.ociBreak(ctx, rows.done)
+	go stmt.conn.ociBreak(ctx, rows.done)
 
 	return rows, nil
 }
@@ -590,7 +590,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result
 	}
 
 	done := make(chan struct{})
-	go stmt.ociBreak(ctx, done)
+	go stmt.conn.ociBreak(ctx, done)
 	err := stmt.ociStmtExecute(1, mode)
 	close(done)
 	if err != nil && err != ErrOCISuccessWithInfo {
@@ -861,25 +861,4 @@ func (stmt *OCI8Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 	)
 
 	return stmt.conn.getError(result)
-}
-
-// ociBreak calls OCIBreak if ctx.Done is finished before done chan is closed
-func (stmt *OCI8Stmt) ociBreak(ctx context.Context, done chan struct{}) {
-	select {
-	case <-done:
-	case <-ctx.Done():
-		// select again to avoid race condition if both are done
-		select {
-		case <-done:
-		default:
-			result := C.OCIBreak(
-				unsafe.Pointer(stmt.conn.svc), // The service context handle or the server context handle.
-				stmt.conn.errHandle,           // An error handle
-			)
-			err := stmt.conn.getError(result)
-			if err != nil {
-				stmt.conn.logger.Print("OCIBreak error: ", err)
-			}
-		}
-	}
 }

@@ -22,6 +22,8 @@ import (
 //
 // [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 //
+// Connection timeout can be set in the Oracle files: sqlnet.ora as SQLNET.OUTBOUND_CONNECT_TIMEOUT or tnsnames.ora as CONNECT_TIMEOUT
+//
 // Supported parameters are:
 //
 // loc - the time location for timezone when reading/writing Go time/Oracle date

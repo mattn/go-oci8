@@ -23,7 +23,7 @@ func Example_sqlSelect() {
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
-	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 	if len(oci8.TestUsername) > 0 {
 		if len(oci8.TestPassword) > 0 {
 			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
@@ -123,7 +123,7 @@ func Example_sqlFunction() {
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
-	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 	if len(oci8.TestUsername) > 0 {
 		if len(oci8.TestPassword) > 0 {
 			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
@@ -195,7 +195,7 @@ func Example_sqlInsert() {
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
-	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 	if len(oci8.TestUsername) > 0 {
 		if len(oci8.TestPassword) > 0 {
 			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
@@ -283,7 +283,7 @@ func Example_sqlManyInserts() {
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
-	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 	if len(oci8.TestUsername) > 0 {
 		if len(oci8.TestPassword) > 0 {
 			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
@@ -425,7 +425,7 @@ func Example_sqlRowid() {
 	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
 
 	var openString string
-	// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 	if len(oci8.TestUsername) > 0 {
 		if len(oci8.TestPassword) > 0 {
 			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"

@@ -20,7 +20,7 @@ import (
 //
 // It expects to receive a string in the form:
 //
-// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
 //
 // Supported parameters are:
 //

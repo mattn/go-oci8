@@ -15,23 +15,6 @@ func (id ID) Scan(src interface{}) error {
 	return nil
 }
 
-func getDSN() string {
-	var dsn string
-	if len(os.Args) > 1 {
-		dsn = os.Args[1]
-		if dsn != "" {
-			return dsn
-		}
-	}
-	dsn = os.Getenv("GO_OCI8_CONNECT_STRING")
-	if dsn != "" {
-		return dsn
-	}
-	fmt.Fprintln(os.Stderr, `Please specifiy connection parameter in GO_OCI8_CONNECT_STRING environment variable,
-or as the first argument! (The format is user/name@host:port/sid)`)
-	return "scott/tiger@XE"
-}
-
 func main() {
 	os.Setenv("NLS_LANG", "")
 
@@ -68,4 +51,21 @@ func main() {
 		return
 	}
 	fmt.Println(id)
+}
+
+func getDSN() string {
+	var dsn string
+	if len(os.Args) > 1 {
+		dsn = os.Args[1]
+		if dsn != "" {
+			return dsn
+		}
+	}
+	dsn = os.Getenv("GO_OCI8_CONNECT_STRING")
+	if dsn != "" {
+		return dsn
+	}
+	fmt.Fprintln(os.Stderr, `Please specifiy connection parameter in GO_OCI8_CONNECT_STRING environment variable,
+or as the first argument! (The format is user/name@host:port/sid)`)
+	return "scott/tiger@XE"
 }

@@ -437,8 +437,22 @@ func TestContextTimeoutBreak(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// exec
+	// define
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	_, err := TestDB.ExecContext(ctx, `
+create or replace function SLEEP_SECONDS (p_seconds number) return integer is
+begin
+  dbms_lock.sleep(p_seconds);
+  return 1;
+end SLEEP_SECONDS;
+`)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	// exec
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, "begin SYS.DBMS_LOCK.SLEEP(1); end;")
 	cancel()
 	if err != nil {

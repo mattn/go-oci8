@@ -444,8 +444,7 @@ create or replace function SLEEP_SECONDS (p_seconds number) return integer is
 begin
   dbms_lock.sleep(p_seconds);
   return 1;
-end SLEEP_SECONDS;
-/
+end;
 `)
 	cancel()
 	if err != nil {

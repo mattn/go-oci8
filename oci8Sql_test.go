@@ -445,6 +445,7 @@ begin
   dbms_lock.sleep(p_seconds);
   return 1;
 end SLEEP_SECONDS;
+/
 `)
 	cancel()
 	if err != nil {

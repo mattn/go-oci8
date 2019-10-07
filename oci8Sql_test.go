@@ -394,9 +394,9 @@ func TestSelectParallel(t *testing.T) {
 	}
 
 	var waitGroup sync.WaitGroup
-	waitGroup.Add(100)
+	waitGroup.Add(50)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50; i++ {
 		go func(num int) {
 			defer waitGroup.Done()
 			var result [][]interface{}

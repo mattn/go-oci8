@@ -122,7 +122,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		}
 	}
 
-	if len(dsn.Username)+len(dsn.Password)+len(dsn.Connect) == 0 {
+	if len(dsn.Username)+len(dsn.Password) == 0 {
 		dsn.externalauthentication = true
 	}
 	return dsn, nil
@@ -261,8 +261,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
 
-	host := cString(dsn.Connect)
-	defer C.free(unsafe.Pointer(host))
+	connectString := cString(dsn.Connect)
+	defer C.free(unsafe.Pointer(connectString))
 	username := cString(dsn.Username)
 	defer C.free(unsafe.Pointer(username))
 	password := cString(dsn.Password)
@@ -276,20 +276,20 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		}
 		conn.srv = (*C.OCIServer)(*handle)
 
-		if dsn.externalauthentication {
+		if len(dsn.Connect) < 1 {
 			result = C.OCIServerAttach(
 				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
 				conn.errHandle, // error handle
-				nil,            // database server to use
-				0,              //  length of the database server
+				nil,            // connect string or a service point
+				0,              // length of the database server
 				C.OCI_DEFAULT,  // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
 		} else {
 			result = C.OCIServerAttach(
 				conn.srv,                // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
 				conn.errHandle,          // error handle
-				host,                    // database server to use
-				C.sb4(len(dsn.Connect)), //  length of the database server
+				connectString,           // connect string or a service point
+				C.sb4(len(dsn.Connect)), // length of the database server
 				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
 		}
@@ -367,7 +367,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			C.ub4(len(dsn.Username)), // length of user name, in number of bytes, regardless of the encoding
 			password,                 // user's password. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Password)), // length of password, in number of bytes, regardless of the encoding.
-			host,                     // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			connectString,            // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Connect)),  // length of dbname, in number of bytes, regardless of the encoding.
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {

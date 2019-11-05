@@ -122,9 +122,6 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		}
 	}
 
-	if len(dsn.Username)+len(dsn.Password) == 0 {
-		dsn.externalauthentication = true
-	}
 	return dsn, nil
 }
 
@@ -320,7 +317,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		conn.usrSession = (*C.OCISession)(*handle)
 
 		credentialType := C.ub4(C.OCI_CRED_EXT)
-		if !dsn.externalauthentication {
+		if len(dsn.Username) > 0  {
 			// specifies a username to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {

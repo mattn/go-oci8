@@ -28,16 +28,15 @@ const (
 type (
 	// DSN is Oracle Data Source Name
 	DSN struct {
-		Connect                string
-		Username               string
-		Password               string
-		prefetchRows           C.ub4
-		prefetchMemory         C.ub4
-		Location               *time.Location
-		transactionMode        C.ub4
-		enableQMPlaceholders   bool
-		operationMode          C.ub4
-		externalauthentication bool
+		Connect              string
+		Username             string
+		Password             string
+		prefetchRows         C.ub4
+		prefetchMemory       C.ub4
+		Location             *time.Location
+		transactionMode      C.ub4
+		enableQMPlaceholders bool
+		operationMode        C.ub4
 	}
 
 	// OCI8DriverStruct is Oracle driver struct

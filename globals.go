@@ -15,6 +15,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -148,6 +149,12 @@ var (
 	}
 
 	timeLocations []*time.Location
+
+	byteBufferPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, lobBufferSize)
+		},
+	}
 )
 
 func init() {

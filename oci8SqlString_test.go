@@ -2062,6 +2062,20 @@ func TestFunctionCallString(t *testing.T) {
 		},
 	}
 
+	execResultStrings65535 := []testExecResult{
+		{
+			args:    map[string]sql.Out{"string1": {Dest: strings.Repeat("d", 65535), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("d", 65535)},
+		},
+	}
+
+	execResultStrings72000 := []testExecResult{
+		{
+			args:    map[string]sql.Out{"string1": {Dest: strings.Repeat("abcdefgh", 9000), In: true}},
+			results: map[string]interface{}{"string1": strings.Repeat("abcdefgh", 9000)},
+		},
+	}
+
 	// VARCHAR2
 	execResults.query = `
 declare
@@ -2075,8 +2089,6 @@ end;`
 	execResults.execResults = execResultStrings2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultStrings16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings32767
 	testRunExecResults(t, execResults)
@@ -2112,8 +2124,6 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings4000
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultStrings16383
-	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings32767
 	testRunExecResults(t, execResults)
 
@@ -2130,8 +2140,6 @@ end;`
 	execResults.execResults = execResultStrings2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultStrings16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings32767
 	testRunExecResults(t, execResults)
@@ -2150,9 +2158,11 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings4000
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultStrings16383
-	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings32767
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings65535
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultStrings72000
 	testRunExecResults(t, execResults)
 
 	// NCLOB
@@ -2171,6 +2181,7 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultStrings16383
 	testRunExecResults(t, execResults)
+
 
 	execResultRaw2000 := []testExecResult{
 		{
@@ -2210,17 +2221,24 @@ end;`
 		},
 	}
 
-	execResultRaw16383 := []testExecResult{
-		{
-			args:    map[string]sql.Out{"string1": {Dest: testByteSlice16383, In: true}},
-			results: map[string]interface{}{"string1": testByteSlice16383},
-		},
-	}
-
 	execResultRaw32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767, In: true}},
 			results: map[string]interface{}{"string1": testByteSlice32767},
+		},
+	}
+
+	execResultRaw65535 := []testExecResult{
+		{
+			args:    map[string]sql.Out{"string1": {Dest: testByteSlice65535, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice65535},
+		},
+	}
+
+	execResultRaw70000 := []testExecResult{
+		{
+			args:    map[string]sql.Out{"string1": {Dest: testByteSlice70000, In: true}},
+			results: map[string]interface{}{"string1": testByteSlice70000},
 		},
 	}
 
@@ -2237,8 +2255,6 @@ end;`
 	execResults.execResults = execResultRaw2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRaw4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRaw16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRaw32767
 	testRunExecResults(t, execResults)
@@ -2257,9 +2273,11 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRaw4000
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRaw16383
-	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRaw32767
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw65535
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultRaw70000
 	testRunExecResults(t, execResults)
 
 	// test strings add to end
@@ -2500,13 +2518,6 @@ end;`
 		},
 	}
 
-	execResultRawAddEnd16383 := []testExecResult{
-		{
-			args:    map[string]sql.Out{"string1": {Dest: testByteSlice16383[:16380], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice16383[:16380], []byte{120, 121, 122}...)},
-		},
-	}
-
 	execResultRawAddEnd32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767[:32764], In: true}},
@@ -2527,8 +2538,6 @@ end;`
 	execResults.execResults = execResultRawAddEnd2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddEnd4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawAddEnd16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddEnd32767
 	testRunExecResults(t, execResults)
@@ -2553,8 +2562,6 @@ end;`
 	execResults.execResults = execResultRawAddEnd2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddEnd4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawAddEnd16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddEnd32767
 	testRunExecResults(t, execResults)
@@ -2797,13 +2804,6 @@ end;`
 		},
 	}
 
-	execResultRawAddFront16383 := []testExecResult{
-		{
-			args:    map[string]sql.Out{"string1": {Dest: testByteSlice16383[:16380], In: true}},
-			results: map[string]interface{}{"string1": append([]byte{120, 121, 122}, testByteSlice16383[:16380]...)},
-		},
-	}
-
 	execResultRawAddFront32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767[:32764], In: true}},
@@ -2824,8 +2824,6 @@ end;`
 	execResults.execResults = execResultRawAddFront2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddFront4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawAddFront16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddFront32767
 	testRunExecResults(t, execResults)
@@ -2850,8 +2848,6 @@ end;`
 	execResults.execResults = execResultRawAddFront2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddFront4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawAddFront16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawAddFront32767
 	testRunExecResults(t, execResults)
@@ -3098,13 +3094,6 @@ end;`
 		},
 	}
 
-	execResultRawRemoveFront16383 := []testExecResult{
-		{
-			args:    map[string]sql.Out{"string1": {Dest: testByteSlice16383, In: true}},
-			results: map[string]interface{}{"string1": testByteSlice16383[2:]},
-		},
-	}
-
 	execResultRawRemoveFront32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767, In: true}},
@@ -3129,8 +3118,6 @@ end;`
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawRemoveFront4000
 	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawRemoveFront16383
-	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawRemoveFront32767
 	testRunExecResults(t, execResults)
 
@@ -3147,8 +3134,6 @@ end;`
 	execResults.execResults = execResultRawRemoveFront2000
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawRemoveFront4000
-	testRunExecResults(t, execResults)
-	execResults.execResults = execResultRawRemoveFront16383
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultRawRemoveFront32767
 	testRunExecResults(t, execResults)

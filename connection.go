@@ -354,7 +354,7 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 		return buffer, conn.getError(result)
 	}
 
-	readBuffer := make([]byte, lobBufferSize)
+	readBuffer := byteBufferPool.Get().([]byte)
 	piece := (C.ub1)(C.OCI_FIRST_PIECE)
 	result = C.OCI_NEED_DATA
 
@@ -393,7 +393,7 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 // ociLobWrite calls OCILobWrite then returns error.
 func (conn *OCI8Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data []byte) error {
 	start := 0
-	writeBuffer := make([]byte, lobBufferSize)
+	writeBuffer := byteBufferPool.Get().([]byte)
 	piece := (C.ub1)(C.OCI_FIRST_PIECE)
 	writeBytes := (C.oraub8)(len(data))
 	if len(data) <= lobBufferSize {

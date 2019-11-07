@@ -1777,6 +1777,31 @@ func TestDestructiveString(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
+	err = testExec(t, "truncate table "+tableName, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 	// NCLOB
 	tableName = "NCLOB_" + TestTimeString
 	err = testExec(t, "create table "+tableName+" ( A VARCHAR2(100), B NCLOB, C NCLOB )", nil)
@@ -1828,6 +1853,31 @@ func TestDestructiveString(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
+	err = testExec(t, "truncate table "+tableName, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
 	// BLOB
 	tableName = "BLOB_" + TestTimeString
 	err = testExec(t, "create table "+tableName+" ( A VARCHAR2(100), B BLOB, C BLOB )", nil)
@@ -1870,6 +1920,31 @@ func TestDestructiveString(t *testing.T) {
 			{
 				results: [][]interface{}{
 					{"b", []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, []byte{245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255}},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = testExec(t, "truncate table "+tableName, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			{"a", testByteSlice32767, testByteSlice65535},
+		})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName + " order by A",
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{"a", testByteSlice32767, testByteSlice65535},
 				},
 			},
 		},

@@ -40,6 +40,7 @@ var (
 	testByteSlice4000  []byte
 	testByteSlice16383 []byte
 	testByteSlice32767 []byte
+	testByteSlice65535 []byte
 
 	benchmarkSelectTableName    string
 	benchmarkSelectTableOnce    sync.Once
@@ -169,6 +170,10 @@ func setupForTesting() int {
 	testByteSlice32767 = make([]byte, 32767)
 	for i = 0; i < 32767; i++ {
 		testByteSlice32767[i] = byte(i)
+	}
+	testByteSlice65535 = make([]byte, 65535)
+	for i = 0; i < 65535; i++ {
+		testByteSlice65535[i] = byte(i)
 	}
 
 	return 0

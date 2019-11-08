@@ -124,20 +124,70 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 		case []byte:
 			if isOut {
 
-				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByteN(value, 32768))
-				sbind.maxSize = 32767
-				if sbind.out.In && !isNill {
-					*sbind.length = C.ub2(len(value))
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_BLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_BLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, value)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
 				} else {
-					*sbind.indicator = -1 // set to null
+					sbind.dataType = C.SQLT_BIN
+					sbind.pbuf = unsafe.Pointer(cByteN(value, 32768))
+					sbind.maxSize = 32767
+					if sbind.out.In && !isNill {
+						*sbind.length = C.ub2(len(value))
+					} else {
+						*sbind.indicator = -1 // set to null
+					}
 				}
 
 			} else {
-				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByte(value))
-				sbind.maxSize = C.sb4(len(value))
-				*sbind.length = C.ub2(len(value))
+
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_BLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_BLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, value)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+				} else {
+					sbind.dataType = C.SQLT_BIN
+					sbind.pbuf = unsafe.Pointer(cByte(value))
+					sbind.maxSize = C.sb4(len(value))
+					*sbind.length = C.ub2(len(value))
+				}
+
 			}
 
 		case time.Time:
@@ -147,6 +197,7 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 
 			dateTimePP, err := stmt.conn.timeToOCIDateTime(&value)
 			if err != nil {
+				freeBinds(binds)
 				return nil, fmt.Errorf("timeToOCIDateTime for column %v - error: %v", i, err)
 			}
 
@@ -155,26 +206,77 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 		case string:
 			if isOut {
 
-				sbind.dataType = C.SQLT_CHR
-				sbind.pbuf = unsafe.Pointer(cStringN(value, 32768))
-				sbind.maxSize = 32767
-				if sbind.out.In && !isNill {
-					*sbind.length = C.ub2(len(value))
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_CLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_CLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, []byte(value))
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
 				} else {
-					*sbind.indicator = -1 // set to null
+					sbind.dataType = C.SQLT_CHR
+					sbind.pbuf = unsafe.Pointer(cStringN(value, 32768))
+					sbind.maxSize = 32767
+					if sbind.out.In && !isNill {
+						*sbind.length = C.ub2(len(value))
+					} else {
+						*sbind.indicator = -1 // set to null
+					}
 				}
 
 			} else {
-				sbind.dataType = C.SQLT_AFC
-				sbind.pbuf = unsafe.Pointer(C.CString(value))
-				sbind.maxSize = C.sb4(len(value))
-				*sbind.length = C.ub2(len(value))
+
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_CLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_CLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, []byte(value))
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+				} else {
+					sbind.dataType = C.SQLT_AFC
+					sbind.pbuf = unsafe.Pointer(C.CString(value))
+					sbind.maxSize = C.sb4(len(value))
+					*sbind.length = C.ub2(len(value))
+				}
+
 			}
 
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
 			buffer := bytes.Buffer{}
 			err = binary.Write(&buffer, binary.LittleEndian, value)
 			if err != nil {
+				freeBinds(binds)
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_INT
@@ -189,6 +291,7 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 			buffer := bytes.Buffer{}
 			err = binary.Write(&buffer, binary.LittleEndian, value)
 			if err != nil {
+				freeBinds(binds)
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_BDOUBLE
@@ -630,7 +733,17 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					}
 					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
 				case *bind.indicator == 0: // Normal
-					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					if bind.dataType == C.SQLT_CLOB {
+						lobLocator := (**C.OCILobLocator)(bind.pbuf)
+						var buffer []byte
+						buffer, err = stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
+						if err != nil {
+							return err
+						}
+						*dest = string(buffer)
+					} else {
+						*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					}
 				case *bind.indicator == -1: // The selected value is null
 					*dest = "" // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
@@ -748,7 +861,15 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					}
 					*dest = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
 				case *bind.indicator == 0: // Normal
-					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					if bind.dataType == C.SQLT_BLOB {
+						lobLocator := (**C.OCILobLocator)(bind.pbuf)
+						*dest, err = stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
+						if err != nil {
+							return err
+						}
+					} else {
+						*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					}
 				case *bind.indicator == -1: // The selected value is null
 					*dest = nil
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.

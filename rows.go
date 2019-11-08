@@ -84,20 +84,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			lobLocator := (**C.OCILobLocator)(rows.defines[i].pbuf)
-
-			// set character set form
-			form := C.ub1(C.SQLCS_IMPLICIT)
-			result = C.OCILobCharSetForm(
-				rows.stmt.conn.env,       // environment handle
-				rows.stmt.conn.errHandle, // error handle
-				*lobLocator,              // LOB locator
-				&form,                    // character set form
-			)
-			if result != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(result)
-			}
-
-			buffer, err := rows.stmt.conn.ociLobRead(*lobLocator, form)
+			buffer, err := rows.stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
 			if err != nil {
 				return err
 			}

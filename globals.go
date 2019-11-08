@@ -15,6 +15,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -123,8 +124,19 @@ type (
 )
 
 var (
+	// ErrOCIInvalidHandle is OCI_INVALID_HANDLE
+	ErrOCIInvalidHandle = errors.New("OCI_INVALID_HANDLE")
 	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
 	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
+	// ErrOCIReservedForIntUse is OCI_RESERVED_FOR_INT_USE
+	ErrOCIReservedForIntUse = errors.New("OCI_RESERVED_FOR_INT_USE")
+	// ErrOCINoData is OCI_NO_DATA
+	ErrOCINoData = errors.New("OCI_NO_DATA")
+	// ErrOCINeedData is OCI_NEED_DATA
+	ErrOCINeedData = errors.New("OCI_NEED_DATA")
+	// ErrOCIStillExecuting is OCI_STILL_EXECUTING
+	ErrOCIStillExecuting = errors.New("OCI_STILL_EXECUTING")
+
 	// ErrNoRowid is result has no rowid
 	ErrNoRowid = errors.New("result has no rowid")
 
@@ -137,6 +149,12 @@ var (
 	}
 
 	timeLocations []*time.Location
+
+	byteBufferPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, lobBufferSize)
+		},
+	}
 )
 
 func init() {

@@ -444,9 +444,53 @@ func (conn *OCI8Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data 
 	return nil
 }
 
+func (conn *OCI8Conn) getDatabaseTimezone() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	stmt, err := conn.PrepareContext(ctx, "select tz_offset(dbtimezone) from dual")
+	if err != nil {
+		cancel()
+		return err
+	}
+	var rows driver.Rows
+	rows, err = stmt.Query(nil)
+	if err != nil {
+		cancel()
+		return err
+	}
+	timezoneValue := make([]driver.Value, 1)
+	err = rows.Next(timezoneValue)
+	if err != nil {
+		cancel()
+		return err
+	}
+	cancel()
+
+	timezone, ok := timezoneValue[0].(string)
+	if !ok {
+		return fmt.Errorf("not string")
+	}
+	if len(timezone) < 6 {
+		return fmt.Errorf("len less than 6")
+	}
+
+	var hour int64
+	hour, err = strconv.ParseInt(timezone[0:3], 10, 64)
+	if err != nil {
+		return err
+	}
+	var minute int64
+	minute, err = strconv.ParseInt(timezone[4:6], 10, 64)
+	if err != nil {
+		return err
+	}
+
+	conn.timeLocation = timezoneToLocation(hour, minute)
+
+	return nil
+}
+
 // ociDateTimeToTime coverts OCIDateTime to Go Time
-// if useOCITimeZone is true, will use OCIDateTime time zone, otherwise will use conn.location
-func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, useOCITimeZone bool) (*time.Time, error) {
+func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasTimeZone bool) (*time.Time, error) {
 	// get date
 	var year C.sb2
 	var month C.ub1
@@ -483,9 +527,27 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, useOCITimeZone 
 		return nil, err
 	}
 
-	if !useOCITimeZone {
-		// return Go Time with conn.location
-		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), conn.location)
+	if !ociDateTimeHasTimeZone {
+
+		conn.timeLocationRWMutex.RLock()
+		if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
+			conn.timeLocationRWMutex.RUnlock()
+			conn.timeLocationRWMutex.Lock()
+			if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
+				conn.timeLocationNextUpdate = time.Now().UTC().Add(5 * time.Minute)
+				go func() {
+					err := conn.getDatabaseTimezone()
+					if err != nil {
+						conn.logger.Println("getDatabaseTimezone error: " + err.Error())
+					}
+				}()
+			}
+			conn.timeLocationRWMutex.Unlock()
+		} else {
+			conn.timeLocationRWMutex.RUnlock()
+		}
+
+		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), conn.timeLocation)
 		return &aTime, nil
 	}
 
@@ -504,31 +566,9 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, useOCITimeZone 
 		return nil, err
 	}
 
-	var location *time.Location
-	if timeZoneMin != 0 || timeZoneHour > 14 || timeZoneHour < -12 {
-		// create location with FixedZone
-		var timeZoneName string
-		if timeZoneHour < 0 {
-			timeZoneName = strconv.FormatInt(int64(timeZoneHour), 10) + ":"
-		} else {
-			timeZoneName = "+" + strconv.FormatInt(int64(timeZoneHour), 10) + ":"
-		}
-		if timeZoneMin == 0 {
-			timeZoneName += "00"
-		} else {
-			if timeZoneMin < 10 {
-				timeZoneName += "0"
-			}
-			timeZoneName += strconv.FormatInt(int64(timeZoneMin), 10)
-		}
-		location = time.FixedZone(timeZoneName, (3600*int(timeZoneHour))+(60*int(timeZoneMin)))
-	} else {
-		// use location from timeLocations cache
-		location = timeLocations[12+timeZoneHour]
-	}
-
 	// return Go Time using OCI time zone offset
-	aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), location)
+	aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec),
+		timezoneToLocation(int64(timeZoneHour), int64(timeZoneMin)))
 	return &aTime, nil
 }
 

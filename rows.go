@@ -79,7 +79,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				int(buf[5])-1,
 				int(buf[6])-1,
 				0,
-				rows.stmt.conn.location)
+				rows.stmt.conn.timeLocation)
 
 		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:

@@ -42,16 +42,16 @@ func TestSelectDualTime(t *testing.T) {
 
 	queryResults := testQueryResults{}
 
-	queryResultTimeToLocal := make([]testQueryResult, 0, len(timeLocations))
+	queryResultTimeToDBTimezone := make([]testQueryResult, 0, len(timeLocations))
 	for i := 0; i < len(timeLocations); i++ {
-		queryResultTimeToLocal = append(queryResultTimeToLocal,
+		queryResultTimeToDBTimezone = append(queryResultTimeToDBTimezone,
 			testQueryResult{
 				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
-				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local)}},
+				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation)}},
 			},
 			testQueryResult{
 				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
-				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local)}},
+				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation)}},
 			},
 		)
 	}
@@ -74,7 +74,7 @@ func TestSelectDualTime(t *testing.T) {
 
 	// TIMESTAMP(9)
 	queryResults.query = "select cast (:1 as TIMESTAMP(9)) from dual"
-	queryResults.queryResults = queryResultTimeToLocal
+	queryResults.queryResults = queryResultTimeToDBTimezone
 	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
@@ -410,8 +410,8 @@ func TestDestructiveTime(t *testing.T) {
 		}
 		resultsTimestamp[i] = []interface{}{
 			int64(i + 1),
-			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.Local),
-			time.Date(2001, 1, 1, 0, 0, 0, 0, time.Local),
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation),
+			time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation),
 		}
 	}
 
@@ -439,6 +439,34 @@ func TestDestructiveTime(t *testing.T) {
 	if err != nil {
 		t.Error("delete error:", err)
 	}
+
+	err = testExec(t, "truncate table "+tableName, nil)
+	if err != nil {
+		t.Error("truncate error:", err)
+	}
+
+	err = testExec(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", []interface{}{
+		1,
+		time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+		time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Error("insert error:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from " + tableName,
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{{
+					int64(1),
+					time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation),
+					time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation),
+				}},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
 	tableName = "TIMESTAMPWTZ_" + TestTimeString

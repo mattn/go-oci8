@@ -31,6 +31,7 @@ var (
 	TestTimeString string
 
 	TestDB *sql.DB
+	TestDBTimeLocation *time.Location
 
 	TestTypeTime      = reflect.TypeOf(time.Time{})
 	TestTypeByteSlice = reflect.TypeOf([]byte{})
@@ -188,11 +189,11 @@ func TestParseDSN(t *testing.T) {
 		dsnString   string
 		expectedDSN *DSN
 	}{
-		{"oracle://xxmc:xxmc@107.20.30.169:1521/ORCL?loc=America%2FPhoenix", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, Location: timeLocations[5]}},
-		{"xxmc/xxmc@107.20.30.169:1521/ORCL?loc=America%2FPhoenix", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, Location: timeLocations[5]}},
-		{"sys/syspwd@107.20.30.169:1521/ORCL?loc=America%2FPhoenix&as=sysdba", &DSN{Username: "sys", Password: "syspwd", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, Location: timeLocations[5], operationMode: 0x00000002}}, // with operationMode: 0x00000002 = C.OCI_SYDBA
-		{"xxmc/xxmc@107.20.30.169:1521/ORCL", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, Location: time.Local}},
-		{"xxmc/xxmc@107.20.30.169/ORCL", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, Location: time.Local}},
+		{"oracle://xxmc:xxmc@107.20.30.169:1521/ORCL?loc=America%2FPhoenix", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory}},
+		{"xxmc/xxmc@107.20.30.169:1521/ORCL?loc=America%2FPhoenix", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory}},
+		{"sys/syspwd@107.20.30.169:1521/ORCL?loc=America%2FPhoenix&as=sysdba", &DSN{Username: "sys", Password: "syspwd", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory, operationMode: 0x00000002}}, // with operationMode: 0x00000002 = C.OCI_SYDBA
+		{"xxmc/xxmc@107.20.30.169:1521/ORCL", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169:1521/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory}},
+		{"xxmc/xxmc@107.20.30.169/ORCL", &DSN{Username: "xxmc", Password: "xxmc", Connect: "107.20.30.169/ORCL", prefetchRows: prefetchRows, prefetchMemory: prefetchMemory}},
 	}
 
 	for _, tt := range dsnTests {

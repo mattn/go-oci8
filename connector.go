@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"io/ioutil"
 	"log"
+	"sync"
 )
 
 // NewConnector returns a new database connector
@@ -24,7 +25,8 @@ func (oci8Connector *OCI8Connector) Driver() driver.Driver {
 // Connect returns a new database connection
 func (oci8Connector *OCI8Connector) Connect(ctx context.Context) (driver.Conn, error) {
 	oci8Conn := &OCI8Conn{
-		logger: oci8Connector.Logger,
+		timeLocationRWMutex: &sync.RWMutex{},
+		logger:              oci8Connector.Logger,
 	}
 	if oci8Conn.logger == nil {
 		oci8Conn.logger = log.New(ioutil.Discard, "", 0)

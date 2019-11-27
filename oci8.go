@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -26,8 +27,6 @@ import (
 //
 // Supported parameters are:
 //
-// loc - the time location for timezone when reading/writing Go time/Oracle date
-//
 // isolation - the isolation level that can be set to: READONLY, SERIALIZABLE, or DEFAULT
 //
 // prefetch_rows - the number of top level rows to be prefetched. Defaults to 0. A 0 means unlimited rows.
@@ -37,8 +36,6 @@ import (
 // questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
-	dsn = &DSN{Location: time.Local}
-
 	if dsnString == "" {
 		return nil, errors.New("empty dsn")
 	}
@@ -47,6 +44,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	if strings.HasPrefix(dsnString, prefix) {
 		dsnString = dsnString[len(prefix):]
+	}
+
+	dsn = &DSN{
+		prefetchRows:   0,
+		prefetchMemory: 4096,
+		operationMode:  C.OCI_DEFAULT,
 	}
 
 	authority, dsnString := splitRight(dsnString, "@")
@@ -65,20 +68,9 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn.Connect = host
 
-	// set safe defaults
-	dsn.prefetchRows = 0
-	dsn.prefetchMemory = 4096
-	dsn.operationMode = C.OCI_DEFAULT
-
 	qp, err := ParseQuery(params)
 	for k, v := range qp {
 		switch k {
-		case "loc":
-			if len(v) > 0 {
-				if dsn.Location, err = time.LoadLocation(v[0]); err != nil {
-					return nil, fmt.Errorf("Invalid loc: %v: %v", v[0], err)
-				}
-			}
 		case "isolation":
 			switch v[0] {
 			case "READONLY":
@@ -160,8 +152,9 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	}
 
 	conn := OCI8Conn{
-		operationMode: dsn.operationMode,
-		logger:        oci8Driver.Logger,
+		operationMode:       dsn.operationMode,
+		timeLocationRWMutex: &sync.RWMutex{},
+		logger:              oci8Driver.Logger,
 	}
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
@@ -317,7 +310,7 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 		conn.usrSession = (*C.OCISession)(*handle)
 
 		credentialType := C.ub4(C.OCI_CRED_EXT)
-		if len(dsn.Username) > 0  {
+		if len(dsn.Username) > 0 {
 			// specifies a username to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {
@@ -376,11 +369,15 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 
 	}
 
-	conn.location = dsn.Location
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetchRows = dsn.prefetchRows
 	conn.prefetchMemory = dsn.prefetchMemory
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
+
+	err = conn.getDatabaseTimezone()
+	if err != nil {
+		return nil, fmt.Errorf("get database timezone error: %v", err)
+	}
 
 	return &conn, nil
 }
@@ -407,4 +404,28 @@ func placeholders(sql string) string {
 		n++
 		return ":" + strconv.Itoa(n)
 	})
+}
+
+func timezoneToLocation(hour int64, minute int64) *time.Location {
+	if minute != 0 || hour > 14 || hour < -12 {
+		// create location with FixedZone
+		var name string
+		if hour < 0 {
+			name = strconv.FormatInt(hour, 10) + ":"
+		} else {
+			name = "+" + strconv.FormatInt(hour, 10) + ":"
+		}
+		if minute == 0 {
+			name += "00"
+		} else {
+			if minute < 10 {
+				name += "0"
+			}
+			name += strconv.FormatInt(minute, 10)
+		}
+		return time.FixedZone(name, (3600*int(hour))+(60*int(minute)))
+	}
+
+	// use location from timeLocations cache
+	return timeLocations[12+hour]
 }

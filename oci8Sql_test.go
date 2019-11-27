@@ -31,7 +31,7 @@ func testGetDB(params string) *sql.DB {
 
 	db, err := sql.Open("oci8", openString)
 	if err != nil {
-		fmt.Println("open error:", err)
+		fmt.Println("Open error:", err)
 		return nil
 	}
 	if db == nil {
@@ -43,9 +43,96 @@ func testGetDB(params string) *sql.DB {
 	err = db.PingContext(ctx)
 	cancel()
 	if err != nil {
-		fmt.Println("ping error:", err)
+		fmt.Println("PingContext error:", err)
+		db.Close()
 		return nil
 	}
+
+	var stmt *sql.Stmt
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = db.PrepareContext(ctx, "select tz_offset(dbtimezone) from dual")
+	cancel()
+	if err != nil {
+		db.Close()
+		fmt.Println("PrepareContext error:", err)
+		return nil
+	}
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		fmt.Println("QueryContext error:", err)
+		stmt.Close()
+		db.Close()
+		return nil
+	}
+
+	err = rows.Err()
+	if err != nil {
+		cancel()
+		fmt.Println("rows Err error:", err)
+		rows.Close()
+		stmt.Close()
+		db.Close()
+		return nil
+	}
+
+	if !rows.Next() {
+		cancel()
+		fmt.Println("no next")
+		rows.Close()
+		stmt.Close()
+		db.Close()
+		return nil
+	}
+
+	var timezone string
+	err = rows.Scan(&timezone)
+	cancel()
+	if err != nil {
+		fmt.Println("Scan error:", err)
+		rows.Close()
+		stmt.Close()
+		db.Close()
+		return nil
+	}
+	err = rows.Close()
+	if err != nil {
+		fmt.Println("rows Close error:", err)
+		stmt.Close()
+		db.Close()
+		return nil
+	}
+
+	stmt.Close()
+	if err != nil {
+		fmt.Println("stmt Close error:", err)
+		db.Close()
+		return nil
+	}
+
+	if len(timezone) < 6 {
+		fmt.Println("len less than 6")
+		db.Close()
+		return nil
+	}
+
+	var hour int64
+	hour, err = strconv.ParseInt(timezone[0:3], 10, 64)
+	if err != nil {
+		fmt.Println("len less than 6")
+		db.Close()
+		return nil
+	}
+	var minute int64
+	minute, err = strconv.ParseInt(timezone[4:6], 10, 64)
+	if err != nil {
+		return nil
+	}
+
+	TestDBTimeLocation = timezoneToLocation(hour, minute)
 
 	return db
 }

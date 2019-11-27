@@ -484,7 +484,11 @@ func (conn *OCI8Conn) getDatabaseTimezone() error {
 		return err
 	}
 
-	conn.timeLocation = timezoneToLocation(hour, minute)
+	location := timezoneToLocation(hour, minute)
+
+	conn.timeLocationRWMutex.Lock()
+	conn.timeLocation = location
+	conn.timeLocationRWMutex.Unlock()
 
 	return nil
 }
@@ -530,10 +534,12 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasT
 	if !ociDateTimeHasTimeZone {
 
 		conn.timeLocationRWMutex.RLock()
+		location := conn.timeLocation
 		if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
 			conn.timeLocationRWMutex.RUnlock()
 			conn.timeLocationRWMutex.Lock()
 			if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
+				conn.timeLocationRWMutex.Unlock()
 				conn.timeLocationNextUpdate = time.Now().UTC().Add(5 * time.Minute)
 				go func() {
 					err := conn.getDatabaseTimezone()
@@ -541,13 +547,14 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasT
 						conn.logger.Println("getDatabaseTimezone error: " + err.Error())
 					}
 				}()
+			} else {
+				conn.timeLocationRWMutex.Unlock()
 			}
-			conn.timeLocationRWMutex.Unlock()
 		} else {
 			conn.timeLocationRWMutex.RUnlock()
 		}
 
-		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), conn.timeLocation)
+		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), location)
 		return &aTime, nil
 	}
 

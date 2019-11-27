@@ -71,6 +71,9 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			buf := (*[1 << 30]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
 			// TODO: Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			// TODO: Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
+			rows.stmt.conn.timeLocationRWMutex.RLock()
+			location := rows.stmt.conn.timeLocation
+			rows.stmt.conn.timeLocationRWMutex.RUnlock()
 			dest[i] = time.Date(
 				(int(buf[0])-100)*100+(int(buf[1])-100),
 				time.Month(int(buf[2])),
@@ -79,7 +82,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				int(buf[5])-1,
 				int(buf[6])-1,
 				0,
-				rows.stmt.conn.timeLocation)
+				location)
 
 		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:

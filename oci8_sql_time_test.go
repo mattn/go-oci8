@@ -42,18 +42,11 @@ func TestSelectDualTime(t *testing.T) {
 
 	queryResults := testQueryResults{}
 
-	queryResultTimeToDBTimezone := make([]testQueryResult, 0, len(timeLocations))
-	for i := 0; i < len(timeLocations); i++ {
-		queryResultTimeToDBTimezone = append(queryResultTimeToDBTimezone,
-			testQueryResult{
-				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
-				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation)}},
-			},
-			testQueryResult{
-				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
-				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation)}},
-			},
-		)
+	queryResultTime := []testQueryResult{
+		testQueryResult{
+			args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC)},
+			results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
+		},
 	}
 
 	queryResultTimeToTZ := make([]testQueryResult, 0, len(timeLocations))
@@ -63,10 +56,6 @@ func TestSelectDualTime(t *testing.T) {
 				args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])},
 				results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i])}},
 			},
-			testQueryResult{
-				args:    []interface{}{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])},
-				results: [][]interface{}{{time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i])}},
-			},
 		)
 	}
 
@@ -74,7 +63,7 @@ func TestSelectDualTime(t *testing.T) {
 
 	// TIMESTAMP(9)
 	queryResults.query = "select cast (:1 as TIMESTAMP(9)) from dual"
-	queryResults.queryResults = queryResultTimeToDBTimezone
+	queryResults.queryResults = queryResultTime
 	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
@@ -400,19 +389,19 @@ func TestDestructiveTime(t *testing.T) {
 
 	defer testDropTable(t, tableName)
 
-	rowsTimestamp := make([][]interface{}, len(timeLocations))
-	resultsTimestamp := make([][]interface{}, len(timeLocations))
-	for i := 0; i < len(timeLocations); i++ {
-		rowsTimestamp[i] = []interface{}{
-			i + 1,
-			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
-			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
-		}
-		resultsTimestamp[i] = []interface{}{
-			int64(i + 1),
-			time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation),
-			time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation),
-		}
+	rowsTimestamp := [][]interface{}{
+		[]interface{}{
+			1,
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+			time.Date(9876, 5, 4, 3, 2, 1, 987654321, time.UTC),
+		},
+	}
+	resultsTimestamp := [][]interface{}{
+		[]interface{}{
+			int64(1),
+			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+			time.Date(9876, 5, 4, 3, 2, 1, 987654321, time.UTC),
+		},
 	}
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", rowsTimestamp)
@@ -430,43 +419,10 @@ func TestDestructiveTime(t *testing.T) {
 	}
 	testRunQueryResults(t, queryResults)
 
-	err = testExecRows(t, "delete from "+tableName+" where A = :1",
-		[][]interface{}{
-			{4},
-			{5},
-			{6},
-		})
+	err = testExec(t, "delete from "+tableName+" where A = :1", []interface{}{1})
 	if err != nil {
 		t.Error("delete error:", err)
 	}
-
-	err = testExec(t, "truncate table "+tableName, nil)
-	if err != nil {
-		t.Error("truncate error:", err)
-	}
-
-	err = testExec(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)", []interface{}{
-		1,
-		time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
-		time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-	if err != nil {
-		t.Error("insert error:", err)
-	}
-
-	queryResults = testQueryResults{
-		query: "select A, B, C from " + tableName,
-		queryResults: []testQueryResult{
-			{
-				results: [][]interface{}{{
-					int64(1),
-					time.Date(2099, 1, 2, 3, 4, 5, 123456789, TestDBTimeLocation),
-					time.Date(2001, 1, 1, 0, 0, 0, 0, TestDBTimeLocation),
-				}},
-			},
-		},
-	}
-	testRunQueryResults(t, queryResults)
 
 	// TIMESTAMP(9) WITH TIME ZONE
 	tableName = "TIMESTAMPWTZ_" + TestTimeString
@@ -477,16 +433,19 @@ func TestDestructiveTime(t *testing.T) {
 
 	defer testDropTable(t, tableName)
 
+	rowsTimestamp = make([][]interface{}, len(timeLocations))
+	resultsTimestamp = make([][]interface{}, len(timeLocations))
+
 	for i := 0; i < len(timeLocations); i++ {
 		rowsTimestamp[i] = []interface{}{
 			i + 1,
 			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
-			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
+			time.Date(9876, 5, 4, 3, 2, 1, 987654321, timeLocations[i]),
 		}
 		resultsTimestamp[i] = []interface{}{
 			int64(i + 1),
 			time.Date(2099, 1, 2, 3, 4, 5, 123456789, timeLocations[i]),
-			time.Date(2001, 1, 1, 0, 0, 0, 0, timeLocations[i]),
+			time.Date(9876, 5, 4, 3, 2, 1, 987654321, timeLocations[i]),
 		}
 	}
 

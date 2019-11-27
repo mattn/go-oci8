@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 )
@@ -26,6 +25,9 @@ import (
 // Connection timeout can be set in the Oracle files: sqlnet.ora as SQLNET.OUTBOUND_CONNECT_TIMEOUT or tnsnames.ora as CONNECT_TIMEOUT
 //
 // Supported parameters are:
+//
+// loc - the time location for reading timestamp (without time zone). Defaults to UTC
+// Note that writing a timestamp (without time zone) just truncates the time zone.
 //
 // isolation - the isolation level that can be set to: READONLY, SERIALIZABLE, or DEFAULT
 //
@@ -50,6 +52,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		prefetchRows:   0,
 		prefetchMemory: 4096,
 		operationMode:  C.OCI_DEFAULT,
+		timeLocation:   time.UTC,
 	}
 
 	authority, dsnString := splitRight(dsnString, "@")
@@ -71,6 +74,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	qp, err := ParseQuery(params)
 	for k, v := range qp {
 		switch k {
+		case "loc":
+			if len(v) > 0 {
+				if dsn.timeLocation, err = time.LoadLocation(v[0]); err != nil {
+					return nil, fmt.Errorf("Invalid loc: %v: %v", v[0], err)
+				}
+			}
 		case "isolation":
 			switch v[0] {
 			case "READONLY":
@@ -152,9 +161,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	}
 
 	conn := OCI8Conn{
-		operationMode:       dsn.operationMode,
-		timeLocationRWMutex: &sync.RWMutex{},
-		logger:              oci8Driver.Logger,
+		operationMode: dsn.operationMode,
+		logger:        oci8Driver.Logger,
 	}
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
@@ -372,12 +380,8 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetchRows = dsn.prefetchRows
 	conn.prefetchMemory = dsn.prefetchMemory
+	conn.timeLocation = dsn.timeLocation
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
-
-	err = conn.getDatabaseTimezone()
-	if err != nil {
-		return nil, fmt.Errorf("get database timezone error: %v", err)
-	}
 
 	return &conn, nil
 }

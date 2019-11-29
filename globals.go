@@ -34,6 +34,7 @@ type (
 		Password             string
 		prefetchRows         C.ub4
 		prefetchMemory       C.ub4
+		timeLocation         *time.Location
 		transactionMode      C.ub4
 		enableQMPlaceholders bool
 		operationMode        C.ub4
@@ -54,22 +55,20 @@ type (
 
 	// OCI8Conn is Oracle connection
 	OCI8Conn struct {
-		svc                     *C.OCISvcCtx
-		srv                     *C.OCIServer
-		env                     *C.OCIEnv
-		errHandle               *C.OCIError
-		usrSession              *C.OCISession
-		prefetchRows            C.ub4
-		prefetchMemory          C.ub4
-		transactionMode         C.ub4
-		operationMode           C.ub4
-		inTransaction           bool
-		enableQMPlaceholders    bool
-		closed                  bool
-		timeLocation            *time.Location
-		timeLocationNextUpdate time.Time
-		timeLocationRWMutex     *sync.RWMutex
-		logger                  *log.Logger
+		svc                  *C.OCISvcCtx
+		srv                  *C.OCIServer
+		env                  *C.OCIEnv
+		errHandle            *C.OCIError
+		usrSession           *C.OCISession
+		prefetchRows         C.ub4
+		prefetchMemory       C.ub4
+		transactionMode      C.ub4
+		operationMode        C.ub4
+		inTransaction        bool
+		enableQMPlaceholders bool
+		closed               bool
+		timeLocation         *time.Location
+		logger               *log.Logger
 	}
 
 	// OCI8Tx is Oracle transaction

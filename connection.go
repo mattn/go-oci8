@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 	"unsafe"
 )
@@ -444,55 +443,6 @@ func (conn *OCI8Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data 
 	return nil
 }
 
-func (conn *OCI8Conn) getDatabaseTimezone() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	stmt, err := conn.PrepareContext(ctx, "select tz_offset(dbtimezone) from dual")
-	if err != nil {
-		cancel()
-		return err
-	}
-	var rows driver.Rows
-	rows, err = stmt.Query(nil)
-	if err != nil {
-		cancel()
-		return err
-	}
-	timezoneValue := make([]driver.Value, 1)
-	err = rows.Next(timezoneValue)
-	if err != nil {
-		cancel()
-		return err
-	}
-	cancel()
-
-	timezone, ok := timezoneValue[0].(string)
-	if !ok {
-		return fmt.Errorf("not string")
-	}
-	if len(timezone) < 6 {
-		return fmt.Errorf("len less than 6")
-	}
-
-	var hour int64
-	hour, err = strconv.ParseInt(timezone[0:3], 10, 64)
-	if err != nil {
-		return err
-	}
-	var minute int64
-	minute, err = strconv.ParseInt(timezone[4:6], 10, 64)
-	if err != nil {
-		return err
-	}
-
-	location := timezoneToLocation(hour, minute)
-
-	conn.timeLocationRWMutex.Lock()
-	conn.timeLocation = location
-	conn.timeLocationRWMutex.Unlock()
-
-	return nil
-}
-
 // ociDateTimeToTime coverts OCIDateTime to Go Time
 func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasTimeZone bool) (*time.Time, error) {
 	// get date
@@ -532,29 +482,7 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasT
 	}
 
 	if !ociDateTimeHasTimeZone {
-
-		conn.timeLocationRWMutex.RLock()
-		location := conn.timeLocation
-		if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
-			conn.timeLocationRWMutex.RUnlock()
-			conn.timeLocationRWMutex.Lock()
-			if conn.timeLocationNextUpdate.Before(time.Now().UTC()) {
-				conn.timeLocationRWMutex.Unlock()
-				conn.timeLocationNextUpdate = time.Now().UTC().Add(5 * time.Minute)
-				go func() {
-					err := conn.getDatabaseTimezone()
-					if err != nil {
-						conn.logger.Println("getDatabaseTimezone error: " + err.Error())
-					}
-				}()
-			} else {
-				conn.timeLocationRWMutex.Unlock()
-			}
-		} else {
-			conn.timeLocationRWMutex.RUnlock()
-		}
-
-		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), location)
+		aTime := time.Date(int(year), time.Month(month), int(day), int(hour), int(min), int(sec), int(fsec), conn.timeLocation)
 		return &aTime, nil
 	}
 

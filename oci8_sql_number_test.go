@@ -3542,3 +3542,127 @@ union all select :20 from dual`
 	}
 
 }
+
+func TestDestructiveNumberColumnTypes(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "NUMBER_TYPES_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A NUMBER(10,2), B FLOAT(20), C INTEGER )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
+		[][]interface{}{
+			{12345, 234.5, 3456789},
+		})
+	if err != nil {
+		t.Fatal("insert error:", err)
+	}
+
+	queryResults := testQueryResults{
+		query: "select A, B, C from " + tableName,
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{float64(12345), float64(234.5), int64(3456789)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select A, B, C from "+tableName)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			t.Error("stmt close error:", err)
+		}
+	}()
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	var rows *sql.Rows
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		t.Fatal("query error", err)
+	}
+
+	defer func() {
+		cancel()
+		err = rows.Close()
+		if err != nil {
+			t.Error("rows close error", err)
+		}
+	}()
+
+	var columnTypes []*sql.ColumnType
+	columnTypes, err = rows.ColumnTypes()
+
+	if len(columnTypes) != 3 {
+		t.Fatal("len columnTypes not equal to 3")
+	}
+
+	// TODO: DecimalSize
+	// TODO: Length
+	// TODO: Nullable
+
+	// A
+
+	columnNum := 0
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_BDOUBLE" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "A" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeFloat64 {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// B
+
+	columnNum = 1
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_BDOUBLE" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "B" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeFloat64 {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// C
+
+	columnNum = 2
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_INT" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "C" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeInt64 {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+}

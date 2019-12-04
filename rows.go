@@ -206,21 +206,11 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 // ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
 func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		// TOFIX: return an error
-		return ""
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataType C.ub2 // external datatype of the column: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci03typ.htm#CEGIEEJI
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
-	if err != nil {
-		// TOFIX: return an error
+	if len(rows.defines) < i+1 {
 		return ""
 	}
 
-	switch dataType {
+	switch rows.defines[i].dataType {
 	case C.SQLT_CHR:
 		return "SQLT_CHR"
 	case C.SQLT_NUM:
@@ -326,42 +316,24 @@ func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.
 func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		// TOFIX: return an error
-		return reflect.SliceOf(reflect.TypeOf(""))
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataType C.ub2 // external datatype of the column: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci03typ.htm#CEGIEEJI
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
-	if err != nil {
-		// TOFIX: return an error
-		return reflect.SliceOf(reflect.TypeOf(""))
+	if len(rows.defines) < i+1 {
+		return typeNil
 	}
 
-	switch dataType {
-	case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
-		return reflect.SliceOf(reflect.TypeOf(""))
-	case C.SQLT_BIN:
-		return reflect.SliceOf(reflect.TypeOf(byte(0)))
-	case C.SQLT_NUM:
-		return reflect.TypeOf(int64(0))
-	case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
-		return reflect.TypeOf(float64(0))
-	case C.SQLT_CLOB, C.SQLT_BLOB:
-		return reflect.SliceOf(reflect.TypeOf(byte(0)))
-	case C.SQLT_TIMESTAMP, C.SQLT_DAT:
-		return reflect.TypeOf(time.Time{})
-	case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-		return reflect.TypeOf(time.Time{})
-	case C.SQLT_INTERVAL_DS:
-		return reflect.TypeOf(time.Duration(0))
-	case C.SQLT_INTERVAL_YM:
-		return reflect.TypeOf(time.Duration(0))
-	case C.SQLT_RDD: // rowid
-		return reflect.SliceOf(reflect.TypeOf(""))
+	switch rows.defines[i].dataType {
+	case C.SQLT_AFC, C.SQLT_CHR, C.SQLT_VCS, C.SQLT_AVC, C.SQLT_CLOB, C.SQLT_RDD:
+		return typeString
+	case C.SQLT_BIN, C.SQLT_BLOB:
+		return typeSliceByte
+	case C.SQLT_INT:
+		return typeInt64
+	case C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE, C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_NUM:
+		return typeFloat64
+	case C.SQLT_TIMESTAMP, C.SQLT_DAT, C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
+		return typeTime
+	case C.SQLT_INTERVAL_DS, C.SQLT_INTERVAL_YM:
+		return typeInt64
 	}
 
-	return reflect.SliceOf(reflect.TypeOf(""))
+	return typeNil
 }

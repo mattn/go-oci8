@@ -2182,7 +2182,6 @@ end;`
 	execResults.execResults = execResultStrings16383
 	testRunExecResults(t, execResults)
 
-
 	execResultRaw2000 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: []byte(nil), In: true}},
@@ -3230,4 +3229,146 @@ end;`
 	if nullString1.String != "" {
 		t.Fatal("nullString1 not empty")
 	}
+}
+
+func TestDestructiveStringColumnTypes(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "STRING_TYPES_" + TestTimeString
+	err := testExec(t, "create table "+tableName+" ( A VARCHAR2(4000), B RAW(2000), C CLOB, D BLOB )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C, D ) values (:1, :2, :3, :4)",
+		[][]interface{}{
+			{"abcdefghijklmnopqrstuvwxyz", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+				"abcdefghijklmnopqrstuvwxyz", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		})
+	if err != nil {
+		t.Fatal("insert error:", err)
+	}
+
+	queryResults := testQueryResults{
+		query: "select A, B, C, D from " + tableName,
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{"abcdefghijklmnopqrstuvwxyz", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+						"abcdefghijklmnopqrstuvwxyz", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select A, B, C, D from "+tableName)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			t.Error("stmt close error:", err)
+		}
+	}()
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	var rows *sql.Rows
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		t.Fatal("query error", err)
+	}
+
+	defer func() {
+		cancel()
+		err = rows.Close()
+		if err != nil {
+			t.Error("rows close error", err)
+		}
+	}()
+
+	var columnTypes []*sql.ColumnType
+	columnTypes, err = rows.ColumnTypes()
+
+	if len(columnTypes) != 4 {
+		t.Fatal("len columnTypes not equal to 4")
+	}
+
+	// TODO: DecimalSize
+	// TODO: Length
+	// TODO: Nullable
+
+	// A
+
+	columnNum := 0
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_AFC" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "A" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeString {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// B
+
+	columnNum = 1
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_BIN" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "B" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeSliceByte {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// C
+
+	columnNum = 2
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_CLOB" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "C" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeString {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// D
+
+	columnNum = 3
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_BLOB" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "D" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeSliceByte {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
 }

@@ -1,6 +1,8 @@
 package oci8
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 )
@@ -43,7 +45,7 @@ func TestSelectDualTime(t *testing.T) {
 	queryResults := testQueryResults{}
 
 	queryResultTime := []testQueryResult{
-		testQueryResult{
+		{
 			args:    []interface{}{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC)},
 			results: [][]interface{}{{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC)}},
 		},
@@ -390,14 +392,14 @@ func TestDestructiveTime(t *testing.T) {
 	defer testDropTable(t, tableName)
 
 	rowsTimestamp := [][]interface{}{
-		[]interface{}{
+		{
 			1,
 			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
 			time.Date(9876, 5, 4, 3, 2, 1, 987654321, time.UTC),
 		},
 	}
 	resultsTimestamp := [][]interface{}{
-		[]interface{}{
+		{
 			int64(1),
 			time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
 			time.Date(9876, 5, 4, 3, 2, 1, 987654321, time.UTC),
@@ -704,4 +706,166 @@ func TestDestructiveTime(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+}
+
+func TestDestructiveTimeColumnTypes(t *testing.T) {
+	if TestDisableDatabase || TestDisableDestructive {
+		t.SkipNow()
+	}
+
+	tableName := "TIME_TYPES_" + TestTimeString
+	err := testExec(t, "create table "+tableName+
+		" ( A TIMESTAMP(9), B TIMESTAMP(9) WITH TIME ZONE, C TIMESTAMP(9) WITH LOCAL TIME ZONE, D INTERVAL YEAR TO MONTH, E INTERVAL DAY TO SECOND )", nil)
+	if err != nil {
+		t.Fatal("create table error:", err)
+	}
+
+	defer testDropTable(t, tableName)
+
+	err = testExecRows(t, "insert into "+tableName+" ( A, B, C, D, E ) values (:1, :2, :3, NUMTOYMINTERVAL(:4, 'MONTH'), NUMTODSINTERVAL(:5, 'HOUR'))",
+		[][]interface{}{
+			{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+				time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+				time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+				10, 10},
+		})
+	if err != nil {
+		t.Fatal("insert error:", err)
+	}
+
+	queryResults := testQueryResults{
+		query: "select A, B, C, D, E from " + tableName,
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+						time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+						time.Date(2099, 1, 2, 3, 4, 5, 123456789, time.UTC),
+						int64(10), int64(36000000000000)},
+				}},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := TestDB.PrepareContext(ctx, "select A, B, C, D, E from "+tableName)
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			t.Error("stmt close error:", err)
+		}
+	}()
+
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	var rows *sql.Rows
+	rows, err = stmt.QueryContext(ctx)
+	if err != nil {
+		cancel()
+		t.Fatal("query error", err)
+	}
+
+	defer func() {
+		cancel()
+		err = rows.Close()
+		if err != nil {
+			t.Error("rows close error", err)
+		}
+	}()
+
+	var columnTypes []*sql.ColumnType
+	columnTypes, err = rows.ColumnTypes()
+
+	if len(columnTypes) != 5 {
+		t.Fatal("len columnTypes not equal to 5")
+	}
+
+	// TODO: DecimalSize
+	// TODO: Length
+	// TODO: Nullable
+
+	// A
+
+	columnNum := 0
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_TIMESTAMP" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "A" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeTime {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// B
+
+	columnNum = 1
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_TIMESTAMP_TZ" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "B" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeTime {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// C
+
+	columnNum = 2
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_TIMESTAMP_TZ" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "C" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeTime {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// D
+
+	columnNum = 3
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_INTERVAL_YM" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "D" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeInt64 {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
+	// E
+
+	columnNum = 4
+
+	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_INTERVAL_DS" {
+		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	if columnTypes[columnNum].Name() != "E" {
+		t.Error("Name does not match -", columnTypes[columnNum].Name())
+	}
+
+	if columnTypes[columnNum].ScanType() != typeInt64 {
+		t.Error("ScanType does not match -", columnTypes[columnNum].ScanType())
+	}
+
 }

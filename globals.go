@@ -13,6 +13,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"regexp"
 	"strconv"
 	"sync"
@@ -142,6 +143,13 @@ var (
 
 	phre           = regexp.MustCompile(`\?`)
 	defaultCharset = C.ub2(0)
+
+	typeNil       = reflect.TypeOf(nil)
+	typeString    = reflect.TypeOf("a")
+	typeSliceByte = reflect.TypeOf([]byte{})
+	typeInt64     = reflect.TypeOf(int64(1))
+	typeFloat64   = reflect.TypeOf(float64(1))
+	typeTime      = reflect.TypeOf(time.Time{})
 
 	// OCI8Driver is the sql driver
 	OCI8Driver = &OCI8DriverStruct{

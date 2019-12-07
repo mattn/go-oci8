@@ -784,16 +784,20 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 		t.Fatal("len columnTypes not equal to 5")
 	}
 
-	// TODO: DecimalSize
-	// TODO: Length
-	// TODO: Nullable
-
 	// A
 
 	columnNum := 0
 
 	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_TIMESTAMP" {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	length, ok := columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
 	}
 
 	if columnTypes[columnNum].Name() != "A" {
@@ -812,6 +816,14 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
 	}
 
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
+	}
+
 	if columnTypes[columnNum].Name() != "B" {
 		t.Error("Name does not match -", columnTypes[columnNum].Name())
 	}
@@ -826,6 +838,14 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 
 	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_TIMESTAMP_TZ" {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
 	}
 
 	if columnTypes[columnNum].Name() != "C" {
@@ -844,6 +864,14 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
 	}
 
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
+	}
+
 	if columnTypes[columnNum].Name() != "D" {
 		t.Error("Name does not match -", columnTypes[columnNum].Name())
 	}
@@ -858,6 +886,14 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 
 	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_INTERVAL_DS" {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
 	}
 
 	if columnTypes[columnNum].Name() != "E" {

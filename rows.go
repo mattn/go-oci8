@@ -281,37 +281,18 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 	return ""
 }
 
-// ColumnTypeLength returns column length
-func (rows *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		return 0, false
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE)
-	if err != nil {
+// ColumnTypeLength is returning OCI_ATTR_DATA_SIZE, which is max data size in bytes.
+// Note this is not returing length of the column type, like the 20 in FLOAT(20), which is what is normally expected.
+// TODO: Should / can it be changed to return length of the column type?
+func (rows *OCI8Rows) ColumnTypeLength(i int) (int64, bool) {
+	if len(rows.defines) < i+1 {
 		return 0, false
 	}
 
-	return int64(dataSize), true
-}
-
-/*
-func (rows *OCI8Rows) ColumnTypePrecisionScale(i int) (precision, scale int64, ok bool) {
-	return 0, 0, false
-}
-*/
-
-// ColumnTypeNullable implement RowsColumnTypeNullable.
-func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
-	var isNull C.ub1 // returns 0 if null values are not permitted for the column
-	_, err := rows.stmt.ociAttrGet(unsafe.Pointer(&isNull), C.OCI_ATTR_IS_NULL)
-	if err != nil {
-		return false, false
+	if rows.defines[i].dataType == C.SQLT_AFC {
+		return int64(rows.defines[i].maxSize / 2), true
 	}
-	return isNull != 0, true
+	return int64(rows.defines[i].maxSize), true
 }
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.

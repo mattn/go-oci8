@@ -3613,16 +3613,20 @@ func TestDestructiveNumberColumnTypes(t *testing.T) {
 		t.Fatal("len columnTypes not equal to 3")
 	}
 
-	// TODO: DecimalSize
-	// TODO: Length
-	// TODO: Nullable
-
 	// A
 
 	columnNum := 0
 
 	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_BDOUBLE" {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	length, ok := columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
 	}
 
 	if columnTypes[columnNum].Name() != "A" {
@@ -3641,6 +3645,14 @@ func TestDestructiveNumberColumnTypes(t *testing.T) {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
 	}
 
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
+	}
+
 	if columnTypes[columnNum].Name() != "B" {
 		t.Error("Name does not match -", columnTypes[columnNum].Name())
 	}
@@ -3655,6 +3667,14 @@ func TestDestructiveNumberColumnTypes(t *testing.T) {
 
 	if columnTypes[columnNum].DatabaseTypeName() != "SQLT_INT" {
 		t.Error("DatabaseTypeName does not match -", columnTypes[columnNum].DatabaseTypeName())
+	}
+
+	length, ok = columnTypes[columnNum].Length()
+	if length != 8 {
+		t.Error("Length does not match -", length)
+	}
+	if ok != true {
+		t.Error("Length ok does not match -", ok)
 	}
 
 	if columnTypes[columnNum].Name() != "C" {

@@ -2157,6 +2157,74 @@ func TestFunctionCallNumber(t *testing.T) {
 
 	var execResults testExecResults
 
+	// bool
+	execResultBool := []testExecResult{
+		{
+			args:    map[string]sql.Out{"num1": {Dest: true, In: true}},
+			results: map[string]interface{}{"num1": false},
+		},
+		{
+			args:    map[string]sql.Out{"num1": {Dest: true, In: true}},
+			results: map[string]interface{}{"num1": false},
+		},
+	}
+
+	// bool with INTEGER
+	execResults.query = `
+declare
+	function GET_NUMBER(p_number INTEGER) return INTEGER as
+	begin
+		if p_number = 0 then
+			return 1;
+		end if;
+		return 0;
+	end GET_NUMBER;
+begin
+	:num1 := GET_NUMBER(:num1);
+end;`
+	execResults.execResults = execResultBool
+	testRunExecResults(t, execResults)
+
+	// bool
+	execResultBool = []testExecResult{
+		{
+			args:    map[string]sql.Out{"bool1": {Dest: true, In: true}},
+			results: map[string]interface{}{"bool1": false},
+		},
+	}
+
+	execResults.query = `begin :bool1 := 0; end;`
+	execResults.execResults = execResultBool
+	testRunExecResults(t, execResults)
+
+	// bool
+	execResultBool = []testExecResult{
+		{
+			args:    map[string]sql.Out{"bool1": {Dest: false, In: true}},
+			results: map[string]interface{}{"bool1": true},
+		},
+	}
+
+	execResults.query = `begin :bool1 := 1; end;`
+	execResults.execResults = execResultBool
+	testRunExecResults(t, execResults)
+
+	// bool
+	execResultBool = []testExecResult{
+		{
+			args:    map[string]sql.Out{"bool1": {Dest: false, In: true}},
+			results: map[string]interface{}{"bool1": false},
+		},
+		{
+			args:    map[string]sql.Out{"bool1": {Dest: true, In: true}},
+			results: map[string]interface{}{"bool1": true},
+		},
+	}
+
+	execResults.query = `begin :bool1 := :bool1; end;`
+	execResults.execResults = execResultBool
+	testRunExecResults(t, execResults)
+
 	// int8: -128 to 127
 	execResultInt8 := []testExecResult{
 		{
@@ -2197,6 +2265,25 @@ func TestFunctionCallNumber(t *testing.T) {
 		{
 			args:    map[string]sql.Out{"num1": {Dest: int16(32767), In: true}},
 			results: map[string]interface{}{"num1": int16(32767)},
+		},
+	}
+	// int: -2147483648 to 2147483647
+	execResultInt := []testExecResult{
+		{
+			args:    map[string]sql.Out{"num1": {Dest: int(-2147483648), In: true}},
+			results: map[string]interface{}{"num1": int(-2147483648)},
+		},
+		{
+			args:    map[string]sql.Out{"num1": {Dest: int(-32768), In: true}},
+			results: map[string]interface{}{"num1": int(-32768)},
+		},
+		{
+			args:    map[string]sql.Out{"num1": {Dest: int(32767), In: true}},
+			results: map[string]interface{}{"num1": int(32767)},
+		},
+		{
+			args:    map[string]sql.Out{"num1": {Dest: int(2147483647), In: true}},
+			results: map[string]interface{}{"num1": int(2147483647)},
 		},
 	}
 	// int32: -2147483648 to 2147483647
@@ -2360,6 +2447,8 @@ end;`
 	execResults.execResults = execResultInt16
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt32
+	testRunExecResults(t, execResults)
+	execResults.execResults = execResultInt
 	testRunExecResults(t, execResults)
 	execResults.execResults = execResultInt64
 	testRunExecResults(t, execResults)

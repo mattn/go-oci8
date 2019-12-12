@@ -1073,6 +1073,72 @@ end;`
 	}
 }
 
+// TestQuestionMark tests question mark placeholder
+func TestQuestionMark(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	var err error
+
+	db := testGetDB("?questionph=true")
+	if db == nil {
+		t.Fatal("db is null")
+	}
+
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			t.Fatal("db close error:", err)
+		}
+	}()
+
+	var stmt *sql.Stmt
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err = db.PrepareContext(ctx, "select ?, ?, ? from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+
+	var result [][]interface{}
+	result, err = testGetRows(t, stmt, []interface{}{1, 2.25, "three"})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if len(result) != 1 {
+		t.Fatal("len result not equal to 1")
+	}
+	if len(result[0]) != 3 {
+		t.Fatal("len result[0] not equal to 3")
+	}
+	float, ok := result[0][0].(float64)
+	if !ok {
+		t.Fatal("result not float64")
+	}
+	if float != float64(1) {
+		t.Fatal("result not equal:", float)
+	}
+	float, ok = result[0][1].(float64)
+	if !ok {
+		t.Fatal("result not float64")
+	}
+	if float != float64(2.25) {
+		t.Fatal("result not equal:", float)
+	}
+	var aString string
+	aString, ok = result[0][2].(string)
+	if !ok {
+		t.Fatal("result not string")
+	}
+	if aString != "three" {
+		t.Fatal("result not equal:", aString)
+	}
+}
+
 func BenchmarkSimpleInsert(b *testing.B) {
 	if TestDisableDatabase || TestDisableDestructive {
 		b.SkipNow()

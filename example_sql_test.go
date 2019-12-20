@@ -54,8 +54,16 @@ func Example_sqlSelect() {
 		}
 	}()
 
-	var rows *sql.Rows
 	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+	err = db.PingContext(ctx)
+	cancel()
+	if err != nil {
+		fmt.Println("PingContext error is not nil:", err)
+		return
+	}
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
 	defer cancel()
 	rows, err = db.QueryContext(ctx, "select 1 from dual")
 	if err != nil {

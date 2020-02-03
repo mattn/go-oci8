@@ -430,7 +430,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 	for i := 0; i < paramCount; i++ {
 		select {
 		case <-ctx.Done():
-			freeBinds(binds)
+			freeDefines(defines)
 			return nil, ctx.Err()
 		default:
 		}

@@ -43,6 +43,10 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		return nil
 	}
 
+	if rows.ctx.Err() != nil {
+		return rows.ctx.Err()
+	}
+
 	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,
@@ -198,7 +202,6 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			return fmt.Errorf("Unhandled column type: %d", rows.defines[i].dataType)
 
 		}
-
 	}
 
 	return nil

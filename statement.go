@@ -22,12 +22,16 @@ func (stmt *OCI8Stmt) Close() error {
 	}
 	stmt.closed = true
 
-	C.OCIHandleFree(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT)
-
+	result := C.OCIStmtRelease(
+		stmt.stmt,            // statement handle
+		stmt.conn.errHandle,  // error handle
+		nil,                  // key to be associated with the statement in the cache
+		C.ub4(0),             // length of the key
+		C.ub4(C.OCI_DEFAULT), // mode
+	)
 	stmt.stmt = nil
-	stmt.pbind = nil
 
-	return nil
+	return stmt.conn.getError(result)
 }
 
 // NumInput returns the number of input
@@ -66,11 +70,9 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 	}
 
 	for i := 0; i < count; i++ {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			freeBinds(binds)
 			return nil, ctx.Err()
-		default:
 		}
 
 		var valueInterface interface{}
@@ -410,8 +412,12 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	done := make(chan struct{})
-	go stmt.conn.ociBreak(ctx, done)
+	go stmt.conn.ociBreakDone(ctx, done)
 	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
 	if err != nil {
@@ -428,11 +434,9 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 	defines := make([]oci8Define, paramCount)
 
 	for i := 0; i < paramCount; i++ {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			freeDefines(defines)
 			return nil, ctx.Err()
-		default:
 		}
 
 		var param *C.OCIParam
@@ -618,13 +622,18 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		}
 	}
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	rows := &OCI8Rows{
 		stmt:    stmt,
 		defines: defines,
+		ctx:     ctx,
 		done:    make(chan struct{}),
 	}
 
-	go stmt.conn.ociBreak(ctx, rows.done)
+	go stmt.conn.ociBreakDone(ctx, rows.done)
 
 	return rows, nil
 }
@@ -692,8 +701,12 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	done := make(chan struct{})
-	go stmt.conn.ociBreak(ctx, done)
+	go stmt.conn.ociBreakDone(ctx, done)
 	err := stmt.ociStmtExecute(1, mode)
 	close(done)
 	if err != nil && err != ErrOCISuccessWithInfo {

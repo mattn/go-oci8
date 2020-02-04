@@ -16,7 +16,7 @@ import (
 // Ping database connection
 func (conn *OCI8Conn) Ping(ctx context.Context) error {
 	done := make(chan struct{})
-	go conn.ociBreak(ctx, done)
+	go conn.ociBreakDone(ctx, done)
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
 	close(done)
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
@@ -96,24 +96,23 @@ func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.
 	defer C.free(unsafe.Pointer(queryP))
 
 	// statement handle
-	stmt, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
-	if err != nil {
-		return nil, fmt.Errorf("allocate statement handle error: %v", err)
-	}
-
-	if rv := C.OCIStmtPrepare(
-		(*C.OCIStmt)(*stmt),
-		conn.errHandle,
-		queryP,
-		C.ub4(len(query)),
-		C.ub4(C.OCI_NTV_SYNTAX),
-		C.ub4(C.OCI_DEFAULT),
+	var stmtTemp *C.OCIStmt
+	stmt := &stmtTemp
+	if rv := C.OCIStmtPrepare2(
+		conn.svc,                // service context handle
+		stmt,                    // pointer to the statement handle returned
+		conn.errHandle,          // error handle
+		queryP,                  // statement text
+		C.ub4(len(query)),       // statement text length
+		nil,                     // key to be used for searching the statement in the statement cache
+		C.ub4(0),                // length of the key
+		C.ub4(C.OCI_NTV_SYNTAX), // syntax - OCI_NTV_SYNTAX: syntax depends upon the version of the server
+		C.ub4(C.OCI_DEFAULT),    // mode
 	); rv != C.OCI_SUCCESS {
-		C.OCIHandleFree(*stmt, C.OCI_HTYPE_STMT)
 		return nil, conn.getError(rv)
 	}
 
-	return &OCI8Stmt{conn: conn, stmt: (*C.OCIStmt)(*stmt)}, nil
+	return &OCI8Stmt{conn: conn, stmt: *stmt}, nil
 }
 
 // Begin starts a transaction
@@ -567,8 +566,8 @@ func appendSmallInt(slice []byte, num int) []byte {
 	return append(slice, byte('0'+num/10), byte('0'+(num%10)))
 }
 
-// ociBreak calls OCIBreak if ctx.Done is finished before done chan is closed
-func (conn *OCI8Conn) ociBreak(ctx context.Context, done chan struct{}) {
+// ociBreakDone calls OCIBreak if ctx.Done is finished before done chan is closed
+func (conn *OCI8Conn) ociBreakDone(ctx context.Context, done chan struct{}) {
 	select {
 	case <-done:
 	case <-ctx.Done():
@@ -576,14 +575,19 @@ func (conn *OCI8Conn) ociBreak(ctx context.Context, done chan struct{}) {
 		select {
 		case <-done:
 		default:
-			result := C.OCIBreak(
-				unsafe.Pointer(conn.svc), // The service context handle or the server context handle.
-				conn.errHandle,           // An error handle
-			)
-			err := conn.getError(result)
-			if err != nil {
-				conn.logger.Print("OCIBreak error: ", err)
-			}
+			conn.ociBreak()
 		}
+	}
+}
+
+// ociBreak calls OCIBreak
+func (conn *OCI8Conn) ociBreak() {
+	result := C.OCIBreak(
+		unsafe.Pointer(conn.svc), // service or server context handle
+		conn.errHandle,           // error handle
+	)
+	err := conn.getError(result)
+	if err != nil {
+		conn.logger.Print("OCIBreak error: ", err)
 	}
 }

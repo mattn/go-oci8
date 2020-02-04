@@ -9,6 +9,7 @@ import "C"
 // noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"io/ioutil"
@@ -82,7 +83,6 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		pbind  []oci8Bind // bind params
 	}
 
 	// OCI8Result is Oracle result
@@ -120,6 +120,7 @@ type (
 		defines []oci8Define
 		e       bool
 		closed  bool
+		ctx     context.Context
 		done    chan struct{}
 	}
 )

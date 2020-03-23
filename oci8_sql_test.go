@@ -16,7 +16,7 @@ import (
 
 // testGetDB connects to the test database and returns the database connection
 func testGetDB(params string) *sql.DB {
-	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -338,6 +338,8 @@ func TestConnect(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// invalid
 	db, err := sql.Open("oci8", TestHostInvalid)
 	if err != nil {
@@ -437,6 +439,8 @@ func TestContextTimeoutBreak(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	// define
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
@@ -785,6 +789,8 @@ func TestSelectDualNull(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	queryResults := testQueryResults{
 		query: "select null from dual",
 		queryResults: []testQueryResult{{
@@ -890,34 +896,48 @@ func TestInsertRowid(t *testing.T) {
 
 	var rows *sql.Rows
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
-	defer cancel()
 	rows, err = stmt.QueryContext(ctx)
 	if err != nil {
+		cancel()
+		stmt.Close()
 		t.Fatal("query error:", err)
 	}
 
-	defer func() {
-		err = rows.Close()
-		if err != nil {
-			t.Fatal("row close error:", err)
-		}
-	}()
-
 	if !rows.Next() {
+		cancel()
+		rows.Close()
+		stmt.Close()
 		t.Fatal("expected row")
 	}
 	err = rows.Scan(&rowids[2])
 	if err != nil {
+		cancel()
+		rows.Close()
+		stmt.Close()
 		t.Fatal("scan error:", err)
 	}
 
 	if rows.Next() {
+		cancel()
+		rows.Close()
+		stmt.Close()
 		t.Fatal("more than one row")
 	}
 
 	err = rows.Err()
 	if err != nil {
+		cancel()
+		rows.Close()
+		stmt.Close()
 		t.Fatal("rows error:", err)
+	}
+
+	cancel()
+
+	err = rows.Close()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("rows close error", err)
 	}
 
 	err = stmt.Close()
@@ -937,38 +957,56 @@ func TestInsertRowid(t *testing.T) {
 	var data int64
 	for _, rowid := range rowids {
 		ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
-		defer cancel()
 		rows, err = stmt.QueryContext(ctx, rowid)
 		if err != nil {
+			cancel()
+			stmt.Close()
 			t.Fatal("query error:", err)
 		}
 
-		defer func() {
-			err = rows.Close()
-			if err != nil {
-				t.Fatal("row close error:", err)
-			}
-		}()
-
 		if !rows.Next() {
+			cancel()
+			rows.Close()
+			stmt.Close()
 			t.Fatal("expected row")
 		}
+
 		err = rows.Scan(&data)
 		if err != nil {
+			cancel()
+			rows.Close()
+			stmt.Close()
 			t.Fatal("scan error:", err)
 		}
 
 		if data != 1 {
+			cancel()
+			rows.Close()
+			stmt.Close()
 			t.Fatal("row not equal to 1")
 		}
 
 		if rows.Next() {
+			cancel()
+			rows.Close()
+			stmt.Close()
 			t.Fatal("more than one row")
 		}
 
 		err = rows.Err()
 		if err != nil {
+			cancel()
+			rows.Close()
+			stmt.Close()
 			t.Fatal("rows error:", err)
+		}
+
+		cancel()
+
+		err = rows.Close()
+		if err != nil {
+			stmt.Close()
+			t.Fatal("rows close error", err)
 		}
 	}
 
@@ -984,6 +1022,8 @@ func TestNullBool(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	query := `
 declare
@@ -1078,6 +1118,8 @@ func TestQuestionMark(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	var err error
 

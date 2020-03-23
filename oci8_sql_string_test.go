@@ -13,6 +13,8 @@ func TestSelectDualNullString(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// VARCHAR2(1)
 	queryResults := testQueryResults{
 		query:        "select cast (null as VARCHAR2(1)) from dual",
@@ -110,6 +112,8 @@ func TestSelectDualString(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	queryResults := testQueryResults{}
 
@@ -1958,6 +1962,8 @@ func TestFunctionCallString(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	var execResults testExecResults
 
 	// test strings no change
@@ -3143,6 +3149,8 @@ func TestNullString(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	query := `
 declare

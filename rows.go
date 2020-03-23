@@ -21,7 +21,6 @@ func (rows *OCI8Rows) Close() error {
 	}
 
 	rows.closed = true
-	close(rows.done)
 
 	freeDefines(rows.defines)
 
@@ -47,6 +46,9 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		return rows.ctx.Err()
 	}
 
+	done := make(chan struct{})
+	defer close(done)
+	go rows.stmt.conn.ociBreakDone(rows.ctx, done)
 	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,

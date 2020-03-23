@@ -630,10 +630,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		stmt:    stmt,
 		defines: defines,
 		ctx:     ctx,
-		done:    make(chan struct{}),
 	}
-
-	go stmt.conn.ociBreakDone(ctx, rows.done)
 
 	return rows, nil
 }

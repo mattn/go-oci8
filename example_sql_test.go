@@ -20,7 +20,7 @@ func Example_sqlSelect() {
 		return
 	}
 
-	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -70,6 +70,15 @@ func Example_sqlSelect() {
 		fmt.Println("QueryContext error is not nil:", err)
 		return
 	}
+
+	// defer close rows
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			fmt.Println("Close error is not nil:", err)
+		}
+	}()
+
 	if !rows.Next() {
 		fmt.Println("no Next rows")
 		return
@@ -108,11 +117,6 @@ func Example_sqlSelect() {
 		fmt.Println("Err error is not nil:", err)
 		return
 	}
-	err = rows.Close()
-	if err != nil {
-		fmt.Println("Close error is not nil:", err)
-		return
-	}
 
 	fmt.Println(data)
 
@@ -128,7 +132,7 @@ func Example_sqlFunction() {
 		return
 	}
 
-	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -200,7 +204,7 @@ func Example_sqlInsert() {
 		return
 	}
 
-	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -288,7 +292,7 @@ func Example_sqlManyInserts() {
 		return
 	}
 
-	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -373,6 +377,15 @@ func Example_sqlManyInserts() {
 		fmt.Println("QueryContext error is not nil:", err)
 		return
 	}
+
+	// defer close rows
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			fmt.Println("Close error is not nil:", err)
+		}
+	}()
+
 	if !rows.Next() {
 		fmt.Println("no Next rows")
 		return
@@ -400,11 +413,6 @@ func Example_sqlManyInserts() {
 		fmt.Println("Err error is not nil:", err)
 		return
 	}
-	err = rows.Close()
-	if err != nil {
-		fmt.Println("Close error is not nil:", err)
-		return
-	}
 
 	// drop table
 	query = "drop table " + tableName
@@ -430,7 +438,7 @@ func Example_sqlRowid() {
 		return
 	}
 
-	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+	oci8.OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
@@ -508,6 +516,15 @@ func Example_sqlRowid() {
 		fmt.Println("QueryContext error is not nil:", err)
 		return
 	}
+
+	// defer close rows
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			fmt.Println("Close error is not nil:", err)
+		}
+	}()
+
 	if !rows.Next() {
 		fmt.Println("no Next rows")
 		return
@@ -527,11 +544,6 @@ func Example_sqlRowid() {
 	err = rows.Err()
 	if err != nil {
 		fmt.Println("Err error is not nil:", err)
-		return
-	}
-	err = rows.Close()
-	if err != nil {
-		fmt.Println("Close error is not nil:", err)
 		return
 	}
 

@@ -45,7 +45,7 @@ type (
 	// OCI8DriverStruct is Oracle driver struct
 	OCI8DriverStruct struct {
 		// Logger is used to log connection ping errors, defaults to discard
-		// To log set it to something like: log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Llongfile)
+		// To log set it to something like: log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 		Logger *log.Logger
 	}
 
@@ -121,7 +121,6 @@ type (
 		e       bool
 		closed  bool
 		ctx     context.Context
-		done    chan struct{}
 	}
 )
 

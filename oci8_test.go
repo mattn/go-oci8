@@ -181,6 +181,8 @@ func setupForTesting() int {
 
 // TestParseDSN tests parsing the DSN
 func TestParseDSN(t *testing.T) {
+	t.Parallel()
+
 	const prefetchRows = 0
 	const prefetchMemory = 4096
 

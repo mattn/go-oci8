@@ -15,6 +15,8 @@ func TestSelectDualNullNumber(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// null
 	queryResults := testQueryResults{
 		query:        "select null from dual",
@@ -105,6 +107,8 @@ func TestSelectDualNumber(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	queryResults := testQueryResults{}
 
@@ -2153,6 +2157,8 @@ func TestFunctionCallNumber(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// https://ss64.com/ora/syntax-datatypes.html
 
 	var execResults testExecResults
@@ -3147,6 +3153,7 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 
 	if !rows.Next() {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("expected row")
 	}
@@ -3154,11 +3161,26 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 	err = rows.Scan(&count)
 	if err != nil {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("scan error:", err)
 	}
 
+	err = rows.Err()
+	if err != nil {
+		cancel()
+		rows.Close()
+		stmt.Close()
+		t.Fatal("rows error:", err)
+	}
+
 	cancel()
+
+	err = rows.Close()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("rows close error", err)
+	}
 
 	err = stmt.Close()
 	if err != nil {
@@ -3177,6 +3199,8 @@ func TestNullNumber(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	query := `
 declare
@@ -3379,6 +3403,8 @@ func TestSelectDualNumberScan(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// float64 to float64
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := TestDB.PrepareContext(ctx, "select :1 from dual")
@@ -3401,6 +3427,7 @@ func TestSelectDualNumberScan(t *testing.T) {
 
 		if !rows.Next() {
 			cancel()
+			rows.Close()
 			stmt.Close()
 			t.Fatal("expected row")
 		}
@@ -3408,11 +3435,18 @@ func TestSelectDualNumberScan(t *testing.T) {
 		err = rows.Scan(&float)
 		if err != nil {
 			cancel()
+			rows.Close()
 			stmt.Close()
 			t.Fatal("scan error:", err)
 		}
 
 		cancel()
+
+		err = rows.Close()
+		if err != nil {
+			stmt.Close()
+			t.Fatal("rows close error:", err)
+		}
 
 		if float != data {
 			stmt.Close()
@@ -3436,6 +3470,7 @@ func TestSelectDualNumberScan(t *testing.T) {
 
 		if !rows.Next() {
 			cancel()
+			rows.Close()
 			stmt.Close()
 			t.Fatal("expected row")
 		}
@@ -3443,11 +3478,18 @@ func TestSelectDualNumberScan(t *testing.T) {
 		err = rows.Scan(&aint64)
 		if err != nil {
 			cancel()
+			rows.Close()
 			stmt.Close()
 			t.Fatal("scan error:", err)
 		}
 
 		cancel()
+
+		err = rows.Close()
+		if err != nil {
+			stmt.Close()
+			t.Fatal("rows close error:", err)
+		}
 
 		if aint64 != int64(data) {
 			stmt.Close()
@@ -3478,17 +3520,27 @@ func TestSelectDualNumberScan(t *testing.T) {
 
 	if !rows.Next() {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("expected row")
 	}
+
 	err = rows.Scan(&aint64)
 	if err != nil {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("scan error:", err)
 	}
 
 	cancel()
+
+	err = rows.Close()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("rows close error:", err)
+	}
+
 	err = stmt.Close()
 	if err != nil {
 		t.Fatal("stmt close error:", err)
@@ -3609,18 +3661,28 @@ union all select :20 from dual`
 
 	if !rows.Next() {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("expected row")
 	}
+
 	var float float64
 	err = rows.Scan(&float)
 	if err != nil {
 		cancel()
+		rows.Close()
 		stmt.Close()
 		t.Fatal("scan error:", err)
 	}
 
 	cancel()
+
+	err = rows.Close()
+	if err != nil {
+		stmt.Close()
+		t.Fatal("rows close error:", err)
+	}
+
 	err = stmt.Close()
 	if err != nil {
 		t.Fatal("stmt close error:", err)

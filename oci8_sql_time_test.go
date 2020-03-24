@@ -13,6 +13,8 @@ func TestSelectDualNullTime(t *testing.T) {
 		t.SkipNow()
 	}
 
+	t.Parallel()
+
 	// TIMESTAMP(9)
 	queryResults := testQueryResults{
 		query:        "select cast (null as TIMESTAMP(9)) from dual",
@@ -41,6 +43,8 @@ func TestSelectDualTime(t *testing.T) {
 	if TestDisableDatabase {
 		t.SkipNow()
 	}
+
+	t.Parallel()
 
 	queryResults := testQueryResults{}
 

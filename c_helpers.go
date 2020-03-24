@@ -72,20 +72,24 @@ func cGoStringN(s *C.OraText, size int) string {
 
 // freeDefines frees defines
 func freeDefines(defines []oci8Define) {
-	for _, define := range defines {
-		if define.pbuf != nil {
-			freeBuffer(define.pbuf, define.dataType)
-			define.pbuf = nil
+	for i := 0; i < len(defines); i++ {
+		if len(defines[i].subDefines) > 0 {
+			freeDefines(defines[i].subDefines)
 		}
-		if define.length != nil {
-			C.free(unsafe.Pointer(define.length))
-			define.length = nil
+		defines[i].subDefines = nil
+		if defines[i].pbuf != nil {
+			freeBuffer(defines[i].pbuf, defines[i].dataType)
+			defines[i].pbuf = nil
 		}
-		if define.indicator != nil {
-			C.free(unsafe.Pointer(define.indicator))
-			define.indicator = nil
+		if defines[i].length != nil {
+			C.free(unsafe.Pointer(defines[i].length))
+			defines[i].length = nil
 		}
-		define.defineHandle = nil // should be freed by oci statement close
+		if defines[i].indicator != nil {
+			C.free(unsafe.Pointer(defines[i].indicator))
+			defines[i].indicator = nil
+		}
+		defines[i].defineHandle = nil // should be freed by oci statement close
 	}
 }
 
@@ -124,6 +128,8 @@ func freeBuffer(buffer unsafe.Pointer, dataType C.ub2) {
 		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_INTERVAL_DS)
 	case C.SQLT_INTERVAL_YM:
 		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_DTYPE_INTERVAL_YM)
+	case C.SQLT_RSET:
+		C.OCIDescriptorFree(*(*unsafe.Pointer)(buffer), C.OCI_HTYPE_STMT)
 	default:
 		C.free(buffer)
 	}

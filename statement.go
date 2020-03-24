@@ -424,8 +424,29 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		return nil, err
 	}
 
+	var defines []oci8Define
+	defines, err = stmt.makeDefines(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if ctx.Err() != nil {
+		freeDefines(defines)
+		return nil, ctx.Err()
+	}
+
+	rows := &OCI8Rows{
+		stmt:    stmt,
+		defines: defines,
+		ctx:     ctx,
+	}
+
+	return rows, nil
+}
+
+func (stmt *OCI8Stmt) makeDefines(ctx context.Context) ([]oci8Define, error) {
 	var paramCountUb4 C.ub4 // number of columns in the select-list
-	_, err = stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
+	_, err := stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
 	if err != nil {
 		return nil, err
 	}
@@ -597,6 +618,17 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 			defines[i].maxSize = 40
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 
+		case C.SQLT_RSET: // ref cursor
+			defines[i].dataType = dataType
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var stmtP *unsafe.Pointer
+			stmtP, _, err = stmt.conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
+			if err != nil {
+				freeDefines(defines)
+				return nil, err
+			}
+			defines[i].pbuf = unsafe.Pointer(stmtP)
+
 		default:
 			defines[i].dataType = C.SQLT_AFC
 			defines[i].maxSize = C.sb4(maxSize)
@@ -622,17 +654,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		}
 	}
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
-	rows := &OCI8Rows{
-		stmt:    stmt,
-		defines: defines,
-		ctx:     ctx,
-	}
-
-	return rows, nil
+	return defines, nil
 }
 
 // getRowid returns the rowid

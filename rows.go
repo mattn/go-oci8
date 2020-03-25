@@ -30,8 +30,8 @@ func (rows *OCI8Rows) Close() error {
 // Columns returns column names
 func (rows *OCI8Rows) Columns() []string {
 	names := make([]string, len(rows.defines))
-	for i, define := range rows.defines {
-		names[i] = define.name
+	for i := 0; i < len(rows.defines); i++ {
+		names[i] = rows.defines[i].name
 	}
 	return names
 }
@@ -198,6 +198,24 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				return rows.stmt.conn.getError(result)
 			}
 			dest[i] = (int64(years) * 12) + int64(months)
+
+		// SQLT_RSET - ref cursor
+		case C.SQLT_RSET:
+			stmtP := (**C.OCIStmt)(rows.defines[i].pbuf)
+			subStmt := &OCI8Stmt{conn: rows.stmt.conn, stmt: *stmtP}
+			if rows.defines[i].subDefines == nil {
+				var err error
+				rows.defines[i].subDefines, err = subStmt.makeDefines(rows.ctx)
+				if err != nil {
+					return err
+				}
+			}
+			subRows := &OCI8Rows{
+				stmt:    subStmt,
+				defines: rows.defines[i].subDefines,
+				ctx:     rows.ctx,
+			}
+			dest[i] = subRows
 
 		// default
 		default:

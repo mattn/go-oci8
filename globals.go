@@ -102,6 +102,7 @@ type (
 		length       *C.ub2
 		indicator    *C.sb2
 		defineHandle *C.OCIDefine
+		subDefines   []oci8Define
 	}
 
 	oci8Bind struct {
@@ -118,7 +119,6 @@ type (
 	OCI8Rows struct {
 		stmt    *OCI8Stmt
 		defines []oci8Define
-		e       bool
 		closed  bool
 		ctx     context.Context
 	}

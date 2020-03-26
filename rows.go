@@ -15,7 +15,7 @@ import (
 )
 
 // Close closes rows
-func (rows *OCI8Rows) Close() error {
+func (rows *Rows) Close() error {
 	if rows.closed {
 		return nil
 	}
@@ -28,7 +28,7 @@ func (rows *OCI8Rows) Close() error {
 }
 
 // Columns returns column names
-func (rows *OCI8Rows) Columns() []string {
+func (rows *Rows) Columns() []string {
 	names := make([]string, len(rows.defines))
 	for i := 0; i < len(rows.defines); i++ {
 		names[i] = rows.defines[i].name
@@ -37,7 +37,7 @@ func (rows *OCI8Rows) Columns() []string {
 }
 
 // Next gets next row
-func (rows *OCI8Rows) Next(dest []driver.Value) error {
+func (rows *Rows) Next(dest []driver.Value) error {
 	if rows.closed {
 		return nil
 	}
@@ -202,7 +202,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 		// SQLT_RSET - ref cursor
 		case C.SQLT_RSET:
 			stmtP := (**C.OCIStmt)(rows.defines[i].pbuf)
-			subStmt := &OCI8Stmt{conn: rows.stmt.conn, stmt: *stmtP}
+			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP}
 			if rows.defines[i].subDefines == nil {
 				var err error
 				rows.defines[i].subDefines, err = subStmt.makeDefines(rows.ctx)
@@ -210,7 +210,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 					return err
 				}
 			}
-			subRows := &OCI8Rows{
+			subRows := &Rows{
 				stmt:    subStmt,
 				defines: rows.defines[i].subDefines,
 				ctx:     rows.ctx,
@@ -228,7 +228,7 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 }
 
 // ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
-func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
+func (rows *Rows) ColumnTypeDatabaseTypeName(i int) string {
 	if len(rows.defines) < i+1 {
 		return ""
 	}
@@ -307,7 +307,7 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 // ColumnTypeLength is returning OCI_ATTR_DATA_SIZE, which is max data size in bytes.
 // Note this is not returing length of the column type, like the 20 in FLOAT(20), which is what is normally expected.
 // TODO: Should / can it be changed to return length of the column type?
-func (rows *OCI8Rows) ColumnTypeLength(i int) (int64, bool) {
+func (rows *Rows) ColumnTypeLength(i int) (int64, bool) {
 	if len(rows.defines) < i+1 {
 		return 0, false
 	}
@@ -319,7 +319,7 @@ func (rows *OCI8Rows) ColumnTypeLength(i int) (int64, bool) {
 }
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.
-func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
+func (rows *Rows) ColumnTypeScanType(i int) reflect.Type {
 	if len(rows.defines) < i+1 {
 		return typeNil
 	}

@@ -16,7 +16,7 @@ import (
 
 // testGetDB connects to the test database and returns the database connection
 func testGetDB(params string) *sql.DB {
-	OCI8Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
+	Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 
 	var openString string
 	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]

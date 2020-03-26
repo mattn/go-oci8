@@ -14,7 +14,7 @@ import (
 )
 
 // Ping database connection
-func (conn *OCI8Conn) Ping(ctx context.Context) error {
+func (conn *Conn) Ping(ctx context.Context) error {
 	done := make(chan struct{})
 	go conn.ociBreakDone(ctx, done)
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
@@ -35,7 +35,7 @@ func (conn *OCI8Conn) Ping(ctx context.Context) error {
 }
 
 // Close a connection
-func (conn *OCI8Conn) Close() error {
+func (conn *Conn) Close() error {
 	if conn.closed {
 		return nil
 	}
@@ -82,12 +82,12 @@ func (conn *OCI8Conn) Close() error {
 }
 
 // Prepare prepares a query
-func (conn *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
+func (conn *Conn) Prepare(query string) (driver.Stmt, error) {
 	return conn.PrepareContext(context.Background(), query)
 }
 
 // PrepareContext prepares a query with context
-func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if conn.enableQMPlaceholders {
 		query = placeholders(query)
 	}
@@ -112,16 +112,16 @@ func (conn *OCI8Conn) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, conn.getError(rv)
 	}
 
-	return &OCI8Stmt{conn: conn, stmt: *stmt}, nil
+	return &Stmt{conn: conn, stmt: *stmt}, nil
 }
 
 // Begin starts a transaction
-func (conn *OCI8Conn) Begin() (driver.Tx, error) {
+func (conn *Conn) Begin() (driver.Tx, error) {
 	return conn.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 // BeginTx starts a transaction
-func (conn *OCI8Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
+func (conn *Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		// transaction handle
 		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
@@ -153,11 +153,11 @@ func (conn *OCI8Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (
 
 	conn.inTransaction = true
 
-	return &OCI8Tx{conn}, nil
+	return &Tx{conn: conn}, nil
 }
 
 // getError gets error from return result (sword) or OCIError
-func (conn *OCI8Conn) getError(result C.sword) error {
+func (conn *Conn) getError(result C.sword) error {
 	switch result {
 	case C.OCI_SUCCESS:
 		return nil
@@ -198,7 +198,7 @@ func (conn *OCI8Conn) getError(result C.sword) error {
 }
 
 // ociGetError calls OCIErrorGet then returs error code and text
-func (conn *OCI8Conn) ociGetError() (int, error) {
+func (conn *Conn) ociGetError() (int, error) {
 	var errorCode C.sb4
 	errorText := make([]byte, 1024)
 
@@ -222,7 +222,7 @@ func (conn *OCI8Conn) ociGetError() (int, error) {
 
 // ociAttrGet calls OCIAttrGet with OCIParam then returns attribute size and error.
 // The attribute value is stored into passed value.
-func (conn *OCI8Conn) ociAttrGet(paramHandle *C.OCIParam, value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
+func (conn *Conn) ociAttrGet(paramHandle *C.OCIParam, value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
 	var size C.ub4
 
 	result := C.OCIAttrGet(
@@ -239,7 +239,7 @@ func (conn *OCI8Conn) ociAttrGet(paramHandle *C.OCIParam, value unsafe.Pointer, 
 
 // ociAttrSet calls OCIAttrSet.
 // Only uses errHandle from conn, so can be called in conn setup after errHandle has been set.
-func (conn *OCI8Conn) ociAttrSet(
+func (conn *Conn) ociAttrSet(
 	handle unsafe.Pointer,
 	handleType C.ub4,
 	value unsafe.Pointer,
@@ -260,7 +260,7 @@ func (conn *OCI8Conn) ociAttrSet(
 
 // ociHandleAlloc calls OCIHandleAlloc then returns
 // handle pointer to pointer, buffer pointer to pointer, and error
-func (conn *OCI8Conn) ociHandleAlloc(handleType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
+func (conn *Conn) ociHandleAlloc(handleType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
 	var handleTemp unsafe.Pointer
 	handle := &handleTemp
 	var bufferTemp unsafe.Pointer
@@ -291,7 +291,7 @@ func (conn *OCI8Conn) ociHandleAlloc(handleType C.ub4, size C.size_t) (*unsafe.P
 
 // ociDescriptorAlloc calls OCIDescriptorAlloc then returns
 // descriptor pointer to pointer, buffer pointer to pointer, and error
-func (conn *OCI8Conn) ociDescriptorAlloc(descriptorType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
+func (conn *Conn) ociDescriptorAlloc(descriptorType C.ub4, size C.size_t) (*unsafe.Pointer, *unsafe.Pointer, error) {
 	var descriptorTemp unsafe.Pointer
 	descriptor := &descriptorTemp
 	var bufferTemp unsafe.Pointer
@@ -321,7 +321,7 @@ func (conn *OCI8Conn) ociDescriptorAlloc(descriptorType C.ub4, size C.size_t) (*
 }
 
 // ociLobCreateTemporary calls OCILobCreateTemporary then returns error
-func (conn *OCI8Conn) ociLobCreateTemporary(lobLocator *C.OCILobLocator, form C.ub1, lobType C.ub1) error {
+func (conn *Conn) ociLobCreateTemporary(lobLocator *C.OCILobLocator, form C.ub1, lobType C.ub1) error {
 
 	result := C.OCILobCreateTemporary(
 		conn.svc,               // service context handle
@@ -338,7 +338,7 @@ func (conn *OCI8Conn) ociLobCreateTemporary(lobLocator *C.OCILobLocator, form C.
 }
 
 // ociLobRead calls OCILobRead then returns lob bytes and error.
-func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byte, error) {
+func (conn *Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byte, error) {
 	buffer := make([]byte, 0)
 
 	// set character set form
@@ -389,7 +389,7 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 }
 
 // ociLobWrite calls OCILobWrite then returns error.
-func (conn *OCI8Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data []byte) error {
+func (conn *Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data []byte) error {
 	start := 0
 	writeBuffer := byteBufferPool.Get().([]byte)
 	piece := (C.ub1)(C.OCI_FIRST_PIECE)
@@ -443,7 +443,7 @@ func (conn *OCI8Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data 
 }
 
 // ociDateTimeToTime coverts OCIDateTime to Go Time
-func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasTimeZone bool) (*time.Time, error) {
+func (conn *Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasTimeZone bool) (*time.Time, error) {
 	// get date
 	var year C.sb2
 	var month C.ub1
@@ -507,7 +507,7 @@ func (conn *OCI8Conn) ociDateTimeToTime(dateTime *C.OCIDateTime, ociDateTimeHasT
 }
 
 // timeToOCIDateTime coverts Go Time to OCIDateTime
-func (conn *OCI8Conn) timeToOCIDateTime(aTime *time.Time) (*unsafe.Pointer, error) {
+func (conn *Conn) timeToOCIDateTime(aTime *time.Time) (*unsafe.Pointer, error) {
 	var err error
 	var dateTimePP *unsafe.Pointer
 	dateTimePP, _, err = conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
@@ -567,7 +567,7 @@ func appendSmallInt(slice []byte, num int) []byte {
 }
 
 // ociBreakDone calls OCIBreak if ctx.Done is finished before done chan is closed
-func (conn *OCI8Conn) ociBreakDone(ctx context.Context, done chan struct{}) {
+func (conn *Conn) ociBreakDone(ctx context.Context, done chan struct{}) {
 	select {
 	case <-done:
 	case <-ctx.Done():
@@ -581,7 +581,7 @@ func (conn *OCI8Conn) ociBreakDone(ctx context.Context, done chan struct{}) {
 }
 
 // ociBreak calls OCIBreak
-func (conn *OCI8Conn) ociBreak() {
+func (conn *Conn) ociBreak() {
 	result := C.OCIBreak(
 		unsafe.Pointer(conn.svc), // service or server context handle
 		conn.errHandle,           // error handle

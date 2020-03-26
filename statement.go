@@ -16,7 +16,7 @@ import (
 )
 
 // Close closes the statement
-func (stmt *OCI8Stmt) Close() error {
+func (stmt *Stmt) Close() error {
 	if stmt.closed {
 		return nil
 	}
@@ -35,7 +35,7 @@ func (stmt *OCI8Stmt) Close() error {
 }
 
 // NumInput returns the number of input
-func (stmt *OCI8Stmt) NumInput() int {
+func (stmt *Stmt) NumInput() int {
 	var bindCount C.ub4 // number of bind position
 	_, err := stmt.ociAttrGet(unsafe.Pointer(&bindCount), C.OCI_ATTR_BIND_COUNT)
 	if err != nil {
@@ -46,7 +46,7 @@ func (stmt *OCI8Stmt) NumInput() int {
 }
 
 // CheckNamedValue checks a named value
-func (stmt *OCI8Stmt) CheckNamedValue(namedValue *driver.NamedValue) error {
+func (stmt *Stmt) CheckNamedValue(namedValue *driver.NamedValue) error {
 	switch namedValue.Value.(type) {
 	case sql.Out:
 		return nil
@@ -55,13 +55,13 @@ func (stmt *OCI8Stmt) CheckNamedValue(namedValue *driver.NamedValue) error {
 }
 
 // bindValues binds the values to the stmt
-func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, namedValues []driver.NamedValue) ([]oci8Bind, error) {
+func (stmt *Stmt) bindValues(ctx context.Context, values []driver.Value, namedValues []driver.NamedValue) ([]bindStruct, error) {
 	if len(values) == 0 && len(namedValues) == 0 {
 		return nil, nil
 	}
 
 	var err error
-	var binds []oci8Bind
+	var binds []bindStruct
 	var useValues bool
 	count := len(namedValues)
 	if count == 0 {
@@ -76,7 +76,7 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 		}
 
 		var valueInterface interface{}
-		var sbind oci8Bind
+		var sbind bindStruct
 		sbind.length = (*C.ub2)(C.malloc(C.sizeof_ub2))
 		*sbind.length = 0
 		sbind.indicator = (*C.sb2)(C.malloc(C.sizeof_sb2))
@@ -354,7 +354,7 @@ func (stmt *OCI8Stmt) bindValues(ctx context.Context, values []driver.Value, nam
 }
 
 // Query runs a query
-func (stmt *OCI8Stmt) Query(values []driver.Value) (driver.Rows, error) {
+func (stmt *Stmt) Query(values []driver.Value) (driver.Rows, error) {
 	binds, err := stmt.bindValues(context.Background(), values, nil)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (stmt *OCI8Stmt) Query(values []driver.Value) (driver.Rows, error) {
 }
 
 // QueryContext runs a query with context
-func (stmt *OCI8Stmt) QueryContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Rows, error) {
+func (stmt *Stmt) QueryContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Rows, error) {
 	binds, err := stmt.bindValues(ctx, nil, namedValues)
 	if err != nil {
 		return nil, err
@@ -374,7 +374,7 @@ func (stmt *OCI8Stmt) QueryContext(ctx context.Context, namedValues []driver.Nam
 }
 
 // query runs a query with context
-func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows, error) {
+func (stmt *Stmt) query(ctx context.Context, binds []bindStruct) (driver.Rows, error) {
 	defer freeBinds(binds)
 
 	var stmtType C.ub2
@@ -424,7 +424,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		return nil, err
 	}
 
-	var defines []oci8Define
+	var defines []defineStruct
 	defines, err = stmt.makeDefines(ctx)
 	if err != nil {
 		return nil, err
@@ -435,7 +435,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 		return nil, ctx.Err()
 	}
 
-	rows := &OCI8Rows{
+	rows := &Rows{
 		stmt:    stmt,
 		defines: defines,
 		ctx:     ctx,
@@ -444,7 +444,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, binds []oci8Bind) (driver.Rows,
 	return rows, nil
 }
 
-func (stmt *OCI8Stmt) makeDefines(ctx context.Context) ([]oci8Define, error) {
+func (stmt *Stmt) makeDefines(ctx context.Context) ([]defineStruct, error) {
 	var paramCountUb4 C.ub4 // number of columns in the select-list
 	_, err := stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
 	if err != nil {
@@ -452,7 +452,7 @@ func (stmt *OCI8Stmt) makeDefines(ctx context.Context) ([]oci8Define, error) {
 	}
 	paramCount := int(paramCountUb4)
 
-	defines := make([]oci8Define, paramCount)
+	defines := make([]defineStruct, paramCount)
 
 	for i := 0; i < paramCount; i++ {
 		if ctx.Err() != nil {
@@ -658,7 +658,7 @@ func (stmt *OCI8Stmt) makeDefines(ctx context.Context) ([]oci8Define, error) {
 }
 
 // getRowid returns the rowid
-func (stmt *OCI8Stmt) getRowid() (string, error) {
+func (stmt *Stmt) getRowid() (string, error) {
 	rowidP, _, err := stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_ROWID, 0)
 	if err != nil {
 		return "", err
@@ -683,7 +683,7 @@ func (stmt *OCI8Stmt) getRowid() (string, error) {
 }
 
 // rowsAffected returns the number of rows affected
-func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
+func (stmt *Stmt) rowsAffected() (int64, error) {
 	var rowCount C.ub4 // Number of rows processed so far after SELECT statements. For INSERT, UPDATE, and DELETE statements, it is the number of rows processed by the most recent statement. The default value is 1.
 	_, err := stmt.ociAttrGet(unsafe.Pointer(&rowCount), C.OCI_ATTR_ROW_COUNT)
 	if err != nil {
@@ -693,7 +693,7 @@ func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
 }
 
 // Exec runs an exec query
-func (stmt *OCI8Stmt) Exec(values []driver.Value) (driver.Result, error) {
+func (stmt *Stmt) Exec(values []driver.Value) (driver.Result, error) {
 	binds, err := stmt.bindValues(context.Background(), values, nil)
 	if err != nil {
 		return nil, err
@@ -703,7 +703,7 @@ func (stmt *OCI8Stmt) Exec(values []driver.Value) (driver.Result, error) {
 }
 
 // ExecContext run a exec query with context
-func (stmt *OCI8Stmt) ExecContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Result, error) {
+func (stmt *Stmt) ExecContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Result, error) {
 	binds, err := stmt.bindValues(ctx, nil, namedValues)
 	if err != nil {
 		return nil, err
@@ -712,7 +712,7 @@ func (stmt *OCI8Stmt) ExecContext(ctx context.Context, namedValues []driver.Name
 	return stmt.exec(ctx, binds)
 }
 
-func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result, error) {
+func (stmt *Stmt) exec(ctx context.Context, binds []bindStruct) (driver.Result, error) {
 	defer freeBinds(binds)
 
 	mode := C.ub4(C.OCI_DEFAULT)
@@ -732,7 +732,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result
 		return nil, err
 	}
 
-	result := OCI8Result{stmt: stmt}
+	result := Result{stmt: stmt}
 
 	result.rowsAffected, result.rowsAffectedErr = stmt.rowsAffected()
 	if result.rowsAffectedErr != nil || result.rowsAffected < 1 {
@@ -750,7 +750,7 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, binds []oci8Bind) (driver.Result
 }
 
 // outputBoundParameters sets bound parameters
-func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
+func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 	var err error
 
 	for i, bind := range binds {
@@ -920,7 +920,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 
 // ociParamGet calls OCIParamGet then returns OCIParam and error.
 // OCIDescriptorFree must be called on returned OCIParam.
-func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
+func (stmt *Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 	var paramTemp *C.OCIParam
 	param := &paramTemp
 
@@ -942,7 +942,7 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 
 // ociAttrGet calls OCIAttrGet with OCIStmt then returns attribute size and error.
 // The attribute value is stored into passed value.
-func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
+func (stmt *Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
 	var size C.ub4
 
 	result := C.OCIAttrGet(
@@ -958,7 +958,7 @@ func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.u
 }
 
 // ociBindByName calls OCIBindByName, then returns bind handle and error.
-func (stmt *OCI8Stmt) ociBindByName(name []byte, bind *oci8Bind) error {
+func (stmt *Stmt) ociBindByName(name []byte, bind *bindStruct) error {
 	result := C.OCIBindByName(
 		stmt.stmt,                      // The statement handle
 		&bind.bindHandle,               // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -980,7 +980,7 @@ func (stmt *OCI8Stmt) ociBindByName(name []byte, bind *oci8Bind) error {
 }
 
 // ociBindByPos calls OCIBindByPos, then returns bind handle and error.
-func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, bind *oci8Bind) error {
+func (stmt *Stmt) ociBindByPos(position C.ub4, bind *bindStruct) error {
 	result := C.OCIBindByPos(
 		stmt.stmt,                      // The statement handle
 		&bind.bindHandle,               // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -1001,7 +1001,7 @@ func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, bind *oci8Bind) error {
 }
 
 // ociStmtExecute calls OCIStmtExecute
-func (stmt *OCI8Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
+func (stmt *Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 	result := C.OCIStmtExecute(
 		stmt.conn.svc,       // Service context handle
 		stmt.stmt,           // A statement handle

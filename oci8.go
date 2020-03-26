@@ -127,7 +127,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 }
 
 // Commit transaction commit
-func (tx *OCI8Tx) Commit() error {
+func (tx *Tx) Commit() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransCommit(
 		tx.conn.svc,
@@ -140,7 +140,7 @@ func (tx *OCI8Tx) Commit() error {
 }
 
 // Rollback transaction rollback
-func (tx *OCI8Tx) Rollback() error {
+func (tx *Tx) Rollback() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransRollback(
 		tx.conn.svc,
@@ -153,16 +153,16 @@ func (tx *OCI8Tx) Rollback() error {
 }
 
 // Open opens a new database connection
-func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) {
+func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 	var err error
 	var dsn *DSN
 	if dsn, err = ParseDSN(dsnString); err != nil {
 		return nil, err
 	}
 
-	conn := OCI8Conn{
+	conn := Conn{
 		operationMode: dsn.operationMode,
-		logger:        oci8Driver.Logger,
+		logger:        drv.Logger,
 	}
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
@@ -392,12 +392,12 @@ func GetLastInsertId(id int64) string {
 }
 
 // LastInsertId returns last inserted ID
-func (result *OCI8Result) LastInsertId() (int64, error) {
+func (result *Result) LastInsertId() (int64, error) {
 	return int64(uintptr(unsafe.Pointer(&result.rowid))), result.rowidErr
 }
 
 // RowsAffected returns rows affected
-func (result *OCI8Result) RowsAffected() (int64, error) {
+func (result *Result) RowsAffected() (int64, error) {
 	return result.rowsAffected, result.rowsAffectedErr
 }
 

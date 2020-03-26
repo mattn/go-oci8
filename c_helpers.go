@@ -71,7 +71,7 @@ func cGoStringN(s *C.OraText, size int) string {
 }
 
 // freeDefines frees defines
-func freeDefines(defines []oci8Define) {
+func freeDefines(defines []defineStruct) {
 	for i := 0; i < len(defines); i++ {
 		if len(defines[i].subDefines) > 0 {
 			freeDefines(defines[i].subDefines)
@@ -94,7 +94,7 @@ func freeDefines(defines []oci8Define) {
 }
 
 // freeBinds frees binds
-func freeBinds(binds []oci8Bind) {
+func freeBinds(binds []bindStruct) {
 	for _, bind := range binds {
 		if bind.pbuf != nil {
 			freeBuffer(bind.pbuf, bind.dataType)

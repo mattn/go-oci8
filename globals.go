@@ -42,21 +42,21 @@ type (
 		operationMode        C.ub4
 	}
 
-	// OCI8DriverStruct is Oracle driver struct
-	OCI8DriverStruct struct {
+	// DriverStruct is Oracle driver struct
+	DriverStruct struct {
 		// Logger is used to log connection ping errors, defaults to discard
 		// To log set it to something like: log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
 		Logger *log.Logger
 	}
 
-	// OCI8Connector is the sql driver connector
-	OCI8Connector struct {
+	// Connector is the sql driver connector
+	Connector struct {
 		// Logger is used to log connection ping errors
 		Logger *log.Logger
 	}
 
-	// OCI8Conn is Oracle connection
-	OCI8Conn struct {
+	// Conn is Oracle connection
+	Conn struct {
 		svc                  *C.OCISvcCtx
 		srv                  *C.OCIServer
 		env                  *C.OCIEnv
@@ -73,28 +73,36 @@ type (
 		logger               *log.Logger
 	}
 
-	// OCI8Tx is Oracle transaction
-	OCI8Tx struct {
-		conn *OCI8Conn
+	// Tx is Oracle transaction
+	Tx struct {
+		conn *Conn
 	}
 
-	// OCI8Stmt is Oracle statement
-	OCI8Stmt struct {
-		conn   *OCI8Conn
+	// Stmt is Oracle statement
+	Stmt struct {
+		conn   *Conn
 		stmt   *C.OCIStmt
 		closed bool
 	}
 
-	// OCI8Result is Oracle result
-	OCI8Result struct {
+	// Rows is Oracle rows
+	Rows struct {
+		stmt    *Stmt
+		defines []defineStruct
+		closed  bool
+		ctx     context.Context
+	}
+
+	// Result is Oracle result
+	Result struct {
 		rowsAffected    int64
 		rowsAffectedErr error
 		rowid           string
 		rowidErr        error
-		stmt            *OCI8Stmt
+		stmt            *Stmt
 	}
 
-	oci8Define struct {
+	defineStruct struct {
 		name         string
 		dataType     C.ub2
 		pbuf         unsafe.Pointer
@@ -102,10 +110,10 @@ type (
 		length       *C.ub2
 		indicator    *C.sb2
 		defineHandle *C.OCIDefine
-		subDefines   []oci8Define
+		subDefines   []defineStruct
 	}
 
-	oci8Bind struct {
+	bindStruct struct {
 		dataType   C.ub2
 		pbuf       unsafe.Pointer
 		maxSize    C.sb4
@@ -113,14 +121,6 @@ type (
 		indicator  *C.sb2
 		bindHandle *C.OCIBind
 		out        sql.Out
-	}
-
-	// OCI8Rows is Oracle rows
-	OCI8Rows struct {
-		stmt    *OCI8Stmt
-		defines []oci8Define
-		closed  bool
-		ctx     context.Context
 	}
 )
 
@@ -151,8 +151,8 @@ var (
 	typeFloat64   = reflect.TypeOf(float64(1))
 	typeTime      = reflect.TypeOf(time.Time{})
 
-	// OCI8Driver is the sql driver
-	OCI8Driver = &OCI8DriverStruct{
+	// Driver is the sql driver
+	Driver = &DriverStruct{
 		Logger: log.New(ioutil.Discard, "", 0),
 	}
 
@@ -166,7 +166,7 @@ var (
 )
 
 func init() {
-	sql.Register("oci8", OCI8Driver)
+	sql.Register("oci8", Driver)
 
 	// set defaultCharset to AL32UTF8
 	var envP *C.OCIEnv

@@ -3166,6 +3166,13 @@ func TestDestructiveNumberRowsAffected(t *testing.T) {
 		t.Fatal("scan error:", err)
 	}
 
+	if rows.Next() {
+		cancel()
+		rows.Close()
+		stmt.Close()
+		t.Fatal("unexpected row")
+	}
+
 	err = rows.Err()
 	if err != nil {
 		cancel()
@@ -3533,6 +3540,13 @@ func TestSelectDualNumberScan(t *testing.T) {
 		t.Fatal("scan error:", err)
 	}
 
+	if rows.Next() {
+		cancel()
+		rows.Close()
+		stmt.Close()
+		t.Fatal("unexpected row")
+	}
+
 	cancel()
 
 	err = rows.Close()
@@ -3673,6 +3687,13 @@ union all select :20 from dual`
 		rows.Close()
 		stmt.Close()
 		t.Fatal("scan error:", err)
+	}
+
+	if rows.Next() {
+		cancel()
+		rows.Close()
+		stmt.Close()
+		t.Fatal("unexpected row")
 	}
 
 	cancel()

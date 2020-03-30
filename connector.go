@@ -23,6 +23,10 @@ func (connector *Connector) Driver() driver.Driver {
 
 // Connect returns a new database connection
 func (connector *Connector) Connect(ctx context.Context) (driver.Conn, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	conn := &Conn{
 		logger: connector.Logger,
 	}

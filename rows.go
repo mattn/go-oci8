@@ -42,13 +42,13 @@ func (rows *Rows) Next(dest []driver.Value) error {
 		return nil
 	}
 
-	if rows.ctx.Err() != nil {
-		return rows.ctx.Err()
+	if rows.stmt.ctx.Err() != nil {
+		return rows.stmt.ctx.Err()
 	}
 
 	done := make(chan struct{})
 	defer close(done)
-	go rows.stmt.conn.ociBreakDone(rows.ctx, done)
+	go rows.stmt.conn.ociBreakDone(rows.stmt.ctx, done)
 	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,
@@ -202,10 +202,10 @@ func (rows *Rows) Next(dest []driver.Value) error {
 		// SQLT_RSET - ref cursor
 		case C.SQLT_RSET:
 			stmtP := (**C.OCIStmt)(rows.defines[i].pbuf)
-			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP}
+			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP, ctx: rows.stmt.ctx}
 			if rows.defines[i].subDefines == nil {
 				var err error
-				rows.defines[i].subDefines, err = subStmt.makeDefines(rows.ctx)
+				rows.defines[i].subDefines, err = subStmt.makeDefines()
 				if err != nil {
 					return err
 				}
@@ -213,7 +213,6 @@ func (rows *Rows) Next(dest []driver.Value) error {
 			subRows := &Rows{
 				stmt:    subStmt,
 				defines: rows.defines[i].subDefines,
-				ctx:     rows.ctx,
 			}
 			dest[i] = subRows
 

@@ -914,7 +914,7 @@ func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
 				}
-				
+
 			}
 		}
 	}

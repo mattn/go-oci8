@@ -1,6 +1,7 @@
 package oci8_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -525,6 +526,130 @@ func Example_sqlClob() {
 
 	if len(aString) != 5200 {
 		fmt.Println("len aString != 5200")
+		return
+	}
+
+	if rows.Next() {
+		fmt.Println("has Next rows")
+		return
+	}
+
+	err = rows.Err()
+	if err != nil {
+		fmt.Println("Err error is not nil:", err)
+		return
+	}
+
+	// drop table
+	query = "drop table " + tableName
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
+	_, err = db.ExecContext(ctx, query)
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	fmt.Println("done")
+
+	// output: done
+}
+
+func Example_sqlBlob() {
+	// Example shows how write and read a blob
+
+	// For testing, check if database tests are disabled
+	if oci8.TestDisableDatabase || oci8.TestDisableDestructive {
+		fmt.Println("done")
+		return
+	}
+
+	oci8.Driver.Logger = log.New(os.Stderr, "oci8 ", log.Ldate|log.Ltime|log.LUTC|log.Lshortfile)
+
+	var openString string
+	// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
+	if len(oci8.TestUsername) > 0 {
+		if len(oci8.TestPassword) > 0 {
+			openString = oci8.TestUsername + "/" + oci8.TestPassword + "@"
+		} else {
+			openString = oci8.TestUsername + "@"
+		}
+	}
+	openString += oci8.TestHostValid
+
+	// A normal simple Open to localhost would look like:
+	// db, err := sql.Open("oci8", "127.0.0.1")
+	// For testing, need to use additional variables
+	db, err := sql.Open("oci8", openString)
+	if err != nil {
+		fmt.Printf("Open error is not nil: %v", err)
+		return
+	}
+	if db == nil {
+		fmt.Println("db is nil")
+		return
+	}
+
+	// defer close database
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			fmt.Println("Close error is not nil:", err)
+		}
+	}()
+
+	// create table
+	tableName := "E_BLOB_" + oci8.TestTimeString
+	query := "create table " + tableName + " ( A BLOB )"
+	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+	_, err = db.ExecContext(ctx, query)
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	// insert row
+	query = "insert into " + tableName + " ( A ) values (:1)"
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
+	_, err = db.ExecContext(ctx, query, bytes.Repeat([]byte("abcdefghijklmnopqrstuvwxyz"), 200))
+	cancel()
+	if err != nil {
+		fmt.Println("ExecContext error is not nil:", err)
+		return
+	}
+
+	var rows *sql.Rows
+	ctx, cancel = context.WithTimeout(context.Background(), 55*time.Second)
+	defer cancel()
+	rows, err = db.QueryContext(ctx, "select A from "+tableName)
+	if err != nil {
+		fmt.Println("QueryContext error is not nil:", err)
+		return
+	}
+
+	// defer close rows
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			fmt.Println("Close error is not nil:", err)
+		}
+	}()
+
+	if !rows.Next() {
+		fmt.Println("no Next rows")
+		return
+	}
+
+	var theBytes []byte
+	err = rows.Scan(&theBytes)
+	if err != nil {
+		fmt.Println("Scan error is not nil:", err)
+		return
+	}
+
+	if len(theBytes) != 5200 {
+		fmt.Println("len theBytes != 5200")
 		return
 	}
 

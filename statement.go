@@ -55,7 +55,7 @@ func (stmt *Stmt) CheckNamedValue(namedValue *driver.NamedValue) error {
 }
 
 // bindValues binds the values to the stmt
-func (stmt *Stmt) bindValues(ctx context.Context, values []driver.Value, namedValues []driver.NamedValue) ([]bindStruct, error) {
+func (stmt *Stmt) bindValues(values []driver.Value, namedValues []driver.NamedValue) ([]bindStruct, error) {
 	if len(values) == 0 && len(namedValues) == 0 {
 		return nil, nil
 	}
@@ -70,9 +70,9 @@ func (stmt *Stmt) bindValues(ctx context.Context, values []driver.Value, namedVa
 	}
 
 	for i := 0; i < count; i++ {
-		if ctx.Err() != nil {
+		if stmt.ctx.Err() != nil {
 			freeBinds(binds)
-			return nil, ctx.Err()
+			return nil, stmt.ctx.Err()
 		}
 
 		var valueInterface interface{}
@@ -355,26 +355,28 @@ func (stmt *Stmt) bindValues(ctx context.Context, values []driver.Value, namedVa
 
 // Query runs a query
 func (stmt *Stmt) Query(values []driver.Value) (driver.Rows, error) {
-	binds, err := stmt.bindValues(context.Background(), values, nil)
+	stmt.ctx = context.Background()
+	binds, err := stmt.bindValues(values, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.query(context.Background(), binds)
+	return stmt.query(binds)
 }
 
 // QueryContext runs a query with context
 func (stmt *Stmt) QueryContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Rows, error) {
-	binds, err := stmt.bindValues(ctx, nil, namedValues)
+	stmt.ctx = ctx
+	binds, err := stmt.bindValues(nil, namedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.query(ctx, binds)
+	return stmt.query(binds)
 }
 
 // query runs a query with context
-func (stmt *Stmt) query(ctx context.Context, binds []bindStruct) (driver.Rows, error) {
+func (stmt *Stmt) query(binds []bindStruct) (driver.Rows, error) {
 	defer freeBinds(binds)
 
 	var stmtType C.ub2
@@ -412,12 +414,12 @@ func (stmt *Stmt) query(ctx context.Context, binds []bindStruct) (driver.Rows, e
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
+	if stmt.ctx.Err() != nil {
+		return nil, stmt.ctx.Err()
 	}
 
 	done := make(chan struct{})
-	go stmt.conn.ociBreakDone(ctx, done)
+	go stmt.conn.ociBreakDone(stmt.ctx, done)
 	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
 	if err != nil {
@@ -425,26 +427,25 @@ func (stmt *Stmt) query(ctx context.Context, binds []bindStruct) (driver.Rows, e
 	}
 
 	var defines []defineStruct
-	defines, err = stmt.makeDefines(ctx)
+	defines, err = stmt.makeDefines()
 	if err != nil {
 		return nil, err
 	}
 
-	if ctx.Err() != nil {
+	if stmt.ctx.Err() != nil {
 		freeDefines(defines)
-		return nil, ctx.Err()
+		return nil, stmt.ctx.Err()
 	}
 
 	rows := &Rows{
 		stmt:    stmt,
 		defines: defines,
-		ctx:     ctx,
 	}
 
 	return rows, nil
 }
 
-func (stmt *Stmt) makeDefines(ctx context.Context) ([]defineStruct, error) {
+func (stmt *Stmt) makeDefines() ([]defineStruct, error) {
 	var paramCountUb4 C.ub4 // number of columns in the select-list
 	_, err := stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
 	if err != nil {
@@ -455,9 +456,9 @@ func (stmt *Stmt) makeDefines(ctx context.Context) ([]defineStruct, error) {
 	defines := make([]defineStruct, paramCount)
 
 	for i := 0; i < paramCount; i++ {
-		if ctx.Err() != nil {
+		if stmt.ctx.Err() != nil {
 			freeDefines(defines)
-			return nil, ctx.Err()
+			return nil, stmt.ctx.Err()
 		}
 
 		var param *C.OCIParam
@@ -694,25 +695,27 @@ func (stmt *Stmt) rowsAffected() (int64, error) {
 
 // Exec runs an exec query
 func (stmt *Stmt) Exec(values []driver.Value) (driver.Result, error) {
-	binds, err := stmt.bindValues(context.Background(), values, nil)
+	stmt.ctx = context.Background()
+	binds, err := stmt.bindValues(values, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.exec(context.Background(), binds)
+	return stmt.exec(binds)
 }
 
 // ExecContext run a exec query with context
 func (stmt *Stmt) ExecContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Result, error) {
-	binds, err := stmt.bindValues(ctx, nil, namedValues)
+	stmt.ctx = ctx
+	binds, err := stmt.bindValues(nil, namedValues)
 	if err != nil {
 		return nil, err
 	}
 
-	return stmt.exec(ctx, binds)
+	return stmt.exec(binds)
 }
 
-func (stmt *Stmt) exec(ctx context.Context, binds []bindStruct) (driver.Result, error) {
+func (stmt *Stmt) exec(binds []bindStruct) (driver.Result, error) {
 	defer freeBinds(binds)
 
 	mode := C.ub4(C.OCI_DEFAULT)
@@ -720,12 +723,12 @@ func (stmt *Stmt) exec(ctx context.Context, binds []bindStruct) (driver.Result, 
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
+	if stmt.ctx.Err() != nil {
+		return nil, stmt.ctx.Err()
 	}
 
 	done := make(chan struct{})
-	go stmt.conn.ociBreakDone(ctx, done)
+	go stmt.conn.ociBreakDone(stmt.ctx, done)
 	err := stmt.ociStmtExecute(1, mode)
 	close(done)
 	if err != nil && err != ErrOCISuccessWithInfo {
@@ -756,6 +759,7 @@ func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 	for i, bind := range binds {
 		if bind.pbuf != nil {
 			switch dest := bind.out.Dest.(type) {
+
 			case *string:
 				switch {
 				case *bind.indicator > 0: // indicator variable is the actual length before truncation
@@ -910,8 +914,8 @@ func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
 				}
+				
 			}
-
 		}
 	}
 

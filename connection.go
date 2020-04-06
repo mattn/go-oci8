@@ -15,10 +15,15 @@ import (
 
 // Ping database connection
 func (conn *Conn) Ping(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	done := make(chan struct{})
 	go conn.ociBreakDone(ctx, done)
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
 	close(done)
+
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
 		return nil
 	}
@@ -26,7 +31,6 @@ func (conn *Conn) Ping(ctx context.Context) error {
 	if errorCode == 1010 {
 		// Older versions of Oracle do not support ping,
 		// but a response of "ORA-01010: invalid OCI operation" confirms connectivity.
-		// See https://github.com/rana/ora/issues/224
 		return nil
 	}
 
@@ -94,10 +98,17 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 
 	queryP := cString(query)
 	defer C.free(unsafe.Pointer(queryP))
-
-	// statement handle
 	var stmtTemp *C.OCIStmt
 	stmt := &stmtTemp
+
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
+	done := make(chan struct{})
+	go conn.ociBreakDone(ctx, done)
+	defer func() { close(done) }()
+
 	if rv := C.OCIStmtPrepare2(
 		conn.svc,                // service context handle
 		stmt,                    // pointer to the statement handle returned
@@ -112,7 +123,7 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 		return nil, conn.getError(rv)
 	}
 
-	return &Stmt{conn: conn, stmt: *stmt}, nil
+	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx}, nil
 }
 
 // Begin starts a transaction
@@ -122,6 +133,10 @@ func (conn *Conn) Begin() (driver.Tx, error) {
 
 // BeginTx starts a transaction
 func (conn *Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driver.Tx, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		// transaction handle
 		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)

@@ -83,6 +83,7 @@ type (
 		conn   *Conn
 		stmt   *C.OCIStmt
 		closed bool
+		ctx    context.Context
 	}
 
 	// Rows is Oracle rows
@@ -90,7 +91,6 @@ type (
 		stmt    *Stmt
 		defines []defineStruct
 		closed  bool
-		ctx     context.Context
 	}
 
 	// Result is Oracle result

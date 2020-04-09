@@ -61,6 +61,6 @@ func getDSN() string {
 		return dsn
 	}
 	fmt.Fprintln(os.Stderr, `Please specifiy connection parameter in GO_OCI8_CONNECT_STRING environment variable,
-or as the first argument! (The format is user/name@host:port/sid)`)
+or as the first argument! (The format is user/password@host:port/sid)`)
 	return "scott/tiger@XE"
 }

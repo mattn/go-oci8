@@ -534,14 +534,18 @@ func (stmt *Stmt) makeDefines() ([]defineStruct, error) {
 
 			// note that select sum and count both return as precision == 0 && scale == 0 so use float64 (SQLT_BDOUBLE) to handle both
 
-			if (precision == 0 && scale == 0) || scale > 0 || scale == -127 {
+			defines[i].maxSize = 8
+			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
+
+			switch {
+			case precision != 0 && scale == -127:
 				defines[i].dataType = C.SQLT_BDOUBLE
-				defines[i].maxSize = 8
-				defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
-			} else {
+			case precision == 0 && scale == 0:
+				defines[i].dataType = C.SQLT_BDOUBLE
+			case scale != -127 && scale != 0:
+				defines[i].dataType = C.SQLT_BDOUBLE
+			default:
 				defines[i].dataType = C.SQLT_INT
-				defines[i].maxSize = 8
-				defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 			}
 
 		case C.SQLT_INT:

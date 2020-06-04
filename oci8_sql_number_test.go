@@ -524,6 +524,21 @@ func TestSelectDualNumber(t *testing.T) {
 	queryResults.queryResults = queryResultUint64ToInt64
 	testRunQueryResults(t, queryResults)
 
+	// NUMBER(*)
+	queryResults.query = "select cast (:1 as NUMBER(*)) from dual"
+	queryResults.queryResults = queryResultBoolToInt64
+	testRunQueryResults(t, queryResults)
+
+	// NUMBER(*,0)
+	queryResults.query = "select cast (:1 as NUMBER(*,0)) from dual"
+	queryResults.queryResults = queryResultBoolToInt64
+	testRunQueryResults(t, queryResults)
+
+	// NUMBER
+	queryResults.query = "select cast (:1 as NUMBER) from dual"
+	queryResults.queryResults = queryResultBoolToInt64
+	testRunQueryResults(t, queryResults)
+
 	// NUMBER(38,10)
 	queryResults.query = "select cast (:1 as NUMBER(38,10)) from dual"
 	queryResults.queryResults = queryResultBoolToFloat64

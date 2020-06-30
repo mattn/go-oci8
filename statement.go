@@ -36,13 +36,7 @@ func (stmt *Stmt) Close() error {
 
 // NumInput returns the number of input
 func (stmt *Stmt) NumInput() int {
-	var bindCount C.ub4 // number of bind position
-	_, err := stmt.ociAttrGet(unsafe.Pointer(&bindCount), C.OCI_ATTR_BIND_COUNT)
-	if err != nil {
-		return -1
-	}
-
-	return int(bindCount)
+	return -1
 }
 
 // CheckNamedValue checks a named value

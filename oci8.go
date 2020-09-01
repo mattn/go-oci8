@@ -94,7 +94,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		case "questionph":
 			dsn.enableQMPlaceholders, err = strconv.ParseBool(v[0])
 			if err != nil {
-				return nil, fmt.Errorf("Invalid questionpm: %v", v[0])
+				return nil, fmt.Errorf("Invalid questionph: %v", v[0])
 			}
 		case "prefetch_rows":
 			z, err := strconv.ParseUint(v[0], 10, 32)

@@ -10,30 +10,11 @@ import "C"
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/relloyd/go-oci8/types"
 	"io/ioutil"
 	"log"
 	"os"
 	"unsafe"
-)
-
-type CqnData struct {
-	SchemaTableName string
-	TableOperation  CqnOpCode
-	RowChanges      RowChanges
-}
-
-type RowId string
-type RowChanges map[RowId]CqnOpCode
-type CqnOpCode uint32
-
-const (
-	CqnAllRows CqnOpCode = 1 << iota
-	CqnInsert
-	CqnUpdate
-	CqnDelete
-	CqnAlter
-	CqnDrop
-	CqnUnexpected
 )
 
 //export goCqnCallback
@@ -106,7 +87,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
-	var cqnData []CqnData                                                                         // slice to hold CQN change details; will be passed to a go callback function below.
+	var cqnData []types.CqnData                                                                   // slice to hold CQN change details; will be passed to a go callback function below.
 	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY { // if the database is shutting down...
 		fmt.Println("Oracle shutdown notification received")
 		return
@@ -161,7 +142,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 // extractTableChanges will extract the table changes from the supplied collection.
 // It expects conn.env and conn.errHandle to be setup in advance.
 // TODO: make this a method of OCI8Conn.
-func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, err error) {
+func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []types.CqnData, err error) {
 	var result C.sword
 	var element unsafe.Pointer // will be populated by call to getCollectionElement().
 	var tableNameOratext *C.oratext
@@ -175,7 +156,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 		err = errors.New("no tables found in CQN collection")
 		return
 	}
-	d = make([]CqnData, numTables, numTables)
+	d = make([]types.CqnData, numTables, numTables)
 	// Process each table in the change list.
 	for idx := 0; idx < numTables; idx++ { // for each table in the collection...
 		// Get the collection element and fetch the attributes within it.
@@ -209,7 +190,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 		if !((tableOp & C.ub4(C.OCI_OPCODE_ALLROWS)) > 0) { // if individual rows were changed...
 			// Get the row changes in r.
 			// fmt.Println("processing row changes...")
-			var r RowChanges
+			var r types.RowChanges
 			r, err = extractRowChanges(conn, rowChanges)
 			if err != nil {
 				return
@@ -230,7 +211,7 @@ func extractTableChanges(conn *OCI8Conn, tableChanges *C.OCIColl) (d []CqnData, 
 // OCI_ATTR_CHDES_ROW_ROWID and OCI_ATTR_CHDES_ROW_OPFLAGS from the supplied collection.
 // It expects conn.env and conn.errHandle to be setup in advance.
 // TODO: make this a method of OCI8Conn.
-func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges, err error) {
+func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds types.RowChanges, err error) {
 	var result C.sword
 	var element unsafe.Pointer
 	var rowIdOratext *C.oratext
@@ -243,7 +224,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 		return
 	}
 	// Process each row in the change list.
-	rowIds = make(RowChanges)
+	rowIds = make(types.RowChanges)
 	for idx := 0; idx < numChanges; idx++ { // for each row change...
 		// Extract the element and fetch attributes within it.
 		result = C.getCollectionElement(conn.env, conn.errHandle, rowChanges, C.ub2(idx), &element)
@@ -261,7 +242,7 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 			err = errors.Wrap(err, "error fetching row operation")
 			return
 		}
-		rowIds[RowId(oraText2GoString(rowIdOratext))] = getOpCode(rowOp)
+		rowIds[types.RowId(oraText2GoString(rowIdOratext))] = getOpCode(rowOp)
 		// fmt.Println(fmt.Sprintf("row changed = %v; rowOp = 0x%x", oraText2GoString(rowIdOratext), int32(rowOp)))
 	}
 	return
@@ -270,34 +251,34 @@ func extractRowChanges(conn *OCI8Conn, rowChanges *C.OCIColl) (rowIds RowChanges
 // getOpCode converts operation codes used by OCI for CQN notifications into native values.
 // const CqnUnexpected is returned if an operation code is present but we don't know what it is.
 // See Oracle oci.h for the multiple OCI_OPCODE% values.
-func getOpCode(op C.ub4) (retval CqnOpCode) {
+func getOpCode(op C.ub4) (retval types.CqnOpCode) {
 	foundOne := false
 	if (op & C.OCI_OPCODE_ALLROWS) > 0 {
-		retval = retval | CqnAllRows
+		retval = retval | types.CqnAllRows
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_INSERT) > 0 {
-		retval = retval | CqnInsert
+		retval = retval | types.CqnInsert
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_UPDATE) > 0 {
-		retval = retval | CqnUpdate
+		retval = retval | types.CqnUpdate
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_DELETE) > 0 {
-		retval = retval | CqnDelete
+		retval = retval | types.CqnDelete
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_ALTER) > 0 {
-		retval = retval | CqnAlter
+		retval = retval | types.CqnAlter
 		foundOne = true
 	}
 	if (op & C.OCI_OPCODE_DROP) > 0 {
-		retval = retval | CqnDrop
+		retval = retval | types.CqnDrop
 		foundOne = true
 	}
 	if !foundOne || (op&C.OCI_OPCODE_UNKNOWN) > 0 {
-		retval = CqnUnexpected
+		retval = types.CqnUnexpected
 	}
 	return
 }

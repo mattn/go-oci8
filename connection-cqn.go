@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/relloyd/go-oci8/types"
 	"github.com/relloyd/go-sql/database/sql/driver"
 	"io/ioutil"
 	"log"
@@ -20,7 +21,7 @@ import (
 )
 
 type SubscriptionHandler interface {
-	ProcessCqnData(d []CqnData)
+	ProcessCqnData(d []types.CqnData)
 }
 
 type CqnConn struct {

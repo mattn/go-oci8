@@ -4,6 +4,6 @@ go 1.15
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/relloyd/go-oci8/types v0.0.0-20200911125639-ca115a9393e4
+	github.com/relloyd/go-oci8/types v0.0.0-20200911133747-c6fcedd5772e
 	github.com/relloyd/go-sql/database/sql v0.0.0-20200911120625-a22210dbdea8
 )

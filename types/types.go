@@ -1,5 +1,9 @@
 package types
 
+type SubscriptionHandler interface {
+	ProcessCqnData(d []CqnData)
+}
+
 type CqnData struct {
 	SchemaTableName string
 	TableOperation  CqnOpCode

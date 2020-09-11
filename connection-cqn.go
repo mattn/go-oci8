@@ -20,10 +20,6 @@ import (
 	"unsafe"
 )
 
-type SubscriptionHandler interface {
-	ProcessCqnData(d []types.CqnData)
-}
-
 type CqnConn struct {
 	conn                *OCI8Conn
 	stmt                *OCI8Stmt
@@ -37,7 +33,7 @@ type CqnConn struct {
 // users of CqnConn.Execute().
 var cqnSubscriptionHandlerMap struct {
 	sync.RWMutex
-	m map[int64]SubscriptionHandler
+	m map[int64]types.SubscriptionHandler
 }
 
 // openOCI8Conn opens a connection to the given Oracle database.
@@ -231,7 +227,7 @@ func (oci8Driver *OCI8DriverStruct) openOCI8Conn4Cqn(dsnString string) (*OCI8Con
 // 5) C.cqnCallback() passes the payload to Go function goCqnCallback().
 // 6) goCqnCallback() uses the registration ID to look up a SubscriptionHandler interface.
 // 7) The Go SubscriptionHandler is executed with the CQN payload and descriptor so you can route the event where its required.
-func (conn *OCI8Conn) registerCqnSubscription(i SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
+func (conn *OCI8Conn) registerCqnSubscription(i types.SubscriptionHandler) (registrationId int64, subscriptionPtr *C.OCISubscription, err error) {
 	var namespace C.ub4 = C.OCI_SUBSCR_NAMESPACE_DBCHANGE
 	var rowIds = true
 	var qosFlags = C.OCI_SUBSCR_CQ_QOS_BEST_EFFORT // or use OCI_SUBSCR_CQ_QOS_QUERY for query level granularity with no false-positives; use OCI_SUBSCR_CQ_QOS_BEST_EFFORT for best-efforts
@@ -294,7 +290,7 @@ func (conn *OCI8Conn) registerCqnSubscription(i SubscriptionHandler) (registrati
 		// See the C callback used above first: C.cqnCallback(), which leads to the go callback.
 		registrationId = int64(regId)           // set the return value.
 		if cqnSubscriptionHandlerMap.m == nil { // if the map needs initialising...
-			cqnSubscriptionHandlerMap.m = make(map[int64]SubscriptionHandler)
+			cqnSubscriptionHandlerMap.m = make(map[int64]types.SubscriptionHandler)
 		}
 		cqnSubscriptionHandlerMap.Lock()
 		cqnSubscriptionHandlerMap.m[registrationId] = i
@@ -428,7 +424,7 @@ func OpenCqnConnection(dsnString string) (c CqnConn, err error) {
 	return
 }
 
-func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{}) (rows driver.Rows, err error) {
+func (c *CqnConn) Execute(h types.SubscriptionHandler, query string, args []interface{}) (rows driver.Rows, err error) {
 	// Create CQN subscription.
 	c.m.Lock()
 	if !c.subscriptionCreated { // if a subscription hasn't already been created...

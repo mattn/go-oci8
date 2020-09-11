@@ -106,7 +106,7 @@ func goCqnCallback(ctx unsafe.Pointer, subHandle *C.OCISubscription, payload uns
 	// Process changes based on notification type.
 	var tableChangesPtr *C.OCIColl
 	var queryChangesPtr *C.OCIColl
-	var cqnData []CqnData // slice to hold CQN change details; will be passed to a go callback function below.
+	var cqnData []CqnData                                                                         // slice to hold CQN change details; will be passed to a go callback function below.
 	if notificationType == C.OCI_EVENT_SHUTDOWN || notificationType == C.OCI_EVENT_SHUTDOWN_ANY { // if the database is shutting down...
 		fmt.Println("Oracle shutdown notification received")
 		return
@@ -296,7 +296,7 @@ func getOpCode(op C.ub4) (retval CqnOpCode) {
 		retval = retval | CqnDrop
 		foundOne = true
 	}
-	if ! foundOne || (op&C.OCI_OPCODE_UNKNOWN) > 0 {
+	if !foundOne || (op&C.OCI_OPCODE_UNKNOWN) > 0 {
 		retval = CqnUnexpected
 	}
 	return

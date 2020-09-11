@@ -6,9 +6,9 @@ import "C"
 import (
 	"bytes"
 	"context"
-	"github.com/relloyd/go-sql/database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/relloyd/go-sql/database/sql/driver"
 	"unsafe"
 )
 
@@ -239,12 +239,12 @@ func (conn *OCI8Conn) ociGetError() (int, error) {
 
 	result := C.OCIErrorGet(
 		unsafe.Pointer(conn.errHandle), // error handle
-		1,                           // status record number, starts from 1
-		nil,                         // sqlstate, not supported in release 8.x or later
-		&errorCode,                  // error code
-		(*C.OraText)(&errorText[0]), // error message text
-		1024,              // size of the buffer provided in number of bytes
-		C.OCI_HTYPE_ERROR, // type of the handle (OCI_HTYPE_ERR or OCI_HTYPE_ENV)
+		1,                              // status record number, starts from 1
+		nil,                            // sqlstate, not supported in release 8.x or later
+		&errorCode,                     // error code
+		(*C.OraText)(&errorText[0]),    // error message text
+		1024,                           // size of the buffer provided in number of bytes
+		C.OCI_HTYPE_ERROR,              // type of the handle (OCI_HTYPE_ERR or OCI_HTYPE_ENV)
 	)
 	if result != C.OCI_SUCCESS {
 		return 3114, errors.New("OCIErrorGet failed")
@@ -306,10 +306,10 @@ func (conn *OCI8Conn) ociHandleAlloc(handleType C.ub4, size C.size_t) (*unsafe.P
 
 	result := C.OCIHandleAlloc(
 		unsafe.Pointer(conn.env), // An environment handle
-		handle,     // Returns a handle
-		handleType, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
-		size,       // amount of user memory to be allocated
-		buffer,     // Returns a pointer to the user memory
+		handle,                   // Returns a handle
+		handleType,               // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
+		size,                     // amount of user memory to be allocated
+		buffer,                   // Returns a pointer to the user memory
 	)
 
 	err := conn.getError(result)
@@ -367,12 +367,12 @@ func (conn *OCI8Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byt
 
 		// If both byte_amtp and char_amtp are set to point to zero and OCI_FIRST_PIECE is passed then polling mode is assumed and data is read till the end of the LOB
 		result = C.OCILobRead2(
-			conn.svc,       // service context handle
-			conn.errHandle, // error handle
-			lobLocator,     // LOB or BFILE locator
-			&readBytes,     // number of bytes to read. Used for BLOB and BFILE always. For CLOB and NCLOB, it is used only when char_amtp is zero.
-			nil,            // number of characters to read
-			1,              // the offset in the first call and in subsequent polling calls the offset parameter is ignored
+			conn.svc,                       // service context handle
+			conn.errHandle,                 // error handle
+			lobLocator,                     // LOB or BFILE locator
+			&readBytes,                     // number of bytes to read. Used for BLOB and BFILE always. For CLOB and NCLOB, it is used only when char_amtp is zero.
+			nil,                            // number of characters to read
+			1,                              // the offset in the first call and in subsequent polling calls the offset parameter is ignored
 			unsafe.Pointer(&readBuffer[0]), // pointer to a buffer into which the piece will be read
 			lobBufferSize,                  // length of the buffer
 			piece,                          // For polling, pass OCI_FIRST_PIECE the first time and OCI_NEXT_PIECE in subsequent calls.

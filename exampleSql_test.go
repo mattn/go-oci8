@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mattn/go-oci8"
+	"github.com/relloyd/go-oci8"
 )
 
 func Example_sqlSelect() {

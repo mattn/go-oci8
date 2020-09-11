@@ -651,7 +651,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				case *bind.indicator == 0: // Normal
 					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 				case *bind.indicator == -1: // The selected value is null
-					*v = ""                 // best attempt at Go nil string
+					*v = "" // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
 					*v = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
 					// TODO: should this be an error?

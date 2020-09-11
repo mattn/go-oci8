@@ -381,7 +381,7 @@ func (stmt *OCI8Stmt) execBatch(ctx context.Context) (driver.Result, error) {
 				C.OCI_HTYPE_ERROR,                   // handle type.
 				errHandle,                           // an error handle that will be allocated for us, to explain an error from this call if applicable.
 				dmlError,                            // pointer to unsafe.Pointer: this will be filled with info about the DML error.
-				i) // error position in the statement handle.
+				i)                                   // error position in the statement handle.
 			err2 = stmt.conn.getError(result)
 			if err2 != nil {
 				return nil, err2

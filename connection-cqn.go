@@ -160,7 +160,7 @@ func (oci8Driver *OCI8DriverStruct) openOCI8Conn4Cqn(dsnString string) (*OCI8Con
 		conn.usrSession = (*C.OCISession)(*handle)
 		handle = nil                            // dealloc.
 		credentialType := C.ub4(C.OCI_CRED_EXT) // assume ext auth for now.
-		if !dsn.externalauthentication { // if we're using username/password auth...
+		if !dsn.externalauthentication {        // if we're using username/password auth...
 			// Set the username & password.
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {
@@ -291,7 +291,7 @@ func (conn *OCI8Conn) registerCqnSubscription(i SubscriptionHandler) (registrati
 	} else { // else we have a successful registration...
 		// Save the registration ID and supplied interface so the Go callback can use it later.
 		// See the C callback used above first: C.cqnCallback(), which leads to the go callback.
-		registrationId = int64(regId) // set the return value.
+		registrationId = int64(regId)           // set the return value.
 		if cqnSubscriptionHandlerMap.m == nil { // if the map needs initialising...
 			cqnSubscriptionHandlerMap.m = make(map[int64]SubscriptionHandler)
 		}
@@ -432,7 +432,7 @@ func (c *CqnConn) Execute(h SubscriptionHandler, query string, args []interface{
 	c.m.Lock()
 	if !c.subscriptionCreated { // if a subscription hasn't already been created...
 		// Create a new subscription and register the handler/callback interface.
-		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h)  // saves the handler in a global map using key = the registrationId
+		c.registrationId, c.subscriptionPtr, err = c.conn.registerCqnSubscription(h) // saves the handler in a global map using key = the registrationId
 		if err != nil {
 			return nil, errors.Wrap(err, "error registering query")
 		}

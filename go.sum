@@ -1,4 +1,6 @@
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/relloyd/go-oci8/types v0.0.0-20200911123736-202e3be397c6 h1:eQ1+vSRjY2eGokhhMF+u1lxxy7+2jFs9WIKCnq7MFmU=
+github.com/relloyd/go-oci8/types v0.0.0-20200911123736-202e3be397c6/go.mod h1:kOj4ezdI3M9Cv/ZOwYjWq7pC20Z0ZtgNsrhNZSwZxFM=
 github.com/relloyd/go-sql/database/sql v0.0.0-20200911120625-a22210dbdea8 h1:3pFHTYw0LWsrypE9s5DTDG1ACRq6rGpIr3rvQ94Kj/Q=
 github.com/relloyd/go-sql/database/sql v0.0.0-20200911120625-a22210dbdea8/go.mod h1:wSGT78fVkiYfY1HopuiOXy5OvNm2MHIeU5JhH5a5CwE=

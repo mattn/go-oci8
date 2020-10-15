@@ -468,7 +468,7 @@ end;
 	_, err = stmt.ExecContext(ctx)
 	cancel()
 	expected := "ORA-01013"
-	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+	if err == nil || len(err.Error()) < len(expected) || !strings.Contains(err.Error(), expected) {
 		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
 	}
 
@@ -488,7 +488,7 @@ end;
 	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
 	_, err = stmt.QueryContext(ctx)
 	cancel()
-	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+	if err == nil || len(err.Error()) < len(expected) || !strings.Contains(err.Error(), expected) {
 		t.Fatalf("stmt query - expected: %v - received: %v", expected, err)
 	}
 
@@ -1473,6 +1473,69 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 	if err != nil {
 		b.Fatal("err error:", err)
 	}
+}
+
+// TestSelectParallelWithStatementCaching checks parallel select from dual but with statement caching enabled
+func TestSelectParallelWithStatementCaching(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+	db := testGetDB("?stmt_cache_size=100")
+	if db == nil {
+		t.Fatal("db is null")
+	}
+
+	doParallelSelect(t, db)
+}
+
+func doParallelSelect(t *testing.T, db *sql.DB) {
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(50)
+
+	for i := 0; i < 50; i++ {
+		go func(num int) {
+			defer waitGroup.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+			stmt, err := db.PrepareContext(ctx, "select :1 from dual")
+			cancel()
+			if err != nil {
+				t.Fatal("prepare error:", err)
+			}
+			defer func() {
+				if stmt != nil {
+					err := stmt.Close()
+					if err != nil {
+						t.Fatal("stmt close error:", err)
+					}
+				}
+			}()
+
+			var result [][]interface{}
+			result, err = testGetRows(t, stmt, []interface{}{num})
+			if err != nil {
+				t.Fatal("get rows error:", err)
+			}
+			if result == nil {
+				t.Fatal("result is nil")
+			}
+			if len(result) != 1 {
+				t.Fatal("len result not equal to 1")
+			}
+			if len(result[0]) != 1 {
+				t.Fatal("len result[0] not equal to 1")
+			}
+			data, ok := result[0][0].(float64)
+			if !ok {
+				t.Fatal("result not float64")
+			}
+			if data != float64(num) {
+				t.Fatal("result not equal to:", num)
+			}
+		}(i)
+	}
+
+	waitGroup.Wait()
 }
 
 func BenchmarkPrefetchR0M32768(b *testing.B) {

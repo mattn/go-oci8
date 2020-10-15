@@ -40,6 +40,7 @@ type (
 		transactionMode      C.ub4
 		enableQMPlaceholders bool
 		operationMode        C.ub4
+		stmtCacheSize        C.ub4
 	}
 
 	// DriverStruct is Oracle driver struct
@@ -66,6 +67,7 @@ type (
 		prefetchMemory       C.ub4
 		transactionMode      C.ub4
 		operationMode        C.ub4
+		stmtCacheSize        C.ub4
 		inTransaction        bool
 		enableQMPlaceholders bool
 		closed               bool
@@ -80,10 +82,12 @@ type (
 
 	// Stmt is Oracle statement
 	Stmt struct {
-		conn   *Conn
-		stmt   *C.OCIStmt
-		closed bool
-		ctx    context.Context
+		conn        *Conn
+		stmt        *C.OCIStmt
+		closed      bool
+		ctx         context.Context
+		cacheKey    *C.OraText
+		cacheKeyLen C.ub4
 	}
 
 	// Rows is Oracle rows

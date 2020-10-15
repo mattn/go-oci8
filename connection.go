@@ -92,38 +92,60 @@ func (conn *Conn) Prepare(query string) (driver.Stmt, error) {
 
 // PrepareContext prepares a query with context
 func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if conn.enableQMPlaceholders {
-		query = placeholders(query)
-	}
-
-	queryP := cString(query)
-	defer C.free(unsafe.Pointer(queryP))
-	var stmtTemp *C.OCIStmt
-	stmt := &stmtTemp
-
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 
+	if conn.enableQMPlaceholders {
+		query = placeholders(query)
+	}
+
+	var stmtTemp *C.OCIStmt
+	stmt := &stmtTemp
+	queryP := cString(query)
+	queryLen := C.ub4(len(query))
+
 	done := make(chan struct{})
 	go conn.ociBreakDone(ctx, done)
 	defer func() { close(done) }()
+
+	if conn.stmtCacheSize == 0 {
+		// we only free the memory when caching is disabled. This is because we store the the cache key and will free it in the release
+		defer C.free(unsafe.Pointer(queryP))
+
+		if rv := C.OCIStmtPrepare2(
+			conn.svc,                // service context handle
+			stmt,                    // pointer to the statement handle returned
+			conn.errHandle,          // error handle
+			queryP,                  // statement text
+			queryLen,                // statement text length
+			nil,                     // key to be used for searching the statement in the statement cache
+			C.ub4(0),                // length of the key
+			C.ub4(C.OCI_NTV_SYNTAX), // syntax - OCI_NTV_SYNTAX: syntax depends upon the version of the server
+			C.ub4(C.OCI_DEFAULT),    // mode
+		); rv != C.OCI_SUCCESS {
+			return nil, conn.getError(rv)
+		}
+
+		return &Stmt{conn: conn, stmt: *stmt, ctx: ctx}, nil
+	}
 
 	if rv := C.OCIStmtPrepare2(
 		conn.svc,                // service context handle
 		stmt,                    // pointer to the statement handle returned
 		conn.errHandle,          // error handle
 		queryP,                  // statement text
-		C.ub4(len(query)),       // statement text length
-		nil,                     // key to be used for searching the statement in the statement cache
-		C.ub4(0),                // length of the key
+		queryLen,                // statement text length
+		queryP,                  // key to be used for searching the statement in the statement cache
+		queryLen,                // length of the key
 		C.ub4(C.OCI_NTV_SYNTAX), // syntax - OCI_NTV_SYNTAX: syntax depends upon the version of the server
 		C.ub4(C.OCI_DEFAULT),    // mode
-	); rv != C.OCI_SUCCESS {
+	); rv != C.OCI_SUCCESS && rv != C.OCI_SUCCESS_WITH_INFO {
+		// Note that C.OCI_SUCCESS_WITH_INFO is returned the first time a statement it put into the cache
 		return nil, conn.getError(rv)
 	}
 
-	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx}, nil
+	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, cacheKey: queryP, cacheKeyLen: queryLen}, nil
 }
 
 // Begin starts a transaction

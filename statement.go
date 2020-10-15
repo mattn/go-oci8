@@ -22,13 +22,29 @@ func (stmt *Stmt) Close() error {
 	}
 	stmt.closed = true
 
-	result := C.OCIStmtRelease(
-		stmt.stmt,            // statement handle
-		stmt.conn.errHandle,  // error handle
-		nil,                  // key to be associated with the statement in the cache
-		C.ub4(0),             // length of the key
-		C.ub4(C.OCI_DEFAULT), // mode
-	)
+	var result C.sword
+	if stmt.cacheKey == nil {
+		result = C.OCIStmtRelease(
+			stmt.stmt,            // statement handle
+			stmt.conn.errHandle,  // error handle
+			nil,                  // key to be associated with the statement in the cache
+			C.ub4(0),             // length of the key
+			C.ub4(C.OCI_DEFAULT), // mode
+		)
+	} else {
+		defer func() {
+			C.free(unsafe.Pointer(stmt.cacheKey))
+			stmt.cacheKey = nil
+		}()
+		result = C.OCIStmtRelease(
+			stmt.stmt,            // statement handle
+			stmt.conn.errHandle,  // error handle
+			stmt.cacheKey,        // key to be associated with the statement in the cache
+			stmt.cacheKeyLen,     // length of the key
+			C.ub4(C.OCI_DEFAULT), // mode
+		)
+	}
+
 	stmt.stmt = nil
 
 	return stmt.conn.getError(result)

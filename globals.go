@@ -82,12 +82,13 @@ type (
 
 	// Stmt is Oracle statement
 	Stmt struct {
-		conn        *Conn
-		stmt        *C.OCIStmt
-		closed      bool
-		ctx         context.Context
-		cacheKey    *C.OraText
-		cacheKeyLen C.ub4
+		conn     *Conn
+		stmt     *C.OCIStmt
+		closed   bool
+		ctx      context.Context
+		cacheKey string // if statement caching is enabled, this is the key for this statement into the cache
+		cacheHit bool   // if statement caching is enabled, this will be true when we get a cache hit for a given
+		// query. False if it was a miss, or caching is not enabled.
 	}
 
 	// Rows is Oracle rows

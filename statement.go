@@ -23,7 +23,7 @@ func (stmt *Stmt) Close() error {
 	stmt.closed = true
 
 	var result C.sword
-	if stmt.cacheKey == nil {
+	if stmt.cacheKey == "" {
 		result = C.OCIStmtRelease(
 			stmt.stmt,            // statement handle
 			stmt.conn.errHandle,  // error handle
@@ -32,16 +32,15 @@ func (stmt *Stmt) Close() error {
 			C.ub4(C.OCI_DEFAULT), // mode
 		)
 	} else {
-		defer func() {
-			C.free(unsafe.Pointer(stmt.cacheKey))
-			stmt.cacheKey = nil
-		}()
+		cacheKeyP := cString(stmt.cacheKey)
+		defer C.free(unsafe.Pointer(cacheKeyP))
+
 		result = C.OCIStmtRelease(
-			stmt.stmt,            // statement handle
-			stmt.conn.errHandle,  // error handle
-			stmt.cacheKey,        // key to be associated with the statement in the cache
-			stmt.cacheKeyLen,     // length of the key
-			C.ub4(C.OCI_DEFAULT), // mode
+			stmt.stmt,                 // statement handle
+			stmt.conn.errHandle,       // error handle
+			cacheKeyP,                 // key to be associated with the statement in the cache
+			C.ub4(len(stmt.cacheKey)), // length of the key
+			C.ub4(C.OCI_DEFAULT),      // mode
 		)
 	}
 

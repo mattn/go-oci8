@@ -66,7 +66,7 @@ func testExecQuery(t *testing.T, query string, args []interface{}) {
 }
 
 // testGetRows runs a statement and returns the rows as [][]interface{}
-func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
+func testGetRows(stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	defer cancel()
@@ -272,7 +272,7 @@ func testRunQueryResults(t *testing.T, queryResults testQueryResults) {
 
 // testRunQueryResult runs a single testQueryResults test
 func testRunQueryResult(t *testing.T, queryResult testQueryResult, query string, stmt *sql.Stmt) {
-	result, err := testGetRows(t, stmt, queryResult.args)
+	result, err := testGetRows(stmt, queryResult.args)
 	if err != nil {
 		t.Errorf("get rows error: %v - query: %v", err, query)
 		return
@@ -402,36 +402,12 @@ func TestSelectParallel(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		go func(num int) {
 			defer waitGroup.Done()
-			var result [][]interface{}
-			result, err = testGetRows(t, stmt, []interface{}{num})
-			if err != nil {
-				t.Fatal("get rows error:", err)
-			}
-			if result == nil {
-				t.Fatal("result is nil")
-			}
-			if len(result) != 1 {
-				t.Fatal("len result not equal to 1")
-			}
-			if len(result[0]) != 1 {
-				t.Fatal("len result[0] not equal to 1")
-			}
-			data, ok := result[0][0].(float64)
-			if !ok {
-				t.Fatal("result not float64")
-			}
-			if data != float64(num) {
-				t.Fatal("result not equal to:", num)
-			}
+			doSelect(t, stmt, num)
 		}(i)
 	}
 
 	waitGroup.Wait()
-
-	err = stmt.Close()
-	if err != nil {
-		t.Fatal("stmt close error:", err)
-	}
+	closeStatement(t, stmt)
 }
 
 // TestContextTimeoutBreak checks that ExecContext timeout works
@@ -472,10 +448,7 @@ end;
 		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
 	}
 
-	err = stmt.Close()
-	if err != nil {
-		t.Fatal("stmt close error:", err)
-	}
+	closeStatement(t, stmt)
 
 	// query
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
@@ -492,10 +465,7 @@ end;
 		t.Fatalf("stmt query - expected: %v - received: %v", expected, err)
 	}
 
-	err = stmt.Close()
-	if err != nil {
-		t.Fatal("stmt close error:", err)
-	}
+	closeStatement(t, stmt)
 }
 
 // TestDestructiveTransaction tests a transaction
@@ -600,7 +570,7 @@ func TestDestructiveTransaction(t *testing.T) {
 		t.Fatal("prepare error:", err)
 	}
 	var rows [][]interface{}
-	rows, err = testGetRows(t, stmt, []interface{}{1})
+	rows, err = testGetRows(stmt, []interface{}{1})
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -639,7 +609,7 @@ func TestDestructiveTransaction(t *testing.T) {
 	}
 
 	// tx1 with rows A = 4
-	rows, err = testGetRows(t, stmt, []interface{}{4})
+	rows, err = testGetRows(stmt, []interface{}{4})
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -682,7 +652,7 @@ func TestDestructiveTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal("prepare error:", err)
 	}
-	rows, err = testGetRows(t, stmt, []interface{}{1})
+	rows, err = testGetRows(stmt, []interface{}{1})
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -721,7 +691,7 @@ func TestDestructiveTransaction(t *testing.T) {
 	}
 
 	// tx2 with rows A = 4
-	rows, err = testGetRows(t, stmt, []interface{}{4})
+	rows, err = testGetRows(stmt, []interface{}{4})
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -823,10 +793,7 @@ func TestInsertRowid(t *testing.T) {
 		t.Fatal("exec error:", err)
 	}
 
-	err = stmt.Close()
-	if err != nil {
-		t.Fatal("stmt close error:", err)
-	}
+	closeStatement(t, stmt)
 
 	// drop table
 	defer func() {
@@ -846,10 +813,7 @@ func TestInsertRowid(t *testing.T) {
 			t.Fatal("exec error:", err)
 		}
 
-		err = stmt.Close()
-		if err != nil {
-			t.Fatal("stmt close error:", err)
-		}
+		closeStatement(t, stmt)
 	}()
 
 	// insert into table
@@ -1144,7 +1108,7 @@ func TestQuestionMark(t *testing.T) {
 	}
 
 	var result [][]interface{}
-	result, err = testGetRows(t, stmt, []interface{}{1, 2.25, "three"})
+	result, err = testGetRows(stmt, []interface{}{1, 2.25, "three"})
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -1208,10 +1172,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 		b.Fatal("exec error:", err)
 	}
 
-	err = stmt.Close()
-	if err != nil {
-		b.Fatal("stmt close error:", err)
-	}
+	closeStatement(b, stmt)
 
 	// drop table
 	defer func() {
@@ -1231,10 +1192,7 @@ func BenchmarkSimpleInsert(b *testing.B) {
 			b.Fatal("exec error:", err)
 		}
 
-		err = stmt.Close()
-		if err != nil {
-			b.Fatal("stmt close error:", err)
-		}
+		closeStatement(b, stmt)
 	}()
 
 	// insert into table
@@ -1292,10 +1250,7 @@ func benchmarkSelectSetup(b *testing.B) {
 	// enable drop table in TestMain
 	benchmarkSelectTableCreated = true
 
-	err = stmt.Close()
-	if err != nil {
-		b.Fatal("stmt close error:", err)
-	}
+	closeStatement(b, stmt)
 
 	// insert into table
 	query = "insert into " + tableName + ` ( A, B, C, D, E, F, G, H )
@@ -1495,47 +1450,61 @@ func doParallelSelect(t *testing.T, db *sql.DB) {
 	for i := 0; i < 50; i++ {
 		go func(num int) {
 			defer waitGroup.Done()
-
-			ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
-			stmt, err := db.PrepareContext(ctx, "select :1 from dual")
-			cancel()
-			if err != nil {
-				t.Fatal("prepare error:", err)
-			}
-			defer func() {
-				if stmt != nil {
-					err := stmt.Close()
-					if err != nil {
-						t.Fatal("stmt close error:", err)
-					}
-				}
-			}()
-
-			var result [][]interface{}
-			result, err = testGetRows(t, stmt, []interface{}{num})
-			if err != nil {
-				t.Fatal("get rows error:", err)
-			}
-			if result == nil {
-				t.Fatal("result is nil")
-			}
-			if len(result) != 1 {
-				t.Fatal("len result not equal to 1")
-			}
-			if len(result[0]) != 1 {
-				t.Fatal("len result[0] not equal to 1")
-			}
-			data, ok := result[0][0].(float64)
-			if !ok {
-				t.Fatal("result not float64")
-			}
-			if data != float64(num) {
-				t.Fatal("result not equal to:", num)
-			}
+			doPrepareAndSelect(t, db, num)
 		}(i)
 	}
 
 	waitGroup.Wait()
+}
+
+func doPrepareAndSelect(t fataler, db *sql.DB, num int) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := db.PrepareContext(ctx, "select :1 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+	defer func() {
+		if stmt != nil {
+			closeStatement(t, stmt)
+		}
+	}()
+
+	doSelect(t, stmt, num)
+}
+
+func BenchmarkSelectNoCaching(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+	for i := 0; i < b.N; i++ {
+		doPrepareAndSelect(b, TestDB, i)
+	}
+}
+
+func BenchmarkSelectWithCaching(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	db := testGetDB("?stmt_cache_size=100")
+	if db == nil {
+		b.Fatal("db is null")
+	}
+
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			b.Fatal("db close error:", err)
+		}
+	}()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		doPrepareAndSelect(b, db, i)
+	}
 }
 
 func BenchmarkPrefetchR0M32768(b *testing.B) {
@@ -1595,5 +1564,44 @@ func BenchmarkPrefetchR1000M0(b *testing.B) {
 
 	for n := 0; n < b.N; {
 		benchmarkPrefetchSelect(b, 1000, 0, &n)
+	}
+}
+
+type fataler interface {
+	Fatal(args ...interface{})
+}
+
+func doSelect(t fataler, stmt *sql.Stmt, num int) {
+	var result [][]interface{}
+	result, err := testGetRows(stmt, []interface{}{num})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if len(result) != 1 {
+		t.Fatal("len result not equal to 1")
+	}
+	if len(result[0]) != 1 {
+		t.Fatal("len result[0] not equal to 1")
+	}
+	data, ok := result[0][0].(float64)
+	if !ok {
+		t.Fatal("result not float64")
+	}
+	if data != float64(num) {
+		t.Fatal("result not equal to:", num)
+	}
+}
+
+type closer interface {
+	Close() error
+}
+
+func closeStatement(t fataler, stmt closer) {
+	err := stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
 }

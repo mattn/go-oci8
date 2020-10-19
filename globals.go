@@ -89,6 +89,7 @@ type (
 		cacheKey string // if statement caching is enabled, this is the key for this statement into the cache
 		cacheHit bool   // if statement caching is enabled, this will be true when we get a cache hit for a given
 		// query. False if it was a miss, or caching is not enabled.
+		deleteCacheEntry bool
 	}
 
 	// Rows is Oracle rows

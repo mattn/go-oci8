@@ -25,35 +25,28 @@ func (stmt *Stmt) Close() error {
 	var result C.sword
 	if stmt.cacheKey == "" {
 		result = C.OCIStmtRelease(
-			stmt.stmt,            // statement handle
-			stmt.conn.errHandle,  // error handle
-			nil,                  // key to be associated with the statement in the cache
-			C.ub4(0),             // length of the key
-			C.ub4(C.OCI_DEFAULT), // mode
+			stmt.stmt,           // statement handle
+			stmt.conn.errHandle, // error handle
+			nil,                 // key to be associated with the statement in the cache
+			C.ub4(0),            // length of the key
+			stmt.releaseMode,    // mode
 		)
 	} else {
 		cacheKeyP := cString(stmt.cacheKey)
 		defer C.free(unsafe.Pointer(cacheKeyP))
 
 		result = C.OCIStmtRelease(
-			stmt.stmt,                   // statement handle
-			stmt.conn.errHandle,         // error handle
-			cacheKeyP,                   // key to be associated with the statement in the cache
-			C.ub4(len(stmt.cacheKey)),   // length of the key
-			stmt.determineReleaseMode(), // mode
+			stmt.stmt,                 // statement handle
+			stmt.conn.errHandle,       // error handle
+			cacheKeyP,                 // key to be associated with the statement in the cache
+			C.ub4(len(stmt.cacheKey)), // length of the key
+			stmt.releaseMode,          // mode
 		)
 	}
 
 	stmt.stmt = nil
 
 	return stmt.conn.getError(result)
-}
-
-func (stmt *Stmt) determineReleaseMode() C.ub4 {
-	if stmt.deleteCacheEntry {
-		return C.ub4(C.OCI_STRLS_CACHE_DELETE)
-	}
-	return C.ub4(C.OCI_DEFAULT)
 }
 
 // NumInput returns the number of input
@@ -1033,9 +1026,9 @@ func (stmt *Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 		mode,                // The mode: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci17msc001.htm#LNOCI17163
 	)
 
-	if result != C.OCI_SUCCESS && stmt.cacheKey != "" {
+	if (result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO) && stmt.cacheKey != "" {
 		// drop statement from cache for all errors when caching is enabled
-		stmt.deleteCacheEntry = true
+		stmt.releaseMode = C.ub4(C.OCI_STRLS_CACHE_DELETE)
 	}
 
 	return stmt.conn.getError(result)

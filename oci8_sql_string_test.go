@@ -1194,7 +1194,7 @@ func TestSelectDualString(t *testing.T) {
 	}
 
 	var result [][]interface{}
-	result, err = testGetRows(stmt, nil)
+	result, err = testGetRows(t, stmt, nil)
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}
@@ -1709,7 +1709,7 @@ func TestDestructiveString(t *testing.T) {
 	}
 
 	var result [][]interface{}
-	result, err = testGetRows(stmt, nil)
+	result, err = testGetRows(t, stmt, nil)
 	if err != nil {
 		t.Fatal("get rows error:", err)
 	}

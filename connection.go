@@ -124,11 +124,10 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 			return nil, conn.getError(rv)
 		}
 
-		return &Stmt{conn: conn, stmt: *stmt, ctx: ctx}, nil
+		return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.ub4(C.OCI_DEFAULT)}, nil
 	}
 
-	var rv C.sword
-	if rv = C.OCIStmtPrepare2(
+	if rv := C.OCIStmtPrepare2(
 		conn.svc,                // service context handle
 		stmt,                    // pointer to the statement handle returned
 		conn.errHandle,          // error handle
@@ -143,7 +142,7 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 		return nil, conn.getError(rv)
 	}
 
-	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, cacheKey: query, cacheHit: rv == C.OCI_SUCCESS}, nil
+	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.ub4(C.OCI_DEFAULT), cacheKey: query}, nil
 }
 
 // Begin starts a transaction

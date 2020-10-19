@@ -49,16 +49,18 @@ func TestStatementCaching(t *testing.T) {
 
 	rawStmt := stmt.(*Stmt)
 	if rawStmt.cacheKey != "select ?, ?, ? from dual" {
-		closeStatement(t, stmt)
+		err := stmt.Close()
+		if err != nil {
+			t.Fatal("stmt close error:", err)
+		}
 		t.Fatalf("cacheKey not equal: expected %s, but got %s", "select ?, ?, ? from dual", rawStmt.cacheKey)
-	}
-	if rawStmt.cacheHit {
-		closeStatement(t, stmt)
-		t.Fatalf("should not have been a cache hit the first time the statement is prepared")
 	}
 
 	// closing the statement should put the statement into the cache
-	closeStatement(t, stmt)
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
+	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err = rawConn.PrepareContext(ctx, "select ?, ?, ? from dual")
@@ -69,12 +71,14 @@ func TestStatementCaching(t *testing.T) {
 
 	rawStmt = stmt.(*Stmt)
 	if rawStmt.cacheKey != "select ?, ?, ? from dual" {
-		closeStatement(t, stmt)
+		err := stmt.Close()
+		if err != nil {
+			t.Fatal("stmt close error:", err)
+		}
 		t.Fatalf("cacheKey not equal: expected %s, but got %s", "select ?, ?, ? from dual", rawStmt.cacheKey)
 	}
-	if !rawStmt.cacheHit {
-		closeStatement(t, stmt)
-		t.Fatalf("should have been a cache hit the second time the statement is prepared")
+	err = stmt.Close()
+	if err != nil {
+		t.Fatal("stmt close error:", err)
 	}
-	closeStatement(t, stmt)
 }

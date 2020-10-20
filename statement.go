@@ -22,13 +22,28 @@ func (stmt *Stmt) Close() error {
 	}
 	stmt.closed = true
 
-	result := C.OCIStmtRelease(
-		stmt.stmt,            // statement handle
-		stmt.conn.errHandle,  // error handle
-		nil,                  // key to be associated with the statement in the cache
-		C.ub4(0),             // length of the key
-		C.ub4(C.OCI_DEFAULT), // mode
-	)
+	var result C.sword
+	if stmt.cacheKey == "" {
+		result = C.OCIStmtRelease(
+			stmt.stmt,           // statement handle
+			stmt.conn.errHandle, // error handle
+			nil,                 // key to be associated with the statement in the cache
+			C.ub4(0),            // length of the key
+			stmt.releaseMode,    // mode
+		)
+	} else {
+		cacheKeyP := cString(stmt.cacheKey)
+		defer C.free(unsafe.Pointer(cacheKeyP))
+
+		result = C.OCIStmtRelease(
+			stmt.stmt,                 // statement handle
+			stmt.conn.errHandle,       // error handle
+			cacheKeyP,                 // key to be associated with the statement in the cache
+			C.ub4(len(stmt.cacheKey)), // length of the key
+			stmt.releaseMode,          // mode
+		)
+	}
+
 	stmt.stmt = nil
 
 	return stmt.conn.getError(result)
@@ -1010,6 +1025,11 @@ func (stmt *Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 		nil,                 // This parameter is optional. If it is supplied, it must point to a descriptor of type OCI_DTYPE_SNAP.
 		mode,                // The mode: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci17msc001.htm#LNOCI17163
 	)
+
+	if stmt.cacheKey != "" && result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
+		// drop statement from cache for all errors when caching is enabled
+		stmt.releaseMode = C.OCI_STRLS_CACHE_DELETE
+	}
 
 	return stmt.conn.getError(result)
 }

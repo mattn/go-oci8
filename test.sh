@@ -53,10 +53,13 @@ sqlplus -L -S "sys/oracle@${DOCKER_IP}:1521 as sysdba" <<SQL
 CREATE USER scott IDENTIFIED BY tiger DEFAULT TABLESPACE users TEMPORARY TABLESPACE temp;
 GRANT connect, resource, create view, create synonym TO scott;
 GRANT execute ON SYS.DBMS_LOCK TO scott;
-/
+alter system set processes=300 scope=spfile;
+shutdown immediate
 
 SQL
 
+echo "starting Oracle"
+/usr/sbin/startup.sh
 
 echo "creating oci8.pc"
 mkdir -p /usr/local/pkg_config

@@ -202,7 +202,7 @@ func (rows *Rows) Next(dest []driver.Value) error {
 		// SQLT_RSET - ref cursor
 		case C.SQLT_RSET:
 			stmtP := (**C.OCIStmt)(rows.defines[i].pbuf)
-			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP, ctx: rows.stmt.ctx}
+			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP, ctx: rows.stmt.ctx, releaseMode: C.ub4(C.OCI_DEFAULT)}
 			if rows.defines[i].subDefines == nil {
 				var err error
 				rows.defines[i].subDefines, err = subStmt.makeDefines()

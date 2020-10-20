@@ -66,7 +66,7 @@ func testExecQuery(t *testing.T, query string, args []interface{}) {
 }
 
 // testGetRows runs a statement and returns the rows as [][]interface{}
-func testGetRows(t *testing.T, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
+func testGetRows(t testing.TB, stmt *sql.Stmt, args []interface{}) ([][]interface{}, error) {
 	// get rows
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	defer cancel()
@@ -468,7 +468,7 @@ end;
 	_, err = stmt.ExecContext(ctx)
 	cancel()
 	expected := "ORA-01013"
-	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+	if err == nil || len(err.Error()) < len(expected) || !strings.Contains(err.Error(), expected) {
 		t.Fatalf("stmt exec - expected: %v - received: %v", expected, err)
 	}
 
@@ -488,7 +488,7 @@ end;
 	ctx, cancel = context.WithTimeout(context.Background(), 200*time.Millisecond)
 	_, err = stmt.QueryContext(ctx)
 	cancel()
-	if err == nil || len(err.Error()) < len(expected) || err.Error()[:len(expected)] != expected {
+	if err == nil || len(err.Error()) < len(expected) || !strings.Contains(err.Error(), expected) {
 		t.Fatalf("stmt query - expected: %v - received: %v", expected, err)
 	}
 
@@ -1472,6 +1472,104 @@ func benchmarkPrefetchSelect(b *testing.B, prefetchRows int64, prefetchMemory in
 	err = rows.Err()
 	if err != nil {
 		b.Fatal("err error:", err)
+	}
+}
+
+// TestSelectParallelWithStatementCaching checks parallel select from dual but with statement caching enabled
+func TestSelectParallelWithStatementCaching(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+	db := testGetDB("?stmt_cache_size=100")
+	if db == nil {
+		t.Fatal("db is null")
+	}
+
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(50)
+
+	for i := 0; i < 50; i++ {
+		go func(num int) {
+			defer waitGroup.Done()
+
+			selectNumFromDual(t, db, float64(num))
+		}(i)
+	}
+
+	waitGroup.Wait()
+}
+
+// selectNumFromDual will execute a "select :1 from dual" where the parameter is the num param of this function
+func selectNumFromDual(t testing.TB, db *sql.DB, num float64) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	stmt, err := db.PrepareContext(ctx, "select :1 from dual")
+	cancel()
+	if err != nil {
+		t.Fatal("prepare error:", err)
+	}
+	defer func() {
+		if stmt != nil {
+			err := stmt.Close()
+			if err != nil {
+				t.Fatal("stmt close error:", err)
+			}
+		}
+	}()
+
+	var result [][]interface{}
+	result, err = testGetRows(t, stmt, []interface{}{num})
+	if err != nil {
+		t.Fatal("get rows error:", err)
+	}
+	if result == nil {
+		t.Fatal("result is nil")
+	}
+	if len(result) != 1 {
+		t.Fatal("len result not equal to 1")
+	}
+	if len(result[0]) != 1 {
+		t.Fatal("len result[0] not equal to 1")
+	}
+	data, ok := result[0][0].(float64)
+	if !ok {
+		t.Fatal("result not float64")
+	}
+	if data != num {
+		t.Fatal("result not equal to:", num)
+	}
+}
+
+func BenchmarkSelectNoCaching(b *testing.B) {
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+	for i := 0; i < b.N; i++ {
+		selectNumFromDual(b, TestDB, float64(i))
+	}
+}
+
+func BenchmarkSelectWithCaching(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	db := testGetDB("?stmt_cache_size=100")
+	if db == nil {
+		b.Fatal("db is null")
+	}
+
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			b.Fatal("db close error:", err)
+		}
+	}()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		selectNumFromDual(b, db, float64(i))
 	}
 }
 

@@ -51,6 +51,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	dsn = &DSN{
 		prefetchRows:   0,
 		prefetchMemory: 4096,
+		stmtCacheSize:  0,
 		operationMode:  C.OCI_DEFAULT,
 		timeLocation:   time.UTC,
 	}
@@ -119,7 +120,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			default:
 				return nil, fmt.Errorf("Invalid as: %v", v[0])
 			}
-
+		case "stmt_cache_size":
+			z, err := strconv.ParseUint(v[0], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid stmt_cache_size: %v", v[0])
+			}
+			dsn.stmtCacheSize = C.ub4(z)
 		}
 	}
 
@@ -162,6 +168,7 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 
 	conn := Conn{
 		operationMode: dsn.operationMode,
+		stmtCacheSize: dsn.stmtCacheSize,
 		logger:        drv.Logger,
 	}
 	if conn.logger == nil {
@@ -351,6 +358,14 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.usrSession), 0, C.OCI_ATTR_SESSION)
 		if err != nil {
 			return nil, fmt.Errorf("authentication context attribute set error: %v", err)
+		}
+
+		if dsn.stmtCacheSize > 0 {
+			stmtCacheSize := dsn.stmtCacheSize
+			err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(&stmtCacheSize), 0, C.OCI_ATTR_STMTCACHESIZE)
+			if err != nil {
+				return nil, fmt.Errorf("stmt cache size attribute set error: %v", err)
+			}
 		}
 
 	} else {

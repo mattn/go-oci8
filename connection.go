@@ -124,7 +124,7 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 			return nil, conn.getError(rv)
 		}
 
-		return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.ub4(C.OCI_DEFAULT)}, nil
+		return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.OCI_DEFAULT}, nil
 	}
 
 	if rv := C.OCIStmtPrepare2(
@@ -142,7 +142,7 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 		return nil, conn.getError(rv)
 	}
 
-	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.ub4(C.OCI_DEFAULT), cacheKey: query}, nil
+	return &Stmt{conn: conn, stmt: *stmt, ctx: ctx, releaseMode: C.OCI_DEFAULT, cacheKey: query}, nil
 }
 
 // Begin starts a transaction

@@ -1492,7 +1492,7 @@ func TestSelectParallelWithStatementCaching(t *testing.T) {
 		go func(num int) {
 			defer waitGroup.Done()
 
-			selectNumFromDual(t, db, num)
+			selectNumFromDual(t, db, float64(num))
 		}(i)
 	}
 
@@ -1500,7 +1500,7 @@ func TestSelectParallelWithStatementCaching(t *testing.T) {
 }
 
 // selectNumFromDual will execute a "select :1 from dual" where the parameter is the num param of this function
-func selectNumFromDual(t testing.TB, db *sql.DB, num int) {
+func selectNumFromDual(t testing.TB, db *sql.DB, num float64) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := db.PrepareContext(ctx, "select :1 from dual")
 	cancel()
@@ -1534,7 +1534,7 @@ func selectNumFromDual(t testing.TB, db *sql.DB, num int) {
 	if !ok {
 		t.Fatal("result not float64")
 	}
-	if data != float64(num) {
+	if data != num {
 		t.Fatal("result not equal to:", num)
 	}
 }
@@ -1544,7 +1544,7 @@ func BenchmarkSelectNoCaching(b *testing.B) {
 		b.SkipNow()
 	}
 	for i := 0; i < b.N; i++ {
-		selectNumFromDual(b, TestDB, i)
+		selectNumFromDual(b, TestDB, float64(i))
 	}
 }
 
@@ -1569,7 +1569,7 @@ func BenchmarkSelectWithCaching(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		selectNumFromDual(b, db, i)
+		selectNumFromDual(b, db, float64(i))
 	}
 }
 

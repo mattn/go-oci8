@@ -1026,9 +1026,9 @@ func (stmt *Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 		mode,                // The mode: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci17msc001.htm#LNOCI17163
 	)
 
-	if (result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO) && stmt.cacheKey != "" {
+	if stmt.cacheKey != "" && result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
 		// drop statement from cache for all errors when caching is enabled
-		stmt.releaseMode = C.ub4(C.OCI_STRLS_CACHE_DELETE)
+		stmt.releaseMode = C.OCI_STRLS_CACHE_DELETE
 	}
 
 	return stmt.conn.getError(result)

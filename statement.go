@@ -673,6 +673,7 @@ func (stmt *Stmt) getRowid() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer C.OCIDescriptorFree(*rowidP, C.OCI_DTYPE_ROWID)
 
 	// OCI_ATTR_ROWID returns the ROWID descriptor allocated with OCIDescriptorAlloc()
 	_, err = stmt.ociAttrGet(*rowidP, C.OCI_ATTR_ROWID)

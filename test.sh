@@ -1,20 +1,28 @@
 
+#!/bin/bash
 set -e
 
 echo "installing build tools"
 apt-get -qq -y update  2>&1 > /dev/null
 apt-get -qq -y install git pkg-config gcc wget  2>&1 > /dev/null
 
-
 echo "installing go"
 cd /tmp/
-wget -nv https://dl.google.com/go/go1.15.6.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.14.13.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.13.15.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.12.17.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.11.13.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.10.8.linux-amd64.tar.gz
-wget -nv https://dl.google.com/go/go1.9.7.linux-amd64.tar.gz
+
+FILE=go1.15.6.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.15.6.linux-amd64.tar.gz
+FILE=go1.14.13.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.14.13.linux-amd64.tar.gz
+FILE=go1.13.15.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.13.15.linux-amd64.tar.gz
+FILE=go1.12.17.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.12.17.linux-amd64.tar.gz
+FILE=go1.11.13.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.11.13.linux-amd64.tar.gz
+FILE=go1.10.8.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.10.8.linux-amd64.tar.gz
+FILE=go1.9.7.linux-amd64.tar.gz
+[ ! -e "${FILE}" ] && wget -nv https://dl.google.com/go/go1.9.7.linux-amd64.tar.gz
 
 mkdir -p /usr/local/goFiles1.15.x
 tar -xf /tmp/go1.15.6.linux-amd64.tar.gz
@@ -44,10 +52,8 @@ mkdir -p /usr/local/goFiles1.9.x
 tar -xf /tmp/go1.9.7.linux-amd64.tar.gz
 mv /tmp/go /usr/local/go1.9.x
 
-
 echo "starting Oracle"
 /usr/sbin/startup.sh
-
 
 echo "setting up Oracle"
 export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe

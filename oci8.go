@@ -245,6 +245,10 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 				C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 				conn.errHandle = nil
 			}
+			if conn.txHandle != nil {
+				C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
+				conn.txHandle = nil
+			}
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 		}
 	}(&err)
@@ -392,18 +396,17 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 	}
 
 	// Create transaction context.
-	trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+	handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
 	if err != nil {
 		return nil, fmt.Errorf("allocate transaction handle error: %v", err)
 	}
+	conn.txHandle = (*C.OCITrans)(*handle)
 
 	// Set transaction context attribute of the service context.
-	err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
+	err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *handle, 0, C.OCI_ATTR_TRANS)
 	if err != nil {
-		C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
 		return nil, err
 	}
-	conn.txHandle = (*C.OCITrans)(*trans)
 
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetchRows = dsn.prefetchRows

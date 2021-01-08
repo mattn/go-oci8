@@ -405,7 +405,7 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 	// Set transaction context attribute of the service context.
 	err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *handle, 0, C.OCI_ATTR_TRANS)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service context attribute set error: %v", err)
 	}
 
 	conn.transactionMode = dsn.transactionMode

@@ -229,6 +229,10 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 					C.OCI_DEFAULT,
 				)
 			}
+			if conn.txHandle != nil {
+				C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
+				conn.txHandle = nil
+			}
 			if conn.usrSession != nil {
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				conn.usrSession = nil
@@ -244,10 +248,6 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 			if conn.errHandle != nil {
 				C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
 				conn.errHandle = nil
-			}
-			if conn.txHandle != nil {
-				C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
-				conn.txHandle = nil
 			}
 			C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 		}

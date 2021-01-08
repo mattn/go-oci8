@@ -159,23 +159,6 @@ func (conn *Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driv
 	}
 
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
-		// transaction handle
-		if conn.txHandle == nil {
-			trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
-			if err != nil {
-				return nil, fmt.Errorf("allocate transaction handle error: %v", err)
-			}
-
-			// sets the transaction context attribute of the service context
-			err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
-			if err != nil {
-				C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
-				return nil, err
-			}
-
-			conn.txHandle = (*C.OCITrans)(*trans)
-		}
-
 		if rv := C.OCITransStart(
 			conn.svc,
 			conn.errHandle,
@@ -184,7 +167,6 @@ func (conn *Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driv
 		); rv != C.OCI_SUCCESS {
 			return nil, conn.getError(rv)
 		}
-
 	}
 
 	conn.inTransaction = true

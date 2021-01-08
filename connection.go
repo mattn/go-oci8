@@ -77,9 +77,11 @@ func (conn *Conn) Close() error {
 
 	C.OCIHandleFree(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX)
 	C.OCIHandleFree(unsafe.Pointer(conn.errHandle), C.OCI_HTYPE_ERROR)
+	C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
 	C.OCIHandleFree(unsafe.Pointer(conn.env), C.OCI_HTYPE_ENV)
 	conn.svc = nil
 	conn.errHandle = nil
+	conn.txHandle = nil
 	conn.env = nil
 
 	return err
@@ -158,27 +160,27 @@ func (conn *Conn) BeginTx(ctx context.Context, txOptions driver.TxOptions) (driv
 
 	if conn.transactionMode != C.OCI_TRANS_READWRITE {
 		// transaction handle
-		trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
-		if err != nil {
-			return nil, fmt.Errorf("allocate transaction handle error: %v", err)
-		}
+		if conn.txHandle == nil {
+			trans, _, err := conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+			if err != nil {
+				return nil, fmt.Errorf("allocate transaction handle error: %v", err)
+			}
 
-		// sets the transaction context attribute of the service context
-		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
-		if err != nil {
-			C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
-			return nil, err
-		}
+			// sets the transaction context attribute of the service context
+			err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *trans, 0, C.OCI_ATTR_TRANS)
+			if err != nil {
+				C.OCIHandleFree(*trans, C.OCI_HTYPE_TRANS)
+				return nil, err
+			}
 
-		// transaction handle should be freed by something once attached to the service context
-		// but I cannot find anything in the documentation explicitly calling this out
-		// going by examples: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci17msc006.htm#i428845
+			conn.txHandle = (*C.OCITrans)(*trans)
+		}
 
 		if rv := C.OCITransStart(
 			conn.svc,
 			conn.errHandle,
 			0,
-			conn.transactionMode, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
+			conn.transactionMode|C.OCI_TRANS_NEW, // mode is: C.OCI_TRANS_SERIALIZABLE, C.OCI_TRANS_READWRITE, or C.OCI_TRANS_READONLY
 		); rv != C.OCI_SUCCESS {
 			return nil, conn.getError(rv)
 		}

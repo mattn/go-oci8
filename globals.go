@@ -63,6 +63,7 @@ type (
 		env                  *C.OCIEnv
 		errHandle            *C.OCIError
 		usrSession           *C.OCISession
+		txHandle             *C.OCITrans
 		prefetchRows         C.ub4
 		prefetchMemory       C.ub4
 		transactionMode      C.ub4

@@ -229,6 +229,10 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 					C.OCI_DEFAULT,
 				)
 			}
+			if conn.txHandle != nil {
+				C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
+				conn.txHandle = nil
+			}
 			if conn.usrSession != nil {
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				conn.usrSession = nil
@@ -389,7 +393,19 @@ func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 		}
 		conn.svc = *svcCtxPP
 		doneLogon = true
+	}
 
+	// Create transaction context.
+	handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+	if err != nil {
+		return nil, fmt.Errorf("allocate transaction handle error: %v", err)
+	}
+	conn.txHandle = (*C.OCITrans)(*handle)
+
+	// Set transaction context attribute of the service context.
+	err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *handle, 0, C.OCI_ATTR_TRANS)
+	if err != nil {
+		return nil, fmt.Errorf("service context attribute set error: %v", err)
 	}
 
 	conn.transactionMode = dsn.transactionMode

@@ -781,6 +781,84 @@ func TestDestructiveTransaction(t *testing.T) {
 		},
 	}
 	testRunQueryResults(t, queryResults)
+
+	// Run new transactions after the others finished successfully.
+	var tx3 *sql.Tx
+	var tx4 *sql.Tx
+
+	tx3, err = TestDB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal("begin tx error:", err)
+	}
+
+	tx4, err = TestDB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal("begin tx error:", err)
+	}
+
+	result, err = tx4.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{99, 1}...)
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("rows affected %v not equal to 1", count)
+	}
+
+	result, err = tx3.ExecContext(ctx, "update TRANSACTION_"+TestTimeString+" set B = :1 where A = :2", []interface{}{88, 6}...)
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+
+	count, err = result.RowsAffected()
+	if err != nil {
+		t.Fatal("rows affected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("rows affected %v not equal to 1", count)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{int64(1), int64(22), int64(3)},
+					{int64(4), int64(55), int64(6)},
+					{int64(6), int64(7), int64(8)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
+
+	err = tx3.Commit()
+	if err != nil {
+		t.Fatal("commit err:", err)
+	}
+
+	err = tx4.Rollback()
+	if err != nil {
+		t.Fatal("commit err:", err)
+	}
+
+	queryResults = testQueryResults{
+		query: "select A, B, C from TRANSACTION_" + TestTimeString + " order by A",
+		queryResults: []testQueryResult{
+			{
+				results: [][]interface{}{
+					{int64(1), int64(22), int64(3)},
+					{int64(4), int64(55), int64(6)},
+					{int64(6), int64(88), int64(8)},
+				},
+			},
+		},
+	}
+	testRunQueryResults(t, queryResults)
 }
 
 // TestSelectDualNull checks null from dual

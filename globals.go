@@ -1,7 +1,6 @@
 package oci8
 
 /*
-#cgo !noPkgConfig pkg-config: oci8
 #include "oci8.go.h"
 */
 import "C"
@@ -10,13 +9,14 @@ import "C"
 
 import (
 	"errors"
-	"github.com/relloyd/go-sql/database/sql"
-	"github.com/relloyd/go-sql/database/sql/driver"
 	"io/ioutil"
 	"log"
 	"regexp"
 	"time"
 	"unsafe"
+
+	"github.com/relloyd/go-sql/database/sql"
+	"github.com/relloyd/go-sql/database/sql/driver"
 )
 
 const (

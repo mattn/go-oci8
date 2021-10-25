@@ -1,11 +1,13 @@
 package oci8
 
-/*
-#include "oci8.go.h"
-*/
+// #cgo darwin LDFLAGS: -L /usr/local/lib -lclntsh
+// #cgo darwin CFLAGS: -I/usr/local/include
+// #cgo linux LDFLAGS: -L /usr/local/lib -lclntsh
+// #cgo linux CFLAGS: -I/usr/local/include
+// #cgo freebsd LDFLAGS: -L /usr/local/lib -lclntsh
+// #cgo freebsd CFLAGS: -I/usr/local/include
+// #include "oci8.go.h"
 import "C"
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
 	"errors"

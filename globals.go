@@ -1,12 +1,11 @@
 package oci8
 
 /*
-#cgo !noPkgConfig pkg-config: oci8
+#cgo CFLAGS: -I${SRCDIR}/x86_64/include
+#cgo LDFLAGS: ${SRCDIR}/x86_64/lib/libobci.a -lstdc++ -lpthread -ldl -lm
 #include "oci8.go.h"
 */
 import "C"
-
-// noPkgConfig is a Go tag for disabling using pkg-config and using environmental settings like CGO_CFLAGS and CGO_LDFLAGS instead
 
 import (
 	"context"

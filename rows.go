@@ -46,9 +46,7 @@ func (rows *Rows) Next(dest []driver.Value) error {
 		return rows.stmt.ctx.Err()
 	}
 
-	done := make(chan struct{})
-	defer close(done)
-	go rows.stmt.conn.ociBreakDone(rows.stmt.ctx, done)
+	done := rows.stmt.conn.ociBreakOnDone(rows.stmt.ctx)
 	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,
@@ -56,6 +54,7 @@ func (rows *Rows) Next(dest []driver.Value) error {
 		C.OCI_FETCH_NEXT,
 		0,
 		C.OCI_DEFAULT)
+	closeDone(done)
 	if result == C.OCI_NO_DATA {
 		return io.EOF
 	} else if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {

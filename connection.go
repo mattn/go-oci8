@@ -34,8 +34,20 @@ func (conn *Conn) Ping(ctx context.Context) error {
 		return nil
 	}
 
+	if ctx.Err() != nil {
+		// the ping was interrupted by OCIBreak because the context is done
+		return ctx.Err()
+	}
+
 	conn.logger.Print("Ping error: ", err)
-	return driver.ErrBadConn
+
+	switch errorCode {
+	case 28, 1012, 1033, 1034, 1089, 3113, 3114, 3135, 12528, 12537:
+		// see getError for the list of bad connection errors
+		return driver.ErrBadConn
+	}
+
+	return err
 }
 
 // Close a connection

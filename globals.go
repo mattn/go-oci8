@@ -52,6 +52,8 @@ type (
 	Connector struct {
 		// Logger is used to log connection ping errors
 		Logger *log.Logger
+
+		dsnString string
 	}
 
 	// Conn is Oracle connection

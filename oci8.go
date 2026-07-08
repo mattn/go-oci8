@@ -73,6 +73,9 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	dsn.Connect = host
 
 	qp, err := ParseQuery(params)
+	if err != nil {
+		return nil, fmt.Errorf("invalid dsn parameters: %v", err)
+	}
 	for k, v := range qp {
 		switch k {
 		case "loc":

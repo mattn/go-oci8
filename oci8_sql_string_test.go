@@ -1788,7 +1788,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
-			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+			{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1799,7 +1799,7 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{
-					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+					{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 				},
 			},
 		},
@@ -1864,7 +1864,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
-			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+			{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1875,7 +1875,7 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{
-					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+					{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 				},
 			},
 		},

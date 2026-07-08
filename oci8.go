@@ -49,11 +49,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 	}
 
 	dsn = &DSN{
-		prefetchRows:   0,
-		prefetchMemory: 4096,
-		stmtCacheSize:  0,
-		operationMode:  C.OCI_DEFAULT,
-		timeLocation:   time.UTC,
+		prefetchRows:    0,
+		prefetchMemory:  4096,
+		stmtCacheSize:   0,
+		operationMode:   C.OCI_DEFAULT,
+		transactionMode: C.OCI_TRANS_READWRITE,
+		timeLocation:    time.UTC,
 	}
 
 	authority, dsnString := splitRight(dsnString, "@")

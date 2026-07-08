@@ -431,7 +431,7 @@ func (stmt *Stmt) query(binds []bindStruct) (driver.Rows, error) {
 	go stmt.conn.ociBreakDone(stmt.ctx, done)
 	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
-	if err != nil {
+	if err != nil && err != ErrOCISuccessWithInfo {
 		return nil, err
 	}
 

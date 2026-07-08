@@ -19,10 +19,9 @@ func (conn *Conn) Ping(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	done := make(chan struct{})
-	go conn.ociBreakDone(ctx, done)
+	done := conn.ociBreakOnDone(ctx)
 	result := C.OCIPing(conn.svc, conn.errHandle, C.OCI_DEFAULT)
-	close(done)
+	closeDone(done)
 
 	if result == C.OCI_SUCCESS || result == C.OCI_SUCCESS_WITH_INFO {
 		return nil
@@ -119,9 +118,7 @@ func (conn *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt
 		return nil, ctx.Err()
 	}
 
-	done := make(chan struct{})
-	go conn.ociBreakDone(ctx, done)
-	defer func() { close(done) }()
+	defer closeDone(conn.ociBreakOnDone(ctx))
 
 	if conn.stmtCacheSize == 0 {
 		if rv := C.OCIStmtPrepare2(
@@ -580,6 +577,27 @@ func appendSmallInt(slice []byte, num int) []byte {
 		return append(slice, '0', byte('0'+num))
 	}
 	return append(slice, byte('0'+num/10), byte('0'+(num%10)))
+}
+
+// ociBreakOnDone arranges for OCIBreak to interrupt the current OCI call
+// when ctx is canceled. The returned channel must be passed to closeDone
+// once the OCI call has finished. When ctx can never be canceled, no
+// goroutine is started and nil is returned.
+func (conn *Conn) ociBreakOnDone(ctx context.Context) chan struct{} {
+	if ctx == nil || ctx.Done() == nil {
+		return nil
+	}
+
+	done := make(chan struct{})
+	go conn.ociBreakDone(ctx, done)
+	return done
+}
+
+// closeDone closes a channel returned by ociBreakOnDone
+func closeDone(done chan struct{}) {
+	if done != nil {
+		close(done)
+	}
 }
 
 // ociBreakDone calls OCIBreak if ctx.Done is finished before done chan is closed

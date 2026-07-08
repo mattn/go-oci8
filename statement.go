@@ -427,10 +427,9 @@ func (stmt *Stmt) query(binds []bindStruct) (driver.Rows, error) {
 		return nil, stmt.ctx.Err()
 	}
 
-	done := make(chan struct{})
-	go stmt.conn.ociBreakDone(stmt.ctx, done)
+	done := stmt.conn.ociBreakOnDone(stmt.ctx)
 	err = stmt.ociStmtExecute(iter, mode)
-	close(done)
+	closeDone(done)
 	if err != nil && err != ErrOCISuccessWithInfo {
 		return nil, err
 	}
@@ -737,10 +736,9 @@ func (stmt *Stmt) exec(binds []bindStruct) (driver.Result, error) {
 		return nil, stmt.ctx.Err()
 	}
 
-	done := make(chan struct{})
-	go stmt.conn.ociBreakDone(stmt.ctx, done)
+	done := stmt.conn.ociBreakOnDone(stmt.ctx)
 	err := stmt.ociStmtExecute(1, mode)
-	close(done)
+	closeDone(done)
 	if err != nil && err != ErrOCISuccessWithInfo {
 		return nil, err
 	}

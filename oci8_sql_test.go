@@ -1721,3 +1721,88 @@ func BenchmarkPrefetchR1000M0(b *testing.B) {
 		benchmarkPrefetchSelect(b, 1000, 0, &n)
 	}
 }
+
+// BenchmarkPrefetchNoContext benchmarks row fetching through plain Query
+// without a cancelable context
+func BenchmarkPrefetchNoContext(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelectNoContext(b, &n)
+	}
+}
+
+// benchmarkPrefetchSelectNoContext is like benchmarkPrefetchSelect but uses
+// Query without a context so no OCIBreak goroutine is needed per call
+func benchmarkPrefetchSelectNoContext(b *testing.B, n *int) {
+	benchmarkSelectTableOnce.Do(func() { benchmarkSelectSetup(b) })
+
+	var err error
+
+	db := testGetDB("?prefetch_rows=1000&prefetch_memory=0")
+	if db == nil {
+		b.Fatal("db is null")
+	}
+
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			b.Fatal("db close error:", err)
+		}
+	}()
+
+	b.StartTimer()
+
+	var stmt *sql.Stmt
+	query := "select A, B, C, D, E, F, G, H from " + benchmarkSelectTableName
+	stmt, err = db.Prepare(query)
+	if err != nil {
+		b.Fatal("prepare error:", err)
+	}
+
+	defer func() {
+		err = stmt.Close()
+		if err != nil {
+			b.Fatal("stmt close error", err)
+		}
+	}()
+
+	var rows *sql.Rows
+	rows, err = stmt.Query()
+	if err != nil {
+		b.Fatal("query error:", err)
+	}
+
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			b.Fatal("row close error:", err)
+		}
+	}()
+
+	var data1 int64
+	var data2 int64
+	var data3 int64
+	var data4 int64
+	var data5 string
+	var data6 string
+	var data7 string
+	var data8 string
+	for ; rows.Next() && *n < b.N; *n++ {
+		err = rows.Scan(&data1, &data2, &data3, &data4, &data5, &data6, &data7, &data8)
+		if err != nil {
+			b.Fatal("scan error:", err)
+		}
+	}
+
+	b.StopTimer()
+
+	err = rows.Err()
+	if err != nil {
+		b.Fatal("rows err error:", err)
+	}
+}

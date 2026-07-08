@@ -1806,3 +1806,15 @@ func benchmarkPrefetchSelectNoContext(b *testing.B, n *int) {
 		b.Fatal("rows err error:", err)
 	}
 }
+
+func BenchmarkPrefetchR0M65536(b *testing.B) {
+	b.StopTimer()
+
+	if TestDisableDatabase || TestDisableDestructive {
+		b.SkipNow()
+	}
+
+	for n := 0; n < b.N; {
+		benchmarkPrefetchSelect(b, 0, 65536, &n)
+	}
+}

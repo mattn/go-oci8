@@ -444,21 +444,20 @@ func placeholders(sql string) string {
 func timezoneToLocation(hour int64, minute int64) *time.Location {
 	if minute != 0 || hour > 14 || hour < -12 {
 		// create location with FixedZone
-		var name string
-		if hour < 0 {
-			name = strconv.FormatInt(hour, 10) + ":"
-		} else {
-			name = "+" + strconv.FormatInt(hour, 10) + ":"
+		// note that for negative offsets both hour and minute are negative
+		offset := (3600 * int(hour)) + (60 * int(minute))
+		name := "+"
+		if hour < 0 || minute < 0 {
+			name = "-"
+			hour = -hour
+			minute = -minute
 		}
-		if minute == 0 {
-			name += "00"
-		} else {
-			if minute < 10 {
-				name += "0"
-			}
-			name += strconv.FormatInt(minute, 10)
+		name += strconv.FormatInt(hour, 10) + ":"
+		if minute < 10 {
+			name += "0"
 		}
-		return time.FixedZone(name, (3600*int(hour))+(60*int(minute)))
+		name += strconv.FormatInt(minute, 10)
+		return time.FixedZone(name, offset)
 	}
 
 	// use location from timeLocations cache

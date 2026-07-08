@@ -1788,7 +1788,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
-			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+			{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1799,7 +1799,7 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{
-					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+					{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 				},
 			},
 		},
@@ -1864,7 +1864,7 @@ func TestDestructiveString(t *testing.T) {
 
 	err = testExecRows(t, "insert into "+tableName+" ( A, B, C ) values (:1, :2, :3)",
 		[][]interface{}{
-			{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+			{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 		})
 	if err != nil {
 		t.Error("insert error:", err)
@@ -1875,7 +1875,7 @@ func TestDestructiveString(t *testing.T) {
 		queryResults: []testQueryResult{
 			{
 				results: [][]interface{}{
-					{"a", strings.Repeat("a", lobBufferSize+1), strings.Repeat("abcdefgh", 16000)},
+					{"a", strings.Repeat("a", 4000+1), strings.Repeat("abcdefgh", 16000)},
 				},
 			},
 		},
@@ -2512,21 +2512,21 @@ end;`
 		},
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice2000[:1997], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice2000[:1997], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice2000[:1997]...), 120, 121, 122)},
 		},
 	}
 
 	execResultRawAddEnd4000 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice4000[:3997], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice4000[:3997], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice4000[:3997]...), 120, 121, 122)},
 		},
 	}
 
 	execResultRawAddEnd32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767[:32764], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice32767[:32764], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice32767[:32764]...), 120, 121, 122)},
 		},
 	}
 

@@ -179,6 +179,36 @@ func setupForTesting() int {
 	return 0
 }
 
+// TestTimezoneToLocation tests conversion of a time zone offset to a location
+func TestTimezoneToLocation(t *testing.T) {
+	t.Parallel()
+
+	var tests = []struct {
+		hour           int64
+		minute         int64
+		expectedName   string
+		expectedOffset int
+	}{
+		{9, 0, "Asia/Tokyo", 9 * 3600},
+		{5, 30, "+5:30", 5*3600 + 30*60},
+		{-9, -30, "-9:30", -(9*3600 + 30*60)},
+		{0, -30, "-0:30", -30 * 60},
+		{15, 0, "+15:00", 15 * 3600},
+		{-13, 0, "-13:00", -13 * 3600},
+	}
+
+	for _, tt := range tests {
+		location := timezoneToLocation(tt.hour, tt.minute)
+		if location.String() != tt.expectedName {
+			t.Errorf("timezoneToLocation(%d, %d) name - expected: %v, actual: %v", tt.hour, tt.minute, tt.expectedName, location.String())
+		}
+		_, offset := time.Now().In(location).Zone()
+		if offset != tt.expectedOffset {
+			t.Errorf("timezoneToLocation(%d, %d) offset - expected: %v, actual: %v", tt.hour, tt.minute, tt.expectedOffset, offset)
+		}
+	}
+}
+
 // TestParseDSN tests parsing the DSN
 func TestParseDSN(t *testing.T) {
 	t.Parallel()

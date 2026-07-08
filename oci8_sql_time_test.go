@@ -909,3 +909,39 @@ func TestDestructiveTimeColumnTypes(t *testing.T) {
 	}
 
 }
+
+// TestExecTimeOutBind tests a time.Time out bind parameter
+func TestExecTimeOutBind(t *testing.T) {
+	if TestDisableDatabase {
+		t.SkipNow()
+	}
+
+	t.Parallel()
+
+	var result time.Time
+	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
+	defer cancel()
+	_, err := TestDB.ExecContext(ctx, "begin :1 := systimestamp; end;", sql.Out{Dest: &result})
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if result.IsZero() {
+		t.Fatal("result is zero time")
+	}
+	now := time.Now()
+	if result.Before(now.Add(-time.Hour)) || result.After(now.Add(time.Hour)) {
+		t.Fatal("result time not near now - result:", result, "- now:", now)
+	}
+
+	// a null out value should give a zero time
+	result = time.Unix(1, 0)
+	ctx, cancel = context.WithTimeout(context.Background(), TestContextTimeout)
+	defer cancel()
+	_, err = TestDB.ExecContext(ctx, "begin :1 := cast(null as timestamp with time zone); end;", sql.Out{Dest: &result})
+	if err != nil {
+		t.Fatal("exec error:", err)
+	}
+	if !result.IsZero() {
+		t.Fatal("result is not zero time - result:", result)
+	}
+}

@@ -214,7 +214,7 @@ func TestParseDSN(t *testing.T) {
 	t.Parallel()
 
 	const prefetchRows = 0
-	const prefetchMemory = 4096
+	const prefetchMemory = 65536
 	const stmtCacheSize = 0
 	const transactionMode = 0x00000200 // C.OCI_TRANS_READWRITE
 

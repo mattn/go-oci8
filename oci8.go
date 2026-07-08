@@ -33,7 +33,7 @@ import (
 //
 // prefetch_rows - the number of top level rows to be prefetched. Defaults to 0. A 0 means unlimited rows.
 //
-// prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 4096. A 0 means unlimited memory.
+// prefetch_memory - the max memory for top level rows to be prefetched. Defaults to 65536. A 0 means unlimited memory.
 //
 // questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
@@ -50,7 +50,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn = &DSN{
 		prefetchRows:    0,
-		prefetchMemory:  4096,
+		prefetchMemory:  65536,
 		stmtCacheSize:   0,
 		operationMode:   C.OCI_DEFAULT,
 		transactionMode: C.OCI_TRANS_READWRITE,

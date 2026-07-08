@@ -39,8 +39,8 @@ jobs:
           curl -sSfL -o /tmp/basiclite.zip https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linuxx64.zip
           curl -sSfL -o /tmp/sdk.zip https://download.oracle.com/otn_software/linux/instantclient/instantclient-sdk-linuxx64.zip
           sudo mkdir -p /opt/oracle
-          sudo unzip -q /tmp/basiclite.zip -d /opt/oracle
-          sudo unzip -q /tmp/sdk.zip -d /opt/oracle
+          sudo unzip -qo /tmp/basiclite.zip -d /opt/oracle
+          sudo unzip -qo /tmp/sdk.zip -d /opt/oracle
           IC_DIR=$(ls -d /opt/oracle/instantclient_*)
           mkdir -p $HOME/pkgconfig
           cat > $HOME/pkgconfig/oci8.pc <<EOF

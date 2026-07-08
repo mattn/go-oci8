@@ -2512,21 +2512,21 @@ end;`
 		},
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice2000[:1997], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice2000[:1997], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice2000[:1997]...), 120, 121, 122)},
 		},
 	}
 
 	execResultRawAddEnd4000 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice4000[:3997], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice4000[:3997], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice4000[:3997]...), 120, 121, 122)},
 		},
 	}
 
 	execResultRawAddEnd32767 := []testExecResult{
 		{
 			args:    map[string]sql.Out{"string1": {Dest: testByteSlice32767[:32764], In: true}},
-			results: map[string]interface{}{"string1": append(testByteSlice32767[:32764], []byte{120, 121, 122}...)},
+			results: map[string]interface{}{"string1": append(append([]byte{}, testByteSlice32767[:32764]...), 120, 121, 122)},
 		},
 	}
 

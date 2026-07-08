@@ -357,8 +357,6 @@ func (conn *Conn) ociLobCreateTemporary(lobLocator *C.OCILobLocator, form C.ub1,
 
 // ociLobRead calls OCILobRead then returns lob bytes and error.
 func (conn *Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byte, error) {
-	buffer := make([]byte, 0)
-
 	// set character set form
 	result := C.OCILobCharSetForm(
 		conn.env,       // environment handle
@@ -367,97 +365,85 @@ func (conn *Conn) ociLobRead(lobLocator *C.OCILobLocator, form C.ub1) ([]byte, e
 		&form,          // character set form
 	)
 	if result != C.OCI_SUCCESS {
-		return buffer, conn.getError(result)
+		return nil, conn.getError(result)
 	}
 
-	readBuffer := byteBufferPool.Get().([]byte)
-	piece := (C.ub1)(C.OCI_FIRST_PIECE)
-	result = C.OCI_NEED_DATA
-
-	for result == C.OCI_NEED_DATA {
-		readBytes := (C.oraub8)(0)
-
-		// If both byte_amtp and char_amtp are set to point to zero and OCI_FIRST_PIECE is passed then polling mode is assumed and data is read till the end of the LOB
-		result = C.OCILobRead2(
-			conn.svc,                       // service context handle
-			conn.errHandle,                 // error handle
-			lobLocator,                     // LOB or BFILE locator
-			&readBytes,                     // number of bytes to read. Used for BLOB and BFILE always. For CLOB and NCLOB, it is used only when char_amtp is zero.
-			nil,                            // number of characters to read
-			1,                              // the offset in the first call and in subsequent polling calls the offset parameter is ignored
-			unsafe.Pointer(&readBuffer[0]), // pointer to a buffer into which the piece will be read
-			lobBufferSize,                  // length of the buffer
-			piece,                          // For polling, pass OCI_FIRST_PIECE the first time and OCI_NEXT_PIECE in subsequent calls.
-			nil,                            // context pointer for the callback function
-			nil,                            // If this is null, then OCI_NEED_DATA will be returned for each piece.
-			0,                              // character set ID of the buffer data. If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value, depending on the value of csfrm.
-			form,                           // character set form of the buffer data
-		)
-
-		if piece == C.OCI_FIRST_PIECE {
-			piece = C.OCI_NEXT_PIECE
-		}
-
-		if result == C.OCI_SUCCESS || result == C.OCI_NEED_DATA {
-			buffer = append(buffer, readBuffer[:int(readBytes)]...)
-		}
+	// get the LOB length: number of characters for CLOB/NCLOB, number of bytes for BLOB
+	var lobLength C.oraub8
+	result = C.OCILobGetLength2(
+		conn.svc,       // service context handle
+		conn.errHandle, // error handle
+		lobLocator,     // LOB or BFILE locator
+		&lobLength,     // length of the LOB
+	)
+	if result != C.OCI_SUCCESS {
+		return nil, conn.getError(result)
 	}
 
-	return buffer, conn.getError(result)
+	if lobLength == 0 {
+		return []byte{}, nil
+	}
+
+	// For a BLOB read lobLength bytes, for a CLOB/NCLOB read lobLength characters.
+	// The character set of the buffer data is the client's NLS_LANG or NLS_CHAR,
+	// so reserve up to 4 bytes per character for the conversion.
+	byteAmount := lobLength
+	charAmount := (C.oraub8)(0)
+	bufferLength := lobLength
+	if form != 0 { // character LOB
+		charAmount = lobLength
+		bufferLength = 4 * lobLength
+	}
+	buffer := make([]byte, int(bufferLength))
+
+	result = C.OCILobRead2(
+		conn.svc,                   // service context handle
+		conn.errHandle,             // error handle
+		lobLocator,                 // LOB or BFILE locator
+		&byteAmount,                // number of bytes to read. Used for BLOB and BFILE always. For CLOB and NCLOB, it is used only when char_amtp is zero. On output it is the number of bytes read.
+		&charAmount,                // number of characters to read. On output it is the number of characters read.
+		1,                          // the offset for the read
+		unsafe.Pointer(&buffer[0]), // pointer to a buffer into which the LOB will be read
+		bufferLength,               // length of the buffer
+		C.OCI_ONE_PIECE,            // read the LOB in a single piece
+		nil,                        // context pointer for the callback function
+		nil,                        // callback function
+		0,                          // character set ID of the buffer data. If this value is 0 then csid is set to the client's NLS_LANG or NLS_CHAR value, depending on the value of csfrm.
+		form,                       // character set form of the buffer data
+	)
+	err := conn.getError(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer[:int(byteAmount)], nil
 }
 
 // ociLobWrite calls OCILobWrite then returns error.
 func (conn *Conn) ociLobWrite(lobLocator *C.OCILobLocator, form C.ub1, data []byte) error {
-	start := 0
-	writeBuffer := byteBufferPool.Get().([]byte)
-	piece := (C.ub1)(C.OCI_FIRST_PIECE)
+	if len(data) == 0 {
+		return nil
+	}
+
 	writeBytes := (C.oraub8)(len(data))
-	if len(data) <= lobBufferSize {
-		piece = (C.ub1)(C.OCI_ONE_PIECE)
-		copy(writeBuffer, data)
-	} else {
-		copy(writeBuffer, data[0:lobBufferSize])
-	}
 
-	for {
-		result := C.OCILobWrite2(
-			conn.svc,                        // service context handle
-			conn.errHandle,                  // error handle
-			lobLocator,                      // LOB or BFILE locator
-			&writeBytes,                     // IN - The number of bytes to write to the database. OUT - The number of bytes written to the database.
-			nil,                             // maximum number of characters to write
-			(C.oraub8)(1),                   // the offset in the first call and in subsequent polling calls the offset parameter is ignored
-			unsafe.Pointer(&writeBuffer[0]), // pointer to a buffer from which the piece is written
-			(C.oraub8)(lobBufferSize),       // length, in bytes, of the data in the buffer
-			piece,                           // which piece of the buffer is being written. OCI_ONE_PIECE, indicating that the buffer is written in a single piece. Piecewise or callback mode: OCI_FIRST_PIECE, OCI_NEXT_PIECE, and OCI_LAST_PIECE.
-			nil,                             // callback function
-			nil,                             // callback that can be registered
-			0,                               // character set ID
-			form,                            // character set form
-		)
+	result := C.OCILobWrite2(
+		conn.svc,                 // service context handle
+		conn.errHandle,           // error handle
+		lobLocator,               // LOB or BFILE locator
+		&writeBytes,              // IN - The number of bytes to write to the database. OUT - The number of bytes written to the database.
+		nil,                      // maximum number of characters to write
+		(C.oraub8)(1),            // the offset for the write
+		unsafe.Pointer(&data[0]), // pointer to a buffer from which the data is written
+		(C.oraub8)(len(data)),    // length, in bytes, of the data in the buffer
+		C.OCI_ONE_PIECE,          // write the LOB in a single piece
+		nil,                      // callback function
+		nil,                      // callback that can be registered
+		0,                        // character set ID
+		form,                     // character set form
+	)
 
-		if result != C.OCI_SUCCESS && result != C.OCI_NEED_DATA {
-			err := conn.getError(result)
-			fmt.Println(err)
-			return err
-		}
-
-		start += lobBufferSize
-
-		if start >= len(data) {
-			break
-		}
-
-		if start+lobBufferSize < len(data) {
-			piece = C.OCI_NEXT_PIECE
-			copy(writeBuffer, data[start:start+lobBufferSize])
-		} else {
-			piece = C.OCI_LAST_PIECE
-			copy(writeBuffer, data[start:])
-		}
-	}
-
-	return nil
+	return conn.getError(result)
 }
 
 // ociDateTimeToTime coverts OCIDateTime to Go Time

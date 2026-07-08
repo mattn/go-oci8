@@ -1,0 +1,72 @@
+name: test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['stable', 'oldstable']
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim
+        env:
+          ORACLE_PASSWORD: testpassword
+          APP_USER: scott
+          APP_USER_PASSWORD: tiger
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Install Oracle Instant Client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libaio1t64 || sudo apt-get install -y -qq libaio1
+          if [ ! -e /usr/lib/x86_64-linux-gnu/libaio.so.1 ] && [ -e /usr/lib/x86_64-linux-gnu/libaio.so.1t64 ]; then
+            sudo ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
+          fi
+          curl -sSfL -o /tmp/basiclite.zip https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linuxx64.zip
+          curl -sSfL -o /tmp/sdk.zip https://download.oracle.com/otn_software/linux/instantclient/instantclient-sdk-linuxx64.zip
+          sudo mkdir -p /opt/oracle
+          sudo unzip -qo /tmp/basiclite.zip -d /opt/oracle
+          sudo unzip -qo /tmp/sdk.zip -d /opt/oracle
+          IC_DIR=$(ls -d /opt/oracle/instantclient_*)
+          mkdir -p $HOME/pkgconfig
+          cat > $HOME/pkgconfig/oci8.pc <<EOF
+          Name: oci8
+          Description: Oracle Call Interface
+          Version: 23.0
+          Cflags: -I${IC_DIR}/sdk/include
+          Libs: -L${IC_DIR} -lclntsh
+          EOF
+          echo "PKG_CONFIG_PATH=$HOME/pkgconfig" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${IC_DIR}" >> $GITHUB_ENV
+
+      - name: Grant privileges to test user
+        run: |
+          docker exec ${{ job.services.oracle.id }} bash -c 'sqlplus -L -S sys/testpassword@localhost/FREEPDB1 as sysdba <<SQL
+          GRANT CREATE VIEW, CREATE SYNONYM TO scott;
+          GRANT EXECUTE ON SYS.DBMS_LOCK TO scott;
+          SQL'
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -v -count=1 -timeout 30m . -args -disableDatabase=false -hostValid 127.0.0.1:1521/FREEPDB1 -username scott -password tiger

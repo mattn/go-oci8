@@ -17,13 +17,11 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
-	"sync"
 	"time"
 	"unsafe"
 )
 
 const (
-	lobBufferSize      = 4000
 	useOCISessionBegin = true
 	sizeOfNilPointer   = unsafe.Sizeof(unsafe.Pointer(nil))
 )
@@ -162,12 +160,6 @@ var (
 	}
 
 	timeLocations []*time.Location
-
-	byteBufferPool = sync.Pool{
-		New: func() interface{} {
-			return make([]byte, lobBufferSize)
-		},
-	}
 )
 
 func init() {

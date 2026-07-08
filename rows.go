@@ -4,9 +4,7 @@ package oci8
 import "C"
 
 import (
-	"bytes"
 	"database/sql/driver"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
@@ -122,23 +120,11 @@ func (rows *Rows) Next(dest []driver.Value) error {
 
 		// SQLT_INT
 		case C.SQLT_INT: // INT
-			buf := (*[8]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
-			var data int64
-			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-			if err != nil {
-				return fmt.Errorf("binary read for column %v - error: %v", i, err)
-			}
-			dest[i] = data
+			dest[i] = getInt64(rows.defines[i].pbuf)
 
 		// SQLT_BDOUBLE
 		case C.SQLT_BDOUBLE: // native double
-			buf := (*[8]byte)(rows.defines[i].pbuf)[0:*rows.defines[i].length]
-			var data float64
-			err := binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-			if err != nil {
-				return fmt.Errorf("binary read for column %v - error: %v", i, err)
-			}
-			dest[i] = data
+			dest[i] = getFloat64(rows.defines[i].pbuf)
 
 		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:

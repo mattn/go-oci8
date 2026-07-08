@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -3611,16 +3612,17 @@ union all select :20 from dual`
 		t.Fatal("prepare error:", err)
 	}
 
-	var hasError bool
+	var hasError int32
 	var waitGroup sync.WaitGroup
 	chanGoLimit := make(chan struct{}, 100)
 	waitGroup.Add(50001)
 	for i := 0; i < 1000020; i += 20 {
 		chanGoLimit <- struct{}{}
 		go func(num int) {
+			var err error
 			for j := 0; j < 100; j++ {
 				ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
-				_, err := stmt.ExecContext(ctx, num, num+1, num+2, num+3, num+4, num+5, num+6, num+7, num+8, num+9,
+				_, err = stmt.ExecContext(ctx, num, num+1, num+2, num+3, num+4, num+5, num+6, num+7, num+8, num+9,
 					num+10, num+11, num+12, num+13, num+14, num+15, num+16, num+17, num+18, num+19)
 				cancel()
 				if err == nil {
@@ -3636,17 +3638,17 @@ union all select :20 from dual`
 			<-chanGoLimit
 			waitGroup.Done()
 			if err != nil {
-				hasError = true
-				t.Fatal("exec error:", err)
+				atomic.StoreInt32(&hasError, 1)
+				t.Error("exec error:", err)
 			}
 		}(i)
-		if hasError {
+		if atomic.LoadInt32(&hasError) != 0 {
 			fmt.Println("has error at", i)
 			break
 		}
 	}
 
-	if !hasError {
+	if atomic.LoadInt32(&hasError) == 0 {
 		fmt.Println("waiting")
 		waitGroup.Wait()
 	}

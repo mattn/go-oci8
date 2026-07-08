@@ -402,26 +402,30 @@ func TestSelectParallel(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		go func(num int) {
 			defer waitGroup.Done()
-			var result [][]interface{}
-			result, err = testGetRows(t, stmt, []interface{}{num})
+			result, err := testGetRows(t, stmt, []interface{}{num})
 			if err != nil {
-				t.Fatal("get rows error:", err)
+				t.Error("get rows error:", err)
+				return
 			}
 			if result == nil {
-				t.Fatal("result is nil")
+				t.Error("result is nil")
+				return
 			}
 			if len(result) != 1 {
-				t.Fatal("len result not equal to 1")
+				t.Error("len result not equal to 1")
+				return
 			}
 			if len(result[0]) != 1 {
-				t.Fatal("len result[0] not equal to 1")
+				t.Error("len result[0] not equal to 1")
+				return
 			}
 			data, ok := result[0][0].(float64)
 			if !ok {
-				t.Fatal("result not float64")
+				t.Error("result not float64")
+				return
 			}
 			if data != float64(num) {
-				t.Fatal("result not equal to:", num)
+				t.Error("result not equal to:", num)
 			}
 		}(i)
 	}
@@ -1577,19 +1581,21 @@ func TestSelectParallelWithStatementCaching(t *testing.T) {
 	waitGroup.Wait()
 }
 
-// selectNumFromDual will execute a "select :1 from dual" where the parameter is the num param of this function
+// selectNumFromDual will execute a "select :1 from dual" where the parameter is the num param of this function.
+// It may be called from a goroutine, so it only uses t.Error, which is safe to call concurrently.
 func selectNumFromDual(t testing.TB, db *sql.DB, num float64) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestContextTimeout)
 	stmt, err := db.PrepareContext(ctx, "select :1 from dual")
 	cancel()
 	if err != nil {
-		t.Fatal("prepare error:", err)
+		t.Error("prepare error:", err)
+		return
 	}
 	defer func() {
 		if stmt != nil {
 			err := stmt.Close()
 			if err != nil {
-				t.Fatal("stmt close error:", err)
+				t.Error("stmt close error:", err)
 			}
 		}
 	}()
@@ -1597,23 +1603,28 @@ func selectNumFromDual(t testing.TB, db *sql.DB, num float64) {
 	var result [][]interface{}
 	result, err = testGetRows(t, stmt, []interface{}{num})
 	if err != nil {
-		t.Fatal("get rows error:", err)
+		t.Error("get rows error:", err)
+		return
 	}
 	if result == nil {
-		t.Fatal("result is nil")
+		t.Error("result is nil")
+		return
 	}
 	if len(result) != 1 {
-		t.Fatal("len result not equal to 1")
+		t.Error("len result not equal to 1")
+		return
 	}
 	if len(result[0]) != 1 {
-		t.Fatal("len result[0] not equal to 1")
+		t.Error("len result[0] not equal to 1")
+		return
 	}
 	data, ok := result[0][0].(float64)
 	if !ok {
-		t.Fatal("result not float64")
+		t.Error("result not float64")
+		return
 	}
 	if data != num {
-		t.Fatal("result not equal to:", num)
+		t.Error("result not equal to:", num)
 	}
 }
 

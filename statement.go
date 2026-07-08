@@ -4,11 +4,9 @@ package oci8
 import "C"
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/binary"
 	"fmt"
 	"strings"
 	"time"
@@ -284,31 +282,51 @@ func (stmt *Stmt) bindValues(values []driver.Value, namedValues []driver.NamedVa
 			}
 
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
-			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, value)
-			if err != nil {
-				freeBinds(binds)
-				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
+			var intValue int64
+			switch v := value.(type) {
+			case int:
+				intValue = int64(v)
+			case int8:
+				intValue = int64(v)
+			case int16:
+				intValue = int64(v)
+			case int32:
+				intValue = int64(v)
+			case int64:
+				intValue = v
+			case uint:
+				intValue = int64(v)
+			case uint8:
+				intValue = int64(v)
+			case uint16:
+				intValue = int64(v)
+			case uint32:
+				intValue = int64(v)
+			case uint64:
+				intValue = int64(v)
+			case uintptr:
+				intValue = int64(v)
 			}
 			sbind.dataType = C.SQLT_INT
-			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
-			sbind.maxSize = C.sb4(buffer.Len())
-			*sbind.length = C.ub2(buffer.Len())
+			sbind.pbuf = cInt64(intValue)
+			sbind.maxSize = 8
+			*sbind.length = 8
 			if isOut && sbind.out.In && isNill {
 				*sbind.indicator = -1 // set to null
 			}
 
 		case float32, float64:
-			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, value)
-			if err != nil {
-				freeBinds(binds)
-				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
+			var floatValue float64
+			switch v := value.(type) {
+			case float32:
+				floatValue = float64(v)
+			case float64:
+				floatValue = v
 			}
 			sbind.dataType = C.SQLT_BDOUBLE
-			sbind.pbuf = unsafe.Pointer(cByte(buffer.Bytes()))
-			sbind.maxSize = C.sb4(buffer.Len())
-			*sbind.length = C.ub2(buffer.Len())
+			sbind.pbuf = cFloat64(floatValue)
+			sbind.maxSize = 8
+			*sbind.length = 8
 			if isOut && sbind.out.In && isNill {
 				*sbind.indicator = -1 // set to null
 			}
@@ -852,35 +870,17 @@ func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 				*dest = uintptr(getUint64(bind.pbuf))
 
 			case *float64:
-				buf := (*[8]byte)(bind.pbuf)[0:8]
-				var data float64
-				err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-				if err != nil {
-					return fmt.Errorf("binary read for column %v - error: %v", i, err)
-				}
-				*dest = data
+				*dest = getFloat64(bind.pbuf)
 			case *float32:
 				// statement is using SQLT_BDOUBLE to bind
-				// need to read as float64 because of the 8 bits
-				buf := (*[8]byte)(bind.pbuf)[0:8]
-				var data float64
-				err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-				if err != nil {
-					return fmt.Errorf("binary read for column %v - error: %v", i, err)
-				}
-				*dest = float32(data)
+				// need to read as float64 because of the 8 bytes
+				*dest = float32(getFloat64(bind.pbuf))
 			case *sql.NullFloat64:
 				if *bind.indicator == -1 {
 					dest.Float64 = 0
 					dest.Valid = false
 				} else {
-					buf := (*[8]byte)(bind.pbuf)[0:8]
-					var data float64
-					err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
-					if err != nil {
-						return fmt.Errorf("binary read for column %v - error: %v", i, err)
-					}
-					dest.Float64 = data
+					dest.Float64 = getFloat64(bind.pbuf)
 					dest.Valid = true
 				}
 

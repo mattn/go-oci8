@@ -17,6 +17,27 @@ func getUint64(p unsafe.Pointer) uint64 {
 	return uint64(*(*C.sb8)(p))
 }
 
+// getFloat64 gets float64 from pointer
+func getFloat64(p unsafe.Pointer) float64 {
+	return float64(*(*C.double)(p))
+}
+
+// cInt64 puts an int64 into C memory.
+// must be freed
+func cInt64(v int64) unsafe.Pointer {
+	p := C.malloc(8)
+	*(*C.sb8)(p) = C.sb8(v)
+	return p
+}
+
+// cFloat64 puts a float64 into C memory.
+// must be freed
+func cFloat64(v float64) unsafe.Pointer {
+	p := C.malloc(8)
+	*(*C.double)(p) = C.double(v)
+	return p
+}
+
 // cByte converts byte slice to OraText.
 // must be freed
 func cByte(b []byte) *C.OraText {

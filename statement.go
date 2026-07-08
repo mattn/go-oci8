@@ -886,6 +886,17 @@ func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 					dest.Valid = true
 				}
 
+			case *time.Time:
+				if *bind.indicator == -1 { // the returned value is null
+					*dest = time.Time{}
+					continue
+				}
+				aTime, err := stmt.conn.ociDateTimeToTime(*(**C.OCIDateTime)(bind.pbuf), true)
+				if err != nil {
+					return fmt.Errorf("ociDateTimeToTime for column %v - error: %v", i, err)
+				}
+				*dest = *aTime
+
 			case *bool:
 				buf := (*[1 << 30]byte)(bind.pbuf)[0:1]
 				*dest = buf[0] != 0
